@@ -31,7 +31,9 @@ export default function DashboardPage() {
   if (user?.role === 'admin') {
     return (
       <div className="flex min-h-screen w-full bg-muted/40">
-        <DashboardSidebar onNavigate={setAdminView} />
+        <div className="hidden md:flex">
+          <DashboardSidebar onNavigate={setAdminView} />
+        </div>
         <div className="flex flex-col flex-1 overflow-hidden">
           <DashboardHeader />
           <main className="flex-1 overflow-auto p-4 sm:p-6">

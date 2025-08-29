@@ -11,13 +11,18 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, User, Building } from 'lucide-react';
+import { LogOut, User, Building, PanelLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import DashboardSidebar from './sidebar';
+import { useState } from 'react';
 
 export default function DashboardHeader() {
   const { user, logout } = useAuth();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  // This state is just to satisfy the prop of DashboardSidebar, it won't be used on mobile
+  const [_, setAdminView] = useState('overview');
+
 
   const getInitials = (email: string = '') => {
     return email.charAt(0).toUpperCase();
@@ -26,7 +31,22 @@ export default function DashboardHeader() {
   return (
     <header className="flex h-16 items-center border-b bg-card px-4 md:px-6 w-full shrink-0">
       <div className="md:hidden">
-        {/* Mobile sidebar can be added here if needed */}
+        {user?.role === 'admin' && (
+           <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+            <SheetTrigger asChild>
+              <Button size="icon" variant="outline">
+                <PanelLeft className="h-5 w-5" />
+                <span className="sr-only">Toggle Menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-64 p-0">
+                <DashboardSidebar onNavigate={(view) => {
+                  setAdminView(view);
+                  setMobileSidebarOpen(false);
+                }} />
+            </SheetContent>
+          </Sheet>
+        )}
       </div>
       <div className="flex w-full items-center justify-between md:justify-end gap-4">
         <div className="hidden md:flex items-center gap-2 font-semibold">

@@ -24,7 +24,7 @@ export default function DashboardSidebar({ onNavigate }: { onNavigate: (view: st
   }
 
   return (
-    <aside className="hidden w-64 flex-col border-r bg-card md:flex">
+    <aside className="w-64 flex-col border-r bg-card flex">
       <div className="flex h-16 shrink-0 items-center border-b px-6">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
           <Building className="h-6 w-6 text-primary" />
