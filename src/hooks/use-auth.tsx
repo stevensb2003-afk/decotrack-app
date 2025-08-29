@@ -21,26 +21,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        if (pathname === '/login') {
+    // This effect runs only on the client-side
+    const checkAuth = () => {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          if (pathname === '/login') {
             router.replace('/dashboard');
+          }
+        } else if (pathname !== '/login') {
+          router.replace('/login');
         }
-      } else if (pathname !== '/login') {
-        router.replace('/login');
+      } catch (error) {
+        console.error("Failed to parse user from localStorage", error);
+        localStorage.removeItem('user');
+        if (pathname !== '/login') {
+          router.replace('/login');
+        }
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to parse user from localStorage", error);
-      localStorage.removeItem('user');
-      if (pathname !== '/login') {
-        router.replace('/login');
-      }
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    checkAuth();
   }, [pathname, router]);
 
   const login = (email: string, role: Role) => {
@@ -56,11 +61,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     router.push('/login');
   };
 
-  if(loading) {
-     return (
-        <div className="flex h-screen w-full items-center justify-center bg-background">
-            <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
-        </div>
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
+      </div>
     );
   }
 
