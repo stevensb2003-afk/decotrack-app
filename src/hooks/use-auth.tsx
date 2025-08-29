@@ -23,26 +23,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // This effect runs only on the client-side
     const checkAuth = () => {
+      let storedUser = null;
       try {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
-          if (pathname === '/login') {
-            router.replace('/dashboard');
-          }
-        } else if (pathname !== '/login') {
-          router.replace('/login');
-        }
-      } catch (error) {
-        console.error("Failed to parse user from localStorage", error);
-        localStorage.removeItem('user');
-        if (pathname !== '/login') {
-          router.replace('/login');
-        }
-      } finally {
+        storedUser = localStorage.getItem('user');
+      } catch (e) {
+        console.error("Could not access localStorage. Running on server?");
         setLoading(false);
+        return;
       }
+      
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        if (pathname === '/login') {
+          router.replace('/dashboard');
+        }
+      } else if (pathname !== '/login') {
+        router.replace('/login');
+      }
+      setLoading(false);
     };
 
     checkAuth();
@@ -70,7 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading: false }}>
       {children}
     </AuthContext.Provider>
   );
