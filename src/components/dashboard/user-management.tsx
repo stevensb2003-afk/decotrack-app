@@ -40,7 +40,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SystemUser, Role, getAllUsers, createUser, updateUserRole, deleteUser } from '@/services/userService';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 
-const SECURITY_CODE = "D3co.2025";
+const SECURITY_CODE = process.env.NEXT_PUBLIC_ADMIN_SECURITY_CODE;
 
 export default function UserManagement() {
   const { user: authUser } = useAuth();
