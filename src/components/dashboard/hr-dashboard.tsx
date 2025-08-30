@@ -456,18 +456,20 @@ export default function HRDashboard() {
                            <Label>License Details</Label>
                             {(newEmployeeData.licenses || []).map((license, index) => (
                                 <div key={index} className="space-y-2">
-                                    <div className="relative">
-                                        <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, true)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="License Type" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {licenseTypes.map(type => (
-                                            <SelectItem key={type} value={type}>{type}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                        </Select>
-                                        <Button variant="ghost" size="icon" className="absolute top-1/2 -translate-y-1/2 right-1" onClick={() => removeLicenseField(index, true)}>
+                                    <div className="flex items-center gap-x-2">
+                                        <div className="flex-grow">
+                                            <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, true)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="License Type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {licenseTypes.map(type => (
+                                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removeLicenseField(index, true)}>
                                             <Trash2 className="h-4 w-4 text-destructive" />
                                         </Button>
                                     </div>
@@ -591,18 +593,20 @@ export default function HRDashboard() {
                                 <Label>License Details</Label>
                                 {(selectedEmployee.licenses || []).map((license, index) => (
                                     <div key={index} className="space-y-2">
-                                        <div className="relative">
-                                            <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, false)}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="License Type" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {licenseTypes.map(type => (
-                                                <SelectItem key={type} value={type}>{type}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                            </Select>
-                                            <Button variant="ghost" size="icon" className="absolute top-1/2 -translate-y-1/2 right-1" onClick={() => removeLicenseField(index, false)}>
+                                        <div className="flex items-center gap-x-2">
+                                            <div className="flex-grow">
+                                                <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, false)}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="License Type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {licenseTypes.map(type => (
+                                                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removeLicenseField(index, false)}>
                                                 <Trash2 className="h-4 w-4 text-destructive" />
                                             </Button>
                                         </div>
@@ -666,4 +670,3 @@ export default function HRDashboard() {
     </div>
   );
 }
-
