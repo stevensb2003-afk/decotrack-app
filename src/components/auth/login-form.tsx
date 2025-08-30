@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import Link from "next/link";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -90,6 +92,11 @@ export function LoginForm() {
             </FormItem>
           )}
         />
+        <div className="flex items-center justify-end text-sm">
+            <Link href="/forgot-password" passHref className="text-primary hover:underline underline-offset-4">
+                Forgot Password?
+            </Link>
+        </div>
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
           Sign In
         </Button>
