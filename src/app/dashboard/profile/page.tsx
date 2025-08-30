@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Employee, getEmployeeByEmail, updateEmployee } from '@/services/employeeService';
 import { createChangeRequest, getPendingRequestForEmployee } from '@/services/changeRequestService';
+import { updateUserPassword } from '@/services/userService';
+import { Camera } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -19,7 +21,10 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState({ name: '', email: '', role: '' });
   const [pendingRequest, setPendingRequest] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -29,6 +34,7 @@ export default function ProfilePage() {
             if (employee) {
                 setEmployeeData(employee);
                 setFormData({ name: employee.name, email: employee.email, role: employee.role });
+                setAvatarUrl(`https://i.pravatar.cc/150?u=${employee.email}`);
                 const hasPending = await getPendingRequestForEmployee(employee.id);
                 setPendingRequest(hasPending);
             }
@@ -78,6 +84,39 @@ export default function ProfilePage() {
     setIsEditing(false);
     setPendingRequest(true);
   };
+
+  const handlePasswordChange = async () => {
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Passwords do not match", variant: "destructive" });
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast({ title: "Password too short", description: "Password must be at least 6 characters.", variant: "destructive" });
+      return;
+    }
+    if (user) {
+      await updateUserPassword(user.id, newPassword);
+      toast({ title: "Password Changed", description: "Your password has been updated successfully." });
+      setNewPassword('');
+      setConfirmPassword('');
+    }
+  };
+
+  const handleAvatarClick = () => {
+      fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarUrl(reader.result as string);
+        toast({ title: "Profile Picture Updated", description: "Your new picture has been set locally." });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
   
   const getInitials = (name: string = '') => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -96,10 +135,16 @@ export default function ProfilePage() {
        <Card>
         <CardHeader>
             <div className="flex items-center gap-4">
-                <Avatar className="h-20 w-20">
-                    <AvatarImage data-ai-hint="profile avatar" src={`https://i.pravatar.cc/150?u=${employeeData.email}`} />
-                    <AvatarFallback>{getInitials(employeeData.name)}</AvatarFallback>
-                </Avatar>
+                 <div className="relative group">
+                    <Avatar className="h-20 w-20 cursor-pointer" onClick={handleAvatarClick}>
+                        <AvatarImage data-ai-hint="profile avatar" src={avatarUrl} />
+                        <AvatarFallback>{getInitials(employeeData.name)}</AvatarFallback>
+                    </Avatar>
+                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={handleAvatarClick}>
+                        <Camera className="text-white h-8 w-8" />
+                    </div>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+                </div>
                 <div>
                     <CardTitle className="text-3xl">{employeeData.name}</CardTitle>
                     <CardDescription className="text-lg">{employeeData.role}</CardDescription>
@@ -126,8 +171,8 @@ export default function ProfilePage() {
                 <CardDescription>View and request changes to your personal details.</CardDescription>
             </div>
             {!isEditing && (
-                <Button onClick={() => setIsEditing(true)} disabled={pendingRequest}>
-                    {pendingRequest ? "Request Pending" : "Request Edit"}
+                <Button onClick={() => setIsEditing(true)} disabled={pendingRequest || user?.role === 'admin'}>
+                    {pendingRequest ? "Request Pending" : (user?.role === 'admin' ? "Admin Info Managed by HR" : "Request Edit")}
                 </Button>
             )}
         </CardHeader>
@@ -153,6 +198,26 @@ export default function ProfilePage() {
             )}
           </div>
         </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Security</CardTitle>
+          <CardDescription>Change your account password.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="new-password">New Password</Label>
+            <Input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="confirm-password">Confirm New Password</Label>
+            <Input id="confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button onClick={handlePasswordChange}>Change Password</Button>
+        </CardFooter>
       </Card>
     </div>
   );

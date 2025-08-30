@@ -1,5 +1,7 @@
+'use server';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where } from 'firebase/firestore';
+import { createEmployee } from './employeeService';
 
 export type Role = 'employee' | 'hr' | 'management' | 'admin';
 
@@ -36,6 +38,13 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
             role: "admin" as Role,
         };
         const docRef = await addDoc(usersCollection, newUser);
+        
+        await createEmployee({
+          name: "Admin User",
+          email: adminEmail,
+          role: "Administrator"
+        });
+
         return { ...newUser, id: docRef.id };
     }
     return null;
@@ -53,8 +62,8 @@ export const getUserByEmail = async (email: string): Promise<SystemUser | null> 
     if (snapshot.empty) {
         return null;
     }
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as SystemUser;
+    const docData = snapshot.docs[0];
+    return { id: docData.id, ...docData.data() } as SystemUser;
 };
 
 
@@ -67,3 +76,8 @@ export const updateUserRole = async (userId: string, newRole: Role) => {
   const userDoc = doc(db, 'systemUsers', userId);
   await updateDoc(userDoc, { role: newRole });
 };
+
+export const updateUserPassword = async (userId: string, newPassword: string) => {
+    const userDoc = doc(db, 'systemUsers', userId);
+    await updateDoc(userDoc, { password: newPassword });
+}
