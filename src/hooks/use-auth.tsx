@@ -22,30 +22,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     // This effect runs only on the client-side
-    const checkAuth = () => {
-      let storedUser = null;
-      try {
-        storedUser = localStorage.getItem('user');
-      } catch (e) {
-        console.error("Could not access localStorage. Running on server?");
-        setLoading(false);
-        return;
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      if (pathname === '/login') {
+        router.replace('/dashboard');
       }
-      
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        if (pathname === '/login') {
-          router.replace('/dashboard');
+    } else {
+        if (pathname !== '/login') {
+            router.replace('/login');
         }
-      } else if (pathname !== '/login') {
-        router.replace('/login');
-      }
-      setLoading(false);
-    };
-
-    checkAuth();
-  }, [pathname, router]);
+    }
+    setLoading(false);
+  }, []);
 
   const login = (email: string, role: Role) => {
     const userData = { email, role };
@@ -60,16 +50,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     router.push('/login');
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
-      </div>
-    );
-  }
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading: false }}>
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
