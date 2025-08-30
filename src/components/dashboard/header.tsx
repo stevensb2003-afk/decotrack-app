@@ -16,16 +16,22 @@ import Link from 'next/link';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import DashboardSidebar from './sidebar';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardHeader() {
   const { user, logout } = useAuth();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   // This state is just to satisfy the prop of DashboardSidebar, it won't be used on mobile
   const [_, setAdminView] = useState('overview');
+  const router = useRouter();
 
 
   const getInitials = (email: string = '') => {
     return email.charAt(0).toUpperCase();
+  };
+
+  const handleProfileClick = () => {
+    router.push('/dashboard/profile');
   };
 
   return (
@@ -69,7 +75,7 @@ export default function DashboardHeader() {
                 <p className="text-xs text-muted-foreground font-normal">{user?.email}</p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>
+            <DropdownMenuItem onClick={handleProfileClick}>
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </DropdownMenuItem>

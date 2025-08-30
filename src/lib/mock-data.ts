@@ -21,3 +21,20 @@ export const recentActivity = [
     { name: "Cameron Williamson", type: "Entry", time: "09:05 AM" },
     { name: "Brooklyn Simmons", type: "Entry", time: "09:08 AM" },
 ];
+
+export type ChangeRequest = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  fieldName: string;
+  oldValue: string;
+  newValue: string;
+  status: 'pending' | 'approved' | 'rejected';
+};
+
+
+export let mockChangeRequests: ChangeRequest[] = [];
+
+export const setMockChangeRequests = (newRequests: typeof mockChangeRequests) => {
+    mockChangeRequests = newRequests;
+}

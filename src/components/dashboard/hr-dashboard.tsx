@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Calendar as CalendarIcon, UserPlus } from 'lucide-react';
+import { MoreHorizontal, Calendar as CalendarIcon, UserPlus, Check, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,15 +27,21 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { mockEmployees, setMockEmployees } from '@/lib/mock-data';
+import { mockEmployees, setMockEmployees, mockChangeRequests, setMockChangeRequests, ChangeRequest } from '@/lib/mock-data';
 
 export default function HRDashboard() {
   const [employees, setEmployees] = useState(mockEmployees);
+  const [changeRequests, setChangeRequests] = useState(mockChangeRequests);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCreateDialogOpen, setCreateIsDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<(typeof employees)[0] | null>(null);
   const [effectiveDate, setEffectiveDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
+  
+  useEffect(() => {
+    setEmployees(mockEmployees);
+    setChangeRequests(mockChangeRequests.filter(req => req.status === 'pending'));
+  }, []);
 
   const handleUpdateClick = (employee: (typeof employees)[0]) => {
     setSelectedEmployee(employee);
@@ -86,10 +92,80 @@ export default function HRDashboard() {
     });
     setCreateIsDialogOpen(false);
   };
+  
+  const handleRequestAction = (requestId: string, action: 'approved' | 'rejected') => {
+    const request = mockChangeRequests.find(req => req.id === requestId);
+    if(!request) return;
+
+    if(action === 'approved') {
+        const updatedEmployees = mockEmployees.map(emp => {
+            if (emp.id === request.employeeId) {
+                const fieldToUpdate = request.fieldName.toLowerCase() as 'name' | 'email';
+                return { ...emp, [fieldToUpdate]: request.newValue };
+            }
+            return emp;
+        });
+        setMockEmployees(updatedEmployees);
+        setEmployees(updatedEmployees);
+    }
+    
+    const updatedRequests = mockChangeRequests.map(req => 
+        req.id === requestId ? { ...req, status: action } : req
+    );
+    setMockChangeRequests(updatedRequests);
+    setChangeRequests(updatedRequests.filter(req => req.status === 'pending'));
+
+    toast({
+        title: `Request ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+        description: `The change request has been ${action}.`,
+    });
+
+  };
 
 
   return (
-    <>
+    <div className="space-y-6">
+      <Card>
+          <CardHeader>
+              <CardTitle>Change Requests</CardTitle>
+              <CardDescription>Review and approve employee information changes.</CardDescription>
+          </CardHeader>
+          <CardContent>
+              {changeRequests.length > 0 ? (
+                  <Table>
+                      <TableHeader>
+                          <TableRow>
+                              <TableHead>Employee</TableHead>
+                              <TableHead>Field</TableHead>
+                              <TableHead>Old Value</TableHead>
+                              <TableHead>New Value</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                          {changeRequests.map((req) => (
+                              <TableRow key={req.id}>
+                                  <TableCell>{req.employeeName}</TableCell>
+                                  <TableCell>{req.fieldName}</TableCell>
+                                  <TableCell>{req.oldValue}</TableCell>
+                                  <TableCell className="font-medium">{req.newValue}</TableCell>
+                                  <TableCell className="text-right space-x-2">
+                                      <Button size="icon" variant="outline" className="h-8 w-8 text-green-600" onClick={() => handleRequestAction(req.id, 'approved')}>
+                                        <Check className="h-4 w-4" />
+                                      </Button>
+                                       <Button size="icon" variant="outline" className="h-8 w-8 text-red-600" onClick={() => handleRequestAction(req.id, 'rejected')}>
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                  </TableCell>
+                              </TableRow>
+                          ))}
+                      </TableBody>
+                  </Table>
+              ) : (
+                  <p className="text-sm text-muted-foreground">No pending change requests.</p>
+              )}
+          </CardContent>
+      </Card>
       <Card>
         <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -210,6 +286,6 @@ export default function HRDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
