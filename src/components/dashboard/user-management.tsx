@@ -23,12 +23,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { setMockEmployees, mockEmployees as currentEmployees } from '@/lib/mock-data';
 
 const initialSystemUsers = [
-  { id: '1', email: 'employee@example.com', role: 'employee' },
-  { id: '2', email: 'hr@example.com', role: 'hr' },
-  { id: '3', email: 'manager@example.com', role: 'management' },
-  { id: '4', email: 'decoinnova24@gmail.com', role: 'admin' },
+  { id: '1', name: 'Esther Howard', email: 'esther.howard@example.com', role: 'employee' },
+  { id: '2', name: 'HR Person', email: 'hr@example.com', role: 'hr' },
+  { id: '3', name: 'Manager Person', email: 'manager@example.com', role: 'management' },
+  { id: '4', name: 'Admin Person', email: 'decoinnova24@gmail.com', role: 'admin' },
+  { id: '5', name: 'Jane Cooper', email: 'jane.cooper@example.com', role: 'employee' },
+  { id: '6', name: 'Cody Fisher', email: 'cody.fisher@example.com', role: 'employee' },
+  { id: '7', name: 'Cameron Williamson', email: 'cameron.williamson@example.com', role: 'employee' },
+  { id: '8', name: 'Brooklyn Simmons', email: 'brooklyn.simmons@example.com', role: 'employee' },
+  { id: '9', name: 'Wade Warren', email: 'wade.warren@example.com', role: 'employee' },
+  { id: '10', name: 'Robert Fox', email: 'robert.fox@example.com', role: 'employee' },
 ];
 
 type User = typeof initialSystemUsers[0];
@@ -37,6 +44,8 @@ type Role = 'employee' | 'hr' | 'management' | 'admin';
 export default function UserManagement() {
   const [users, setUsers] = useState(initialSystemUsers);
   const [isEditing, setIsEditing] = useState<User | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: ''});
   const { toast } = useToast();
   
   const handleRoleChange = (userId: string, newRole: Role) => {
@@ -45,6 +54,37 @@ export default function UserManagement() {
     setIsEditing(null);
   };
   
+  const handleCreateUser = () => {
+    if(!newUser.email || !newUser.name || !newUser.password || !newUser.role) {
+        toast({ title: "Error", description: "Please fill all fields.", variant: "destructive" });
+        return;
+    }
+
+    const newUserEntry = {
+        id: (users.length + 1).toString(),
+        ...newUser,
+    } as User;
+    
+    setUsers([...users, newUserEntry]);
+
+    if (newUser.role === 'employee') {
+      const newEmployee = {
+        id: `USR${(currentEmployees.length + 1).toString().padStart(3, '0')}`,
+        name: newUser.name,
+        email: newUser.email,
+        role: 'Employee', // Default role for new employee
+        status: 'Absent'
+      };
+      setMockEmployees([...currentEmployees, newEmployee]);
+      toast({ title: "User & Employee Created", description: "New user and corresponding employee record have been created." });
+    } else {
+        toast({ title: "User Created", description: "New user has been created successfully." });
+    }
+
+    setIsCreating(false);
+    setNewUser({ name: '', email: '', password: '', role: ''});
+  };
+
   return (
     <>
       <Card>
@@ -53,19 +93,21 @@ export default function UserManagement() {
             <CardTitle>System Users</CardTitle>
             <CardDescription>Create users and manage their roles within the system.</CardDescription>
           </div>
-          <Dialog>
+          <Dialog open={isCreating} onOpenChange={setIsCreating}>
               <DialogTrigger asChild>
                   <Button><UserPlus className="mr-2 h-4 w-4" /> Create User</Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                   <DialogHeader><DialogTitle>Create New User</DialogTitle></DialogHeader>
                   <div className="grid gap-4 py-4">
+                      <Label htmlFor="name-create">Name</Label>
+                      <Input id="name-create" value={newUser.name} onChange={(e) => setNewUser({...newUser, name: e.target.value})} placeholder="John Doe" />
                       <Label htmlFor="email-create">Email</Label>
-                      <Input id="email-create" type="email" placeholder="name@example.com" />
+                      <Input id="email-create" type="email" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} placeholder="name@example.com" />
                       <Label htmlFor="password-create">Password</Label>
-                      <Input id="password-create" type="password" />
+                      <Input id="password-create" type="password" value={newUser.password} onChange={(e) => setNewUser({...newUser, password: e.target.value})} />
                       <Label htmlFor="role-create">Role</Label>
-                      <Select>
+                      <Select onValueChange={(value) => setNewUser({...newUser, role: value})}>
                           <SelectTrigger id="role-create"><SelectValue placeholder="Select a role" /></SelectTrigger>
                           <SelectContent>
                               <SelectItem value="employee">Employee</SelectItem>
@@ -76,7 +118,7 @@ export default function UserManagement() {
                       </Select>
                   </div>
                   <DialogFooter>
-                      <Button onClick={() => toast({ title: "User Created", description: "New user has been created successfully." })}>Create User</Button>
+                      <Button onClick={handleCreateUser}>Create User</Button>
                   </DialogFooter>
               </DialogContent>
           </Dialog>
@@ -85,6 +127,7 @@ export default function UserManagement() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -93,7 +136,8 @@ export default function UserManagement() {
             <TableBody>
               {users.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.email}</TableCell>
+                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell>{user.email}</TableCell>
                   <TableCell className="capitalize">{user.role}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>

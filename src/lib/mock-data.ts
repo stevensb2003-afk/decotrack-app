@@ -1,5 +1,5 @@
 
-export const mockEmployees = [
+export let mockEmployees = [
   { id: 'USR001', name: 'Esther Howard', email: 'esther.howard@example.com', role: 'Developer', status: 'Present' },
   { id: 'USR002', name: 'Jane Cooper', email: 'jane.cooper@example.com', role: 'Designer', status: 'Present' },
   { id: 'USR003', name: 'Cody Fisher', email: 'cody.fisher@example.com', role: 'Manager', status: 'Absent' },
@@ -8,6 +8,11 @@ export const mockEmployees = [
   { id: 'USR006', name: 'Wade Warren', email: 'wade.warren@example.com', role: 'Designer', status: 'Absent' },
   { id: 'USR007', name: 'Robert Fox', email: 'robert.fox@example.com', role: 'QA Engineer', status: 'Present' },
 ];
+
+export const setMockEmployees = (newEmployees: typeof mockEmployees) => {
+  mockEmployees = newEmployees;
+};
+
 
 export const recentActivity = [
     { name: "Esther Howard", type: "Entry", time: "09:01 AM" },

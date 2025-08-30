@@ -28,24 +28,32 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     if (records.length > 0) {
-      setLastAction(records[0].type);
+      const latestRecord = records.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+      setLastAction(latestRecord.type);
     }
   }, [records]);
   
   useEffect(() => {
     const todayRecords = records.filter(r => new Date(r.timestamp).toDateString() === new Date().toDateString());
     const latestEntry = todayRecords.find(r => r.type === 'Entry');
-    const latestExit = todayRecords.find(r => r.type === 'Exit');
-
-    if (latestExit && latestEntry && latestExit.timestamp > latestEntry.timestamp) {
-        const diff = latestExit.timestamp.getTime() - latestEntry.timestamp.getTime();
+    
+    if (lastAction === 'Exit' && latestEntry) {
+        const latestExit = todayRecords.find(r => r.type === 'Exit');
+        if (latestExit && latestExit.timestamp > latestEntry.timestamp) {
+            const diff = latestExit.timestamp.getTime() - latestEntry.timestamp.getTime();
+            const hours = Math.floor(diff / 3600000);
+            const minutes = Math.floor((diff % 3600000) / 60000);
+            setTimeWorked(`${hours}h ${minutes}m`);
+        }
+    } else if (lastAction === 'Entry' && latestEntry) {
+        const diff = new Date().getTime() - latestEntry.timestamp.getTime();
         const hours = Math.floor(diff / 3600000);
         const minutes = Math.floor((diff % 3600000) / 60000);
-        setTimeWorked(`${hours}h ${minutes}m`);
+        setTimeWorked(`${hours}h ${minutes}m (ongoing)`);
     } else {
         setTimeWorked("0h 0m");
     }
-  }, [records]);
+  }, [records, lastAction]);
 
   const handleMarking = (type: 'Entry' | 'Exit') => {
     const newRecord = { type, timestamp: new Date() };
@@ -65,13 +73,13 @@ export default function EmployeeDashboard() {
           <CardDescription>Mark your daily entry and exit points.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col sm:flex-row gap-4">
-          <Button onClick={() => handleMarking('Entry')} disabled={lastAction === 'Entry'} className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90" size="lg">
+          <Button onClick={() => handleMarking('Entry')} disabled={lastAction === 'Entry'} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90" size="lg">
             <ArrowRight className="mr-2 h-5 w-5" />
-            Mark Entry
+            Mark Entry (Clock In)
           </Button>
-          <Button onClick={() => handleMarking('Exit')} disabled={lastAction !== 'Entry'} className="flex-1" size="lg">
+          <Button onClick={() => handleMarking('Exit')} disabled={lastAction !== 'Entry'} className="flex-1" size="lg" variant="destructive">
             <ArrowLeft className="mr-2 h-5 w-5" />
-            Mark Exit
+            Mark Exit (Clock Out)
           </Button>
         </CardContent>
       </Card>

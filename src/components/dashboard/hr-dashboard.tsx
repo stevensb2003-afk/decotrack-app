@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Calendar as CalendarIcon } from 'lucide-react';
+import { MoreHorizontal, Calendar as CalendarIcon, UserPlus } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,11 +27,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { mockEmployees } from '@/lib/mock-data';
+import { mockEmployees, setMockEmployees } from '@/lib/mock-data';
 
 export default function HRDashboard() {
   const [employees, setEmployees] = useState(mockEmployees);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setCreateIsDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<(typeof employees)[0] | null>(null);
   const [effectiveDate, setEffectiveDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
@@ -42,20 +44,77 @@ export default function HRDashboard() {
   };
   
   const handleSaveChanges = () => {
+    if (!selectedEmployee) return;
+
+    const updatedName = (document.getElementById('name-update') as HTMLInputElement).value;
+    const updatedRole = (document.getElementById('role-update') as HTMLInputElement).value;
+    
+    const updatedEmployees = employees.map(emp => 
+      emp.id === selectedEmployee.id ? { ...emp, name: updatedName, role: updatedRole } : emp
+    );
+    setEmployees(updatedEmployees);
+    setMockEmployees(updatedEmployees);
+
     toast({
         title: "Record Updated",
-        description: `A new record for ${selectedEmployee?.name} effective ${format(effectiveDate || new Date(), "PPP")} has been created.`,
+        description: `Record for ${selectedEmployee?.name} effective ${format(effectiveDate || new Date(), "PPP")} has been updated.`,
     });
     setIsDialogOpen(false);
     setSelectedEmployee(null);
   };
 
+  const handleCreateEmployee = () => {
+    const name = (document.getElementById('name-create') as HTMLInputElement).value;
+    const email = (document.getElementById('email-create') as HTMLInputElement).value;
+    const role = (document.getElementById('role-create') as HTMLInputElement).value;
+
+    const newEmployee = {
+      id: `USR${(employees.length + 1).toString().padStart(3, '0')}`,
+      name,
+      email,
+      role,
+      status: 'Absent'
+    };
+
+    const updatedEmployees = [...employees, newEmployee];
+    setEmployees(updatedEmployees);
+    setMockEmployees(updatedEmployees);
+
+    toast({
+        title: "Employee Created",
+        description: `${name} has been added to the employee list.`,
+    });
+    setCreateIsDialogOpen(false);
+  };
+
+
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle>Employee Management</CardTitle>
-          <CardDescription>View and manage employee records.</CardDescription>
+        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <CardTitle>Employee Management</CardTitle>
+              <CardDescription>View and manage employee records.</CardDescription>
+            </div>
+             <Dialog open={isCreateDialogOpen} onOpenChange={setCreateIsDialogOpen}>
+              <DialogTrigger asChild>
+                  <Button><UserPlus className="mr-2 h-4 w-4" /> Add Employee</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader><DialogTitle>Add New Employee</DialogTitle></DialogHeader>
+                  <div className="grid gap-4 py-4">
+                      <Label htmlFor="name-create">Name</Label>
+                      <Input id="name-create" placeholder="John Doe" />
+                      <Label htmlFor="email-create">Email</Label>
+                      <Input id="email-create" type="email" placeholder="name@example.com" />
+                      <Label htmlFor="role-create">Role</Label>
+                      <Input id="role-create" placeholder="Developer" />
+                  </div>
+                  <DialogFooter>
+                      <Button onClick={handleCreateEmployee}>Add Employee</Button>
+                  </DialogFooter>
+              </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent>
           <Table>
@@ -65,6 +124,7 @@ export default function HRDashboard() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -75,6 +135,13 @@ export default function HRDashboard() {
                   <TableCell className="font-medium">{employee.name}</TableCell>
                   <TableCell>{employee.email}</TableCell>
                   <TableCell>{employee.role}</TableCell>
+                   <TableCell>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        employee.status === 'Present' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                        {employee.status}
+                    </span>
+                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -105,12 +172,12 @@ export default function HRDashboard() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">Name</Label>
-              <Input id="name" defaultValue={selectedEmployee?.name} className="col-span-3" />
+              <Label htmlFor="name-update" className="text-right">Name</Label>
+              <Input id="name-update" defaultValue={selectedEmployee?.name} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="role" className="text-right">Role</Label>
-                <Input id="role" defaultValue={selectedEmployee?.role} className="col-span-3" />
+                <Label htmlFor="role-update" className="text-right">Role</Label>
+                <Input id="role-update" defaultValue={selectedEmployee?.role} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="effective-date" className="text-right">Effective Date</Label>
