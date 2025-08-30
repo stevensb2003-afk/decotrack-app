@@ -22,33 +22,53 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-       if (pathname === '/login') {
-         router.replace('/dashboard');
-       }
-    } else if (pathname !== '/login') {
-      router.replace('/login');
-    }
-    setLoading(false);
-  }, [pathname, router]);
+    const checkAuthStatus = () => {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const parsedUser: SystemUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          if (pathname === '/login') {
+            router.replace('/dashboard');
+          }
+        } else {
+          if (pathname !== '/login') {
+            router.replace('/login');
+          }
+        }
+      } catch (error) {
+        console.error("Error checking auth status:", error);
+        // If there's an error, default to logging out.
+        localStorage.removeItem('user');
+        if (pathname !== '/login') {
+          router.replace('/login');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuthStatus();
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   const login = async (email: string) => {
     setLoading(true);
-    const systemUser = await getUserByEmail(email);
+    try {
+      const systemUser = await getUserByEmail(email);
 
-    if (systemUser) {
-      localStorage.setItem('user', JSON.stringify(systemUser));
-      setUser(systemUser);
-      router.push('/dashboard');
-    } else {
-        // Handle user not found
-        console.error("Login failed: User not found");
-        // We'll need a toast message here later
+      if (systemUser) {
+        localStorage.setItem('user', JSON.stringify(systemUser));
+        setUser(systemUser);
+        router.push('/dashboard');
+      } else {
+          console.error("Login failed: User not found");
+          // This part will be handled by the toast in the LoginForm
+      }
+    } catch (error) {
+      console.error("Error during login:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const logout = () => {
