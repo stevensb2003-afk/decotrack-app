@@ -1,5 +1,6 @@
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, limit } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, limit, getDoc, doc } from 'firebase/firestore';
+import { getEmployeeByEmail } from './employeeService';
 
 export type AttendanceRecord = {
   id?: string;
@@ -39,14 +40,18 @@ export const getRecentActivities = async (recordLimit: number = 5): Promise<Rece
     );
     const snapshot = await getDocs(q);
 
-    // This is a simplified version. In a real app, you'd fetch employee names.
-    // For now, we'll use placeholder names or IDs.
-    return snapshot.docs.map(doc => {
-        const data = doc.data() as AttendanceRecord;
+    const activities = await Promise.all(snapshot.docs.map(async (d) => {
+        const data = d.data() as AttendanceRecord;
+        const employeeDoc = doc(db, 'employees', data.employeeId);
+        const employeeSnap = await getDoc(employeeDoc);
+        const employeeName = employeeSnap.exists() ? employeeSnap.data().name : `Employee ${data.employeeId.substring(0, 5)}`;
+        
         return {
-            name: `Employee ${data.employeeId.substring(0, 5)}`,
+            name: employeeName,
             type: data.type,
             time: data.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
-    });
+        };
+    }));
+
+    return activities;
 };
