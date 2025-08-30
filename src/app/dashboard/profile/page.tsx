@@ -18,11 +18,13 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', role: '' });
   const [pendingRequest, setPendingRequest] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
 
   useEffect(() => {
     const fetchProfileData = async () => {
         if (user) {
+            setIsLoading(true);
             const employee = await getEmployeeByEmail(user.email);
             if (employee) {
                 setEmployeeData(employee);
@@ -30,6 +32,7 @@ export default function ProfilePage() {
                 const hasPending = await getPendingRequestForEmployee(employee.id);
                 setPendingRequest(hasPending);
             }
+            setIsLoading(false);
         }
     };
     fetchProfileData();
@@ -80,8 +83,12 @@ export default function ProfilePage() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  if (!employeeData) {
+  if (isLoading) {
     return <div>Loading profile...</div>;
+  }
+
+  if (!employeeData) {
+    return <div>Could not find employee profile.</div>;
   }
 
   return (

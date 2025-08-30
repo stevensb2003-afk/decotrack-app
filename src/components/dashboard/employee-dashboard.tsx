@@ -15,18 +15,21 @@ export default function EmployeeDashboard() {
   const { user } = useAuth();
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [lastAction, setLastAction] = useState<'Exit' | 'Entry' | null>(null);
+  const [lastAction, setLastAction] = useState<'Entry' | 'Exit' | null>(null);
   const [timeWorked, setTimeWorked] = useState("0h 0m");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchEmployeeData = async () => {
       if (user?.email) {
+        setIsLoading(true);
         const employee = await getEmployeeByEmail(user.email);
         if (employee) {
           setEmployeeId(employee.id);
           const attendanceRecords = await getEmployeeAttendance(employee.id, 5);
           setRecords(attendanceRecords);
         }
+        setIsLoading(false);
       }
     };
     fetchEmployeeData();
@@ -73,13 +76,18 @@ export default function EmployeeDashboard() {
     };
     await markAttendance(newRecord);
     
-    setRecords([newRecord, ...records]);
-    setLastAction(type);
+    const newRecords = await getEmployeeAttendance(employeeId, 5);
+    setRecords(newRecords);
+
     toast({
       title: `Marked ${type} Successfully`,
       description: `Your ${type.toLowerCase()} at ${newRecord.timestamp.toDate().toLocaleTimeString()} has been recorded.`,
     });
   };
+
+  if(isLoading) {
+    return <div>Loading dashboard...</div>
+  }
 
   return (
     <div className="grid gap-6">
