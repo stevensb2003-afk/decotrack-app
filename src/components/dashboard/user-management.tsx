@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, UserPlus } from 'lucide-react';
+import { MoreHorizontal, UserPlus, Eye } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -18,33 +19,43 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { setMockEmployees, mockEmployees as currentEmployees } from '@/lib/mock-data';
+import { useAuth } from '@/hooks/use-auth';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
 
 const initialSystemUsers = [
-  { id: '1', name: 'Esther Howard', email: 'esther.howard@example.com', role: 'employee' },
-  { id: '2', name: 'HR Person', email: 'hr@example.com', role: 'hr' },
-  { id: '3', name: 'Manager Person', email: 'manager@example.com', role: 'management' },
-  { id: '4', name: 'Admin Person', email: 'decoinnova24@gmail.com', role: 'admin' },
-  { id: '5', name: 'Jane Cooper', email: 'jane.cooper@example.com', role: 'employee' },
-  { id: '6', name: 'Cody Fisher', email: 'cody.fisher@example.com', role: 'employee' },
-  { id: '7', name: 'Cameron Williamson', email: 'cameron.williamson@example.com', role: 'employee' },
-  { id: '8', name: 'Brooklyn Simmons', email: 'brooklyn.simmons@example.com', role: 'employee' },
-  { id: '9', name: 'Wade Warren', email: 'wade.warren@example.com', role: 'employee' },
-  { id: '10', name: 'Robert Fox', email: 'robert.fox@example.com', role: 'employee' },
+  { id: '1', name: 'Esther Howard', email: 'esther.howard@example.com', role: 'employee', password: 'password123' },
+  { id: '2', name: 'HR Person', email: 'hr@example.com', role: 'hr', password: 'password123' },
+  { id: '3', name: 'Manager Person', email: 'manager@example.com', role: 'management', password: 'password123' },
+  { id: '4', name: 'Admin Person', email: 'decoinnova24@gmail.com', role: 'admin', password: 'adminpassword' },
+  { id: '5', name: 'Jane Cooper', email: 'jane.cooper@example.com', role: 'employee', password: 'password123' },
+  { id: '6', name: 'Cody Fisher', email: 'cody.fisher@example.com', role: 'employee', password: 'password123' },
+  { id: '7', name: 'Cameron Williamson', email: 'cameron.williamson@example.com', role: 'employee', password: 'password123' },
+  { id: '8', name: 'Brooklyn Simmons', email: 'brooklyn.simmons@example.com', role: 'employee', password: 'password123' },
+  { id: '9', name: 'Wade Warren', email: 'wade.warren@example.com', role: 'employee', password: 'password123' },
+  { id: '10', name: 'Robert Fox', email: 'robert.fox@example.com', role: 'employee', password: 'password123' },
 ];
 
 type User = typeof initialSystemUsers[0];
 type Role = 'employee' | 'hr' | 'management' | 'admin';
+const SECURITY_CODE = "D3co.2025";
 
 export default function UserManagement() {
+  const { user: authUser } = useAuth();
   const [users, setUsers] = useState(initialSystemUsers);
   const [isEditing, setIsEditing] = useState<User | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isCodePromptOpen, setIsCodePromptOpen] = useState(false);
+  const [isPasswordViewOpen, setIsPasswordViewOpen] = useState(false);
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState<User | null>(null);
+  const [securityCodeInput, setSecurityCodeInput] = useState("");
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: ''});
   const { toast } = useToast();
   
@@ -84,6 +95,26 @@ export default function UserManagement() {
     setIsCreating(false);
     setNewUser({ name: '', email: '', password: '', role: ''});
   };
+
+  const handleViewPasswordClick = (user: User) => {
+    setSelectedUserForPassword(user);
+    setIsCodePromptOpen(true);
+    setSecurityCodeInput("");
+  };
+
+  const handleSecurityCodeSubmit = () => {
+    if (securityCodeInput === SECURITY_CODE) {
+      setIsCodePromptOpen(false);
+      setIsPasswordViewOpen(true);
+    } else {
+      toast({
+        title: "Incorrect Security Code",
+        description: "The code you entered is invalid.",
+        variant: "destructive",
+      });
+    }
+  };
+
 
   return (
     <>
@@ -142,12 +173,21 @@ export default function UserManagement() {
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0" disabled={user.role === 'admin'}>
+                        <Button variant="ghost" className="h-8 w-8 p-0" disabled={authUser?.role !== 'admin' && user.role === 'admin'}>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setIsEditing(user)}>Edit Role</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIsEditing(user)} disabled={user.role === 'admin'}>Edit Role</DropdownMenuItem>
+                         {authUser?.role === 'admin' && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleViewPasswordClick(user)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Password
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -173,6 +213,52 @@ export default function UserManagement() {
               </SelectContent>
             </Select>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCodePromptOpen} onOpenChange={setIsCodePromptOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enter Security Code</DialogTitle>
+            <DialogDescription>
+              To view this user's password, please enter the administrator security code.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Label htmlFor="security-code">Security Code</Label>
+            <Input
+              id="security-code"
+              type="password"
+              value={securityCodeInput}
+              onChange={(e) => setSecurityCodeInput(e.target.value)}
+              placeholder="••••••••"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCodePromptOpen(false)}>Cancel</Button>
+            <Button onClick={handleSecurityCodeSubmit}>Submit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isPasswordViewOpen} onOpenChange={setIsPasswordViewOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>User Credentials</DialogTitle>
+            <DialogDescription>
+              These are the credentials for {selectedUserForPassword?.name}.
+            </DialogDescription>
+          </DialogHeader>
+            <Alert>
+              <AlertTitle>{selectedUserForPassword?.name}</AlertTitle>
+              <AlertDescription>
+                <p className="mt-2"><strong>Email:</strong> {selectedUserForPassword?.email}</p>
+                <p><strong>Password:</strong> {selectedUserForPassword?.password}</p>
+              </AlertDescription>
+            </Alert>
+          <DialogFooter>
+            <Button onClick={() => setIsPasswordViewOpen(false)}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
