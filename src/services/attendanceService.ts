@@ -1,3 +1,4 @@
+
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, limit, getDoc, doc } from 'firebase/firestore';
 import { getEmployeeByEmail } from './employeeService';
@@ -24,12 +25,15 @@ export const markAttendance = async (record: Omit<AttendanceRecord, 'id'>) => {
 export const getEmployeeAttendance = async (employeeId: string, recordLimit: number = 5): Promise<AttendanceRecord[]> => {
   const q = query(
     attendanceCollection, 
-    where("employeeId", "==", employeeId),
-    orderBy("timestamp", "desc"),
-    limit(recordLimit)
+    where("employeeId", "==", employeeId)
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+  const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+  
+  // Sort by timestamp descending in code
+  records.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+
+  return records.slice(0, recordLimit);
 };
 
 export const getRecentActivities = async (recordLimit: number = 5): Promise<RecentActivity[]> => {
