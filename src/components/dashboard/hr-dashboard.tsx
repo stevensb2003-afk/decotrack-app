@@ -235,7 +235,6 @@ const countries = [
     { value: "ZW", label: "Zimbabwe" },
 ];
 
-
 export default function HRDashboard() {
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -663,4 +662,3 @@ export default function HRDashboard() {
     </div>
   );
 }
-
