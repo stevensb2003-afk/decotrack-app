@@ -18,7 +18,30 @@ export const getAllUsers = async (): Promise<SystemUser[]> => {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SystemUser));
 };
 
+const createDefaultAdminIfNeeded = async (email: string) => {
+    const adminEmail = "decoinnova24@gmail.com";
+    if (email.toLowerCase() !== adminEmail) {
+        return;
+    }
+
+    const q = query(usersCollection, where("role", "==", "admin"));
+    const adminSnapshot = await getDocs(q);
+
+    if (adminSnapshot.empty) {
+        console.log("No admin found. Creating default admin...");
+        await createUser({
+            name: "Admin User",
+            email: adminEmail,
+            password: "admin123", // Set a default password
+            role: "admin",
+        });
+    }
+};
+
 export const getUserByEmail = async (email: string): Promise<SystemUser | null> => {
+    // One-time check to create a default admin if none exist
+    await createDefaultAdminIfNeeded(email);
+
     const q = query(usersCollection, where("email", "==", email));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
