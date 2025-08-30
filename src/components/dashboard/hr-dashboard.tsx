@@ -4,13 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, UserPlus, Check, X, Calendar as CalendarIcon } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { UserPlus, Check, X, Pencil } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -27,13 +21,18 @@ import { useToast } from '@/hooks/use-toast';
 import { Employee, getAllEmployees, createEmployee, updateEmployee } from '@/services/employeeService';
 import { ChangeRequest, getPendingChangeRequests, updateChangeRequestStatus } from '@/services/changeRequestService';
 import { Switch } from '../ui/switch';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function HRDashboard() {
+  const { user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
   const [isCreateDialogOpen, setCreateIsDialogOpen] = useState(false);
-  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
+  
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
+  const [isEditingDetail, setIsEditingDetail] = useState(false);
+
   
   const [newEmployeeData, setNewEmployeeData] = useState<Omit<Employee, 'id'>>({
       name: '',
@@ -60,23 +59,22 @@ export default function HRDashboard() {
     fetchData();
   }, []);
 
-  const handleUpdateClick = (employee: Employee) => {
+  const handleViewDetailsClick = (employee: Employee) => {
     setSelectedEmployee(employee);
-    setIsUpdateDialogOpen(true);
+    setIsDetailViewOpen(true);
+    setIsEditingDetail(false);
   };
   
   const handleSaveChanges = async () => {
     if (!selectedEmployee) return;
     
-    // Assuming you have form fields bound to selectedEmployee state
     await updateEmployee(selectedEmployee.id, selectedEmployee);
 
     toast({
         title: "Record Updated",
         description: `Record for ${selectedEmployee.name} has been updated.`,
     });
-    setIsUpdateDialogOpen(false);
-    setSelectedEmployee(null);
+    setIsEditingDetail(false);
     fetchData();
   };
 
@@ -126,6 +124,8 @@ export default function HRDashboard() {
           default: return 'bg-gray-100 text-gray-800';
       }
   }
+
+  const canEdit = user?.role === 'admin' || user?.role === 'hr';
 
   return (
     <div className="space-y-6">
@@ -230,12 +230,11 @@ export default function HRDashboard() {
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {employees.map((employee) => (
-                <TableRow key={employee.id}>
+                <TableRow key={employee.id} className="cursor-pointer" onClick={() => handleViewDetailsClick(employee)}>
                   <TableCell className="font-medium">{employee.name}</TableCell>
                   <TableCell>{employee.email}</TableCell>
                   <TableCell>{employee.role}</TableCell>
@@ -244,20 +243,6 @@ export default function HRDashboard() {
                         {employee.status}
                     </span>
                    </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleUpdateClick(employee)}>Update Information</DropdownMenuItem>
-                        <DropdownMenuItem disabled>View History</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -265,73 +250,92 @@ export default function HRDashboard() {
         </CardContent>
       </Card>
       
-      <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
+      <Dialog open={isDetailViewOpen} onOpenChange={setIsDetailViewOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Update Information for {selectedEmployee?.name}</DialogTitle>
+          <DialogHeader className="flex-row items-center justify-between">
+            <DialogTitle>Details for {selectedEmployee?.name}</DialogTitle>
+            {canEdit && (
+                <Button variant="ghost" size="icon" onClick={() => setIsEditingDetail(!isEditingDetail)}>
+                    <Pencil className="h-4 w-4" />
+                </Button>
+            )}
           </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
-            {selectedEmployee && Object.entries(selectedEmployee).map(([key, value]) => {
-                if(['id', 'email'].includes(key)) return null;
-                const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
-                
-                if (key === 'status') {
+          {selectedEmployee && (
+             <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
+                {Object.entries(selectedEmployee).map(([key, value]) => {
+                    if(['id', 'email'].includes(key)) return null;
+                    const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+                    
+                    if (!isEditingDetail) {
+                        return (
+                            <div key={key} className="grid grid-cols-2">
+                                <Label>{label}</Label>
+                                <p>{typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}</p>
+                            </div>
+                        )
+                    }
+
+                    if (key === 'status') {
+                        return (
+                            <div key={key}>
+                                <Label htmlFor={`update-${key}`}>{label}</Label>
+                                <Select value={value} onValueChange={(val: Employee['status']) => setSelectedEmployee({...selectedEmployee, status: val})}>
+                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Active">Active</SelectItem>
+                                        <SelectItem value="LOA">LOA</SelectItem>
+                                        <SelectItem value="Terminated">Terminated</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )
+                    }
+
+                    if (key === 'idType') {
+                        return (
+                            <div key={key}>
+                                <Label htmlFor={`update-${key}`}>{label}</Label>
+                                <Select value={value} onValueChange={(val: Employee['idType']) => setSelectedEmployee({...selectedEmployee, idType: val})}>
+                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Cédula">Cédula</SelectItem>
+                                        <SelectItem value="Pasaporte">Pasaporte</SelectItem>
+                                        <SelectItem value="Residencia">Residencia</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )
+                    }
+                    
+                    if (key === 'licensePermission') {
+                        return (
+                            <div className="flex items-center space-x-2" key={key}>
+                                <Label htmlFor={`update-${key}`}>{label}</Label>
+                                <Switch id={`update-${key}`} checked={value} onCheckedChange={val => setSelectedEmployee({...selectedEmployee, licensePermission: val})} />
+                            </div>
+                        )
+                    }
+
                     return (
                         <div key={key}>
                             <Label htmlFor={`update-${key}`}>{label}</Label>
-                            <Select value={value} onValueChange={(val: Employee['status']) => setSelectedEmployee({...selectedEmployee, status: val})}>
-                                <SelectTrigger><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Active">Active</SelectItem>
-                                    <SelectItem value="LOA">LOA</SelectItem>
-                                    <SelectItem value="Terminated">Terminated</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Input 
+                                id={`update-${key}`} 
+                                value={value} 
+                                type={key === 'salary' ? 'number' : 'text'}
+                                onChange={(e) => setSelectedEmployee({...selectedEmployee, [key]: key === 'salary' ? parseFloat(e.target.value) || 0 : e.target.value})} 
+                            />
                         </div>
                     )
-                }
-
-                 if (key === 'idType') {
-                    return (
-                        <div key={key}>
-                            <Label htmlFor={`update-${key}`}>{label}</Label>
-                            <Select value={value} onValueChange={(val: Employee['idType']) => setSelectedEmployee({...selectedEmployee, idType: val})}>
-                                <SelectTrigger><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Cédula">Cédula</SelectItem>
-                                    <SelectItem value="Pasaporte">Pasaporte</SelectItem>
-                                    <SelectItem value="Residencia">Residencia</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )
-                }
-                
-                if (key === 'licensePermission') {
-                    return (
-                         <div className="flex items-center space-x-2" key={key}>
-                            <Label htmlFor={`update-${key}`}>{label}</Label>
-                            <Switch id={`update-${key}`} checked={value} onCheckedChange={val => setSelectedEmployee({...selectedEmployee, licensePermission: val})} />
-                        </div>
-                    )
-                }
-
-                return (
-                    <div key={key}>
-                        <Label htmlFor={`update-${key}`}>{label}</Label>
-                        <Input 
-                            id={`update-${key}`} 
-                            value={value} 
-                            type={key === 'salary' ? 'number' : 'text'}
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, [key]: key === 'salary' ? parseFloat(e.target.value) || 0 : e.target.value})} 
-                        />
-                    </div>
-                )
-            })}
-          </div>
-          <DialogFooter>
-            <Button type="submit" onClick={handleSaveChanges}>Save Changes</Button>
-          </DialogFooter>
+                })}
+            </div>
+          )}
+          {isEditingDetail && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditingDetail(false)}>Cancel</Button>
+              <Button type="submit" onClick={handleSaveChanges}>Save Changes</Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>
