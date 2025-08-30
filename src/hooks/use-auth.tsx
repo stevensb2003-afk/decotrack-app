@@ -24,7 +24,8 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
       setLoading(true);
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
         if (pathname === '/login') {
           router.replace('/dashboard');
         }
@@ -36,7 +37,7 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
       }
       setLoading(false);
     };
-
+    
     checkAuthStatus();
   }, [pathname, router]);
 
@@ -75,16 +76,6 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
 
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-    const [isClient, setIsClient] = useState(false)
- 
-    useEffect(() => {
-        setIsClient(true)
-    }, [])
-
-    if (!isClient) {
-        return null;
-    }
-    
     return <AuthProviderClient>{children}</AuthProviderClient>
 }
 
