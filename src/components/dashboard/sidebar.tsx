@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Building, LayoutDashboard, Users, BarChart, Settings, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import Image from 'next/image';
 
 export default function DashboardSidebar({ onNavigate }: { onNavigate: (view: string) => void }) {
   const { logout } = useAuth();
@@ -26,8 +27,9 @@ export default function DashboardSidebar({ onNavigate }: { onNavigate: (view: st
   return (
     <aside className="w-64 flex-col border-r bg-card flex">
       <div className="flex h-16 shrink-0 items-center border-b px-6">
-        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-          <Building className="h-6 w-6 text-primary" />
+        <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-foreground">
+          <Image src="/logo-azul.svg" alt="DecoTrack Logo" width={24} height={24} className="dark:hidden" />
+          <Image src="/logo-blanco.svg" alt="DecoTrack Logo" width={24} height={24} className="hidden dark:block" />
           <span className="">DecoTrack</span>
         </Link>
       </div>

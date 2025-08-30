@@ -1,6 +1,6 @@
 import { LoginForm } from '@/components/auth/login-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Building } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
   return (
@@ -8,8 +8,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <Card className="shadow-2xl">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary">
-              <Building className="h-8 w-8 text-primary-foreground" />
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+               <Image src="/logo-azul.svg" alt="DecoTrack Logo" width={50} height={50} className="dark:hidden" />
+               <Image src="/logo-blanco.svg" alt="DecoTrack Logo" width={50} height={50} className="hidden dark:block" />
             </div>
             <CardTitle className="text-3xl font-bold">DecoTrack</CardTitle>
             <CardDescription>Welcome back! Please sign in to your account.</CardDescription>
