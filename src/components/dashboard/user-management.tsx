@@ -71,13 +71,13 @@ export default function UserManagement() {
         ...newUser,
     } as Omit<SystemUser, 'id'>;
     
-    const newUserId = await createUser(newUserEntry);
+    await createUser(newUserEntry);
 
-    if (newUser.role === 'employee') {
+    if (newUser.role !== 'admin') {
       await createEmployee({
         name: newUser.name,
         email: newUser.email,
-        role: 'Employee', // Default role for new employee
+        role: newUser.role.charAt(0).toUpperCase() + newUser.role.slice(1),
       });
       toast({ title: "User & Employee Created", description: "New user and corresponding employee record have been created." });
     } else {

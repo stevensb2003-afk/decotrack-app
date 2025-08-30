@@ -39,12 +39,6 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
         };
         const docRef = await addDoc(usersCollection, newUser);
         
-        await createEmployee({
-          name: "Admin User",
-          email: adminEmail,
-          role: "Administrator"
-        });
-
         return { ...newUser, id: docRef.id };
     }
     return null;
