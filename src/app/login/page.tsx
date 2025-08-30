@@ -9,7 +9,7 @@ export default function LoginPage() {
         <Card className="shadow-2xl">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-               <Image src="/Logo%20Azul.png" alt="DecoTrack Logo" width={50} height={50} />
+               <Image src="/Logo-Azul.png" alt="DecoTrack Logo" width={50} height={50} />
             </div>
             <CardTitle className="text-3xl font-bold">DecoTrack</CardTitle>
             <CardDescription>Welcome back! Please sign in to your account.</CardDescription>

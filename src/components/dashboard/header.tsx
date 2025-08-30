@@ -59,8 +59,8 @@ export default function DashboardHeader() {
       </div>
       <div className="flex w-full items-center justify-between md:justify-end gap-4">
         <div className="hidden md:flex items-center gap-2 font-semibold text-foreground">
-           <Image src="/Logo%20Azul.png" alt="DecoTrack Logo" width={24} height={24} className="dark:hidden" />
-           <Image src="/Logo%20Blanco.png" alt="DecoTrack Logo" width={24} height={24} className="hidden dark:block" />
+           <Image src="/Logo-Azul.png" alt="DecoTrack Logo" width={24} height={24} className="dark:hidden" />
+           <Image src="/Logo-Blanco.png" alt="DecoTrack Logo" width={24} height={24} className="hidden dark:block" />
            <span>DecoTrack</span>
         </div>
 
