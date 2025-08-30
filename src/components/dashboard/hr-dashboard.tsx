@@ -162,6 +162,8 @@ export default function HRDashboard() {
 
   const canEdit = user?.role === 'admin' || user?.role === 'hr';
 
+  const licenseTypes = ["A1", "A2", "A3", "B1", "B2", "B3", "B4", "C1", "C2", "D1", "D2", "D3", "E1", "E2"];
+
   return (
     <div className="space-y-6">
       <Card>
@@ -255,7 +257,16 @@ export default function HRDashboard() {
                            <Label>License Details</Label>
                             {(newEmployeeData.licenses || []).map((license, index) => (
                                 <div key={index} className="space-y-2 relative">
-                                    <Input placeholder="License Type (e.g. Car, Motorcycle)" value={license.type} onChange={e => handleLicenseChange(index, 'type', e.target.value, true)} />
+                                    <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, true)}>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="License Type" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {licenseTypes.map(type => (
+                                          <SelectItem key={type} value={type}>{type}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                     <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, true)} />
                                     <Input placeholder="Country" value={license.country} onChange={e => handleLicenseChange(index, 'country', e.target.value, true)} />
                                     <Button variant="ghost" size="icon" className="absolute top-0 right-0" onClick={() => removeLicenseField(index, true)}>
@@ -370,7 +381,16 @@ export default function HRDashboard() {
                                 <Label>License Details</Label>
                                 {(selectedEmployee.licenses || []).map((license, index) => (
                                     <div key={index} className="space-y-2 relative">
-                                        <Input placeholder="License Type" value={license.type} onChange={e => handleLicenseChange(index, 'type', e.target.value, false)} />
+                                        <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, false)}>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="License Type" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {licenseTypes.map(type => (
+                                              <SelectItem key={type} value={type}>{type}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
                                         <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, false)} />
                                         <Input placeholder="Country" value={license.country} onChange={e => handleLicenseChange(index, 'country', e.target.value, false)} />
                                         <Button variant="ghost" size="icon" className="absolute top-0 right-0" onClick={() => removeLicenseField(index, false)}>
