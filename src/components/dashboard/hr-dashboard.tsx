@@ -26,15 +26,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-
-const employees = [
-  { id: 'USR001', name: 'John Doe', email: 'john.doe@example.com', role: 'Developer' },
-  { id: 'USR002', name: 'Jane Smith', email: 'jane.smith@example.com', role: 'Designer' },
-  { id: 'USR003', name: 'Peter Jones', email: 'peter.jones@example.com', role: 'Manager' },
-  { id: 'USR004', name: 'Sam Wilson', email: 'sam.wilson@example.com', role: 'QA Engineer' },
-];
+import { mockEmployees } from '@/lib/mock-data';
 
 export default function HRDashboard() {
+  const [employees, setEmployees] = useState(mockEmployees);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<(typeof employees)[0] | null>(null);
   const [effectiveDate, setEffectiveDate] = useState<Date | undefined>(new Date());

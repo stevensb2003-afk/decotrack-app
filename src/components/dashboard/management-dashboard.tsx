@@ -1,22 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, UserCheck, UserX, ArrowRight, ArrowLeft } from "lucide-react";
-
-const kpiData = [
-    { title: "Total Employees", value: "125", icon: Users, change: "+5 this month" },
-    { title: "Present Employees", value: "110", icon: UserCheck, change: "88% attendance" },
-    { title: "Absent Employees", value: "15", icon: UserX, change: "12% absent" },
-];
-
-const recentActivity = [
-    { name: "John Doe", type: "Entry", time: "09:01 AM" },
-    { name: "Jane Smith", type: "Entry", time: "09:03 AM" },
-    { name: "Peter Jones", type: "Exit", time: "08:55 AM" },
-    { name: "Sam Wilson", type: "Entry", time: "09:05 AM" },
-    { name: "Mary Jane", type: "Entry", time: "09:08 AM" },
-];
+import { mockEmployees, recentActivity } from "@/lib/mock-data";
 
 export default function ManagementDashboard() {
+    const totalEmployees = mockEmployees.length;
+    const presentEmployees = mockEmployees.filter(e => e.status === 'Present').length;
+    const absentEmployees = totalEmployees - presentEmployees;
+
+    const kpiData = [
+        { title: "Total Employees", value: totalEmployees.toString(), icon: Users, change: "All registered employees" },
+        { title: "Present Employees", value: presentEmployees.toString(), icon: UserCheck, change: `${Math.round((presentEmployees/totalEmployees)*100)}% attendance` },
+        { title: "Absent Employees", value: absentEmployees.toString(), icon: UserX, change: `${Math.round((absentEmployees/totalEmployees)*100)}% absent` },
+    ];
+
   return (
     <div className="grid gap-6">
       <div className="grid md:grid-cols-3 gap-6">

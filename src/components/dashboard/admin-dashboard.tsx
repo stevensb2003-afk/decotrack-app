@@ -3,6 +3,7 @@
 import ManagementDashboard from "./management-dashboard";
 import HRDashboard from "./hr-dashboard";
 import UserManagement from "./user-management";
+import ReportsDashboard from "./reports-dashboard";
 
 type AdminDashboardProps = {
   currentView: string;
@@ -14,7 +15,7 @@ export default function AdminDashboard({ currentView }: AdminDashboardProps) {
       case 'employees':
         return <HRDashboard />;
       case 'reports':
-        return <ManagementDashboard />;
+        return <ReportsDashboard />;
       case 'users':
         return <UserManagement />;
       case 'overview':
