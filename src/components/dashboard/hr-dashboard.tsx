@@ -60,7 +60,7 @@ export default function HRDashboard() {
   }, []);
 
   const handleViewDetailsClick = (employee: Employee) => {
-    setSelectedEmployee(employee);
+    setSelectedEmployee(JSON.parse(JSON.stringify(employee)));
     setIsDetailViewOpen(true);
     setIsEditingDetail(false);
   };
@@ -75,6 +75,7 @@ export default function HRDashboard() {
         description: `Record for ${selectedEmployee.name} has been updated.`,
     });
     setIsEditingDetail(false);
+    setIsDetailViewOpen(false);
     fetchData();
   };
 
@@ -262,72 +263,69 @@ export default function HRDashboard() {
           </DialogHeader>
           {selectedEmployee && (
              <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
-                {Object.entries(selectedEmployee).map(([key, value]) => {
-                    if(['id', 'email'].includes(key)) return null;
-                    const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
-                    
-                    if (!isEditingDetail) {
-                        return (
-                            <div key={key} className="grid grid-cols-2">
-                                <Label>{label}</Label>
-                                <p>{typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}</p>
-                            </div>
-                        )
-                    }
-
-                    if (key === 'status') {
-                        return (
-                            <div key={key}>
-                                <Label htmlFor={`update-${key}`}>{label}</Label>
-                                <Select value={value} onValueChange={(val: Employee['status']) => setSelectedEmployee({...selectedEmployee, status: val})}>
-                                    <SelectTrigger><SelectValue/></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Active">Active</SelectItem>
-                                        <SelectItem value="LOA">LOA</SelectItem>
-                                        <SelectItem value="Terminated">Terminated</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )
-                    }
-
-                    if (key === 'idType') {
-                        return (
-                            <div key={key}>
-                                <Label htmlFor={`update-${key}`}>{label}</Label>
-                                <Select value={value} onValueChange={(val: Employee['idType']) => setSelectedEmployee({...selectedEmployee, idType: val})}>
-                                    <SelectTrigger><SelectValue/></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Cédula">Cédula</SelectItem>
-                                        <SelectItem value="Pasaporte">Pasaporte</SelectItem>
-                                        <SelectItem value="Residencia">Residencia</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )
-                    }
-                    
-                    if (key === 'licensePermission') {
-                        return (
-                            <div className="flex items-center space-x-2" key={key}>
-                                <Label htmlFor={`update-${key}`}>{label}</Label>
-                                <Switch id={`update-${key}`} checked={value} onCheckedChange={val => setSelectedEmployee({...selectedEmployee, licensePermission: val})} />
-                            </div>
-                        )
-                    }
-
-                    return (
-                        <div key={key}>
-                            <Label htmlFor={`update-${key}`}>{label}</Label>
-                            <Input 
-                                id={`update-${key}`} 
-                                value={value} 
-                                type={key === 'salary' ? 'number' : 'text'}
-                                onChange={(e) => setSelectedEmployee({...selectedEmployee, [key]: key === 'salary' ? parseFloat(e.target.value) || 0 : e.target.value})} 
-                            />
+                
+                {isEditingDetail ? (
+                    <>
+                        <div>
+                            <Label htmlFor="update-name">Name</Label>
+                            <Input id="update-name" value={selectedEmployee.name} onChange={(e) => setSelectedEmployee({...selectedEmployee, name: e.target.value})} />
                         </div>
-                    )
-                })}
+                        <div>
+                            <Label htmlFor="update-role">Role</Label>
+                            <Input id="update-role" value={selectedEmployee.role} onChange={(e) => setSelectedEmployee({...selectedEmployee, role: e.target.value})} />
+                        </div>
+                        <div>
+                            <Label htmlFor="update-idType">ID Type</Label>
+                            <Select value={selectedEmployee.idType} onValueChange={(val: Employee['idType']) => setSelectedEmployee({...selectedEmployee, idType: val})}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Cédula">Cédula</SelectItem>
+                                    <SelectItem value="Pasaporte">Pasaporte</SelectItem>
+                                    <SelectItem value="Residencia">Residencia</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label htmlFor="update-idNumber">ID Number</Label>
+                            <Input id="update-idNumber" value={selectedEmployee.idNumber} onChange={(e) => setSelectedEmployee({...selectedEmployee, idNumber: e.target.value})} />
+                        </div>
+                        <div>
+                            <Label htmlFor="update-cellphone">Cellphone</Label>
+                            <Input id="update-cellphone" value={selectedEmployee.cellphoneNumber} onChange={(e) => setSelectedEmployee({...selectedEmployee, cellphoneNumber: e.target.value})} />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                           <Label htmlFor="update-license">Has License?</Label>
+                           <Switch id="update-license" checked={selectedEmployee.licensePermission} onCheckedChange={val => setSelectedEmployee({...selectedEmployee, licensePermission: val})} />
+                        </div>
+                        <div>
+                            <Label htmlFor="update-status">Status</Label>
+                            <Select value={selectedEmployee.status} onValueChange={(val: Employee['status']) => setSelectedEmployee({...selectedEmployee, status: val})}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Active">Active</SelectItem>
+                                    <SelectItem value="LOA">LOA</SelectItem>
+                                    <SelectItem value="Terminated">Terminated</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label htmlFor="update-salary">Salary (CRC)</Label>
+                            <Input id="update-salary" type="number" value={selectedEmployee.salary} onChange={(e) => setSelectedEmployee({...selectedEmployee, salary: parseFloat(e.target.value) || 0})} />
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-2"><Label>Name</Label><p>{selectedEmployee.name}</p></div>
+                        <div className="grid grid-cols-2"><Label>Email</Label><p>{selectedEmployee.email}</p></div>
+                        <div className="grid grid-cols-2"><Label>Role</Label><p>{selectedEmployee.role}</p></div>
+                        <div className="grid grid-cols-2"><Label>ID Type</Label><p>{selectedEmployee.idType}</p></div>
+                        <div className="grid grid-cols-2"><Label>ID Number</Label><p>{selectedEmployee.idNumber}</p></div>
+                        <div className="grid grid-cols-2"><Label>Cellphone</Label><p>{selectedEmployee.cellphoneNumber}</p></div>
+                        <div className="grid grid-cols-2"><Label>License</Label><p>{selectedEmployee.licensePermission ? 'Yes' : 'No'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Status</Label><p>{selectedEmployee.status}</p></div>
+                        <div className="grid grid-cols-2"><Label>Salary</Label><p>{new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(selectedEmployee.salary)}</p></div>
+                    </>
+                )}
             </div>
           )}
           {isEditingDetail && (
