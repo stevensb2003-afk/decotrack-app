@@ -28,28 +28,21 @@ export default function DashboardPage() {
     }
   };
 
-  if (user?.role === 'admin') {
-    return (
-      <div className="flex min-h-screen w-full bg-muted/40">
+  const isAdmin = user?.role === 'admin';
+
+  return (
+    <div className={`flex min-h-screen w-full bg-muted/40 ${isAdmin ? '' : 'flex-col'}`}>
+      {isAdmin && (
         <div className="hidden md:flex">
           <DashboardSidebar onNavigate={setAdminView} />
         </div>
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <DashboardHeader />
-          <main className="flex-1 overflow-auto p-4 sm:p-6">
-            {renderDashboardByRole()}
-          </main>
-        </div>
+      )}
+      <div className={`flex flex-col flex-1 ${isAdmin ? 'overflow-hidden' : ''}`}>
+        <DashboardHeader />
+        <main className={`flex-1 p-4 sm:p-6 ${isAdmin ? 'overflow-auto' : ''}`}>
+          {renderDashboardByRole()}
+        </main>
       </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col min-h-screen w-full bg-muted/40">
-      <DashboardHeader />
-      <main className="flex-1 p-4 sm:p-6">
-        {renderDashboardByRole()}
-      </main>
     </div>
   );
 }
