@@ -66,7 +66,13 @@ export const createUser = async (userData: Omit<SystemUser, 'id'>) => {
       await createEmployee({
         name: userData.name,
         email: userData.email,
-        role: userData.role.charAt(0).toUpperCase() + userData.role.slice(1),
+        role: userData.role,
+        idType: 'Cédula',
+        idNumber: '',
+        cellphoneNumber: '',
+        licensePermission: false,
+        status: 'Active',
+        salary: 0
       });
     }
   return docRef.id;

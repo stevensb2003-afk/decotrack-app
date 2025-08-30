@@ -166,6 +166,7 @@ export default function UserManagement() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Password</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -175,6 +176,7 @@ export default function UserManagement() {
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
+                   <TableCell className="font-mono">****</TableCell>
                   <TableCell className="capitalize">{user.role}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
