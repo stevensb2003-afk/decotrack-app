@@ -173,7 +173,7 @@ export default function ProfilePage() {
                     <div>
                         <Label>Licenses</Label>
                         <div className="space-y-2 mt-1">
-                            {employeeData.licenses.map((license, index) => (
+                            {(employeeData.licenses || []).map((license, index) => (
                                 <div key={index} className="p-2 border rounded-md text-sm">
                                     <p><strong>Type:</strong> {license.type}</p>
                                     <p><strong>Number:</strong> {license.number}</p>

@@ -127,11 +127,11 @@ export default function HRDashboard() {
 
   const handleLicenseChange = (index: number, field: keyof License, value: string, isNew: boolean) => {
     if (isNew) {
-        const newLicenses = [...newEmployeeData.licenses];
+        const newLicenses = [...(newEmployeeData.licenses || [])];
         newLicenses[index] = { ...newLicenses[index], [field]: value };
         setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
     } else if (selectedEmployee) {
-        const newLicenses = [...selectedEmployee.licenses];
+        const newLicenses = [...(selectedEmployee.licenses || [])];
         newLicenses[index] = { ...newLicenses[index], [field]: value };
         setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
     }
@@ -139,21 +139,21 @@ export default function HRDashboard() {
 
   const addLicenseField = (isNew: boolean) => {
       if (isNew) {
-          if(newEmployeeData.licenses.length < 3) {
-            setNewEmployeeData(prev => ({...prev, licenses: [...prev.licenses, { type: '', number: '', country: ''}]}));
+          if((newEmployeeData.licenses || []).length < 3) {
+            setNewEmployeeData(prev => ({...prev, licenses: [...(prev.licenses || []), { type: '', number: '', country: ''}]}));
           }
-      } else if (selectedEmployee && selectedEmployee.licenses.length < 3) {
-          setSelectedEmployee(prev => prev ? ({...prev, licenses: [...prev.licenses, { type: '', number: '', country: ''}]}) : prev);
+      } else if (selectedEmployee && (selectedEmployee.licenses || []).length < 3) {
+          setSelectedEmployee(prev => prev ? ({...prev, licenses: [...(prev.licenses || []), { type: '', number: '', country: ''}]}) : prev);
       }
   };
 
   const removeLicenseField = (index: number, isNew: boolean) => {
     if(isNew) {
-        const newLicenses = [...newEmployeeData.licenses];
+        const newLicenses = [...(newEmployeeData.licenses || [])];
         newLicenses.splice(index, 1);
         setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
     } else if (selectedEmployee) {
-        const newLicenses = [...selectedEmployee.licenses];
+        const newLicenses = [...(selectedEmployee.licenses || [])];
         newLicenses.splice(index, 1);
         setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
     }
@@ -253,7 +253,7 @@ export default function HRDashboard() {
                       {newEmployeeData.licensePermission && (
                         <div className="space-y-4 rounded-md border p-4">
                            <Label>License Details</Label>
-                            {newEmployeeData.licenses.map((license, index) => (
+                            {(newEmployeeData.licenses || []).map((license, index) => (
                                 <div key={index} className="space-y-2 relative">
                                     <Input placeholder="License Type (e.g. Car, Motorcycle)" value={license.type} onChange={e => handleLicenseChange(index, 'type', e.target.value, true)} />
                                     <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, true)} />
@@ -263,7 +263,7 @@ export default function HRDashboard() {
                                     </Button>
                                 </div>
                             ))}
-                            {newEmployeeData.licenses.length < 3 && (
+                            {(newEmployeeData.licenses || []).length < 3 && (
                                 <Button variant="outline" size="sm" onClick={() => addLicenseField(true)}>Add License</Button>
                             )}
                         </div>
@@ -363,7 +363,7 @@ export default function HRDashboard() {
 
                         <div className="flex items-center space-x-2">
                            <Label htmlFor="update-license">Has License?</Label>
-                           <Switch id="update-license" checked={selectedEmployee.licensePermission} onCheckedChange={val => setSelectedEmployee({...selectedEmployee, licensePermission: val, licenses: val ? selectedEmployee.licenses : []})} />
+                           <Switch id="update-license" checked={selectedEmployee.licensePermission} onCheckedChange={val => setSelectedEmployee({...selectedEmployee, licensePermission: val, licenses: val ? (selectedEmployee.licenses || []) : []})} />
                         </div>
                         {selectedEmployee.licensePermission && (
                             <div className="space-y-4 rounded-md border p-4">
@@ -378,7 +378,7 @@ export default function HRDashboard() {
                                         </Button>
                                     </div>
                                 ))}
-                                {selectedEmployee.licenses.length < 3 && (
+                                {(selectedEmployee.licenses || []).length < 3 && (
                                     <Button variant="outline" size="sm" onClick={() => addLicenseField(false)}>Add License</Button>
                                 )}
                             </div>
@@ -399,7 +399,7 @@ export default function HRDashboard() {
                             <div>
                                 <Label>Licenses</Label>
                                 <div className="space-y-2 mt-1">
-                                    {selectedEmployee.licenses.map((license, index) => (
+                                    {(selectedEmployee.licenses || []).map((license, index) => (
                                         <div key={index} className="p-2 border rounded-md text-sm">
                                             <p><strong>Type:</strong> {license.type}</p>
                                             <p><strong>Number:</strong> {license.number}</p>
