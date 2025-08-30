@@ -39,6 +39,20 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
         };
         const docRef = await addDoc(usersCollection, newUser);
         
+        // Also create an employee record for the admin
+        await createEmployee({
+            name: newUser.name,
+            email: newUser.email,
+            role: newUser.role,
+            idType: 'Cédula',
+            idNumber: 'N/A',
+            cellphoneNumber: 'N/A',
+            licensePermission: false,
+            licenses: [],
+            status: 'Active',
+            salary: 0
+        });
+
         return { ...newUser, id: docRef.id };
     }
     return null;
@@ -71,6 +85,7 @@ export const createUser = async (userData: Omit<SystemUser, 'id'>) => {
         idNumber: '',
         cellphoneNumber: '',
         licensePermission: false,
+        licenses: [],
         status: 'Active',
         salary: 0
       });

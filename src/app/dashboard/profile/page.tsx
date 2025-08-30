@@ -158,9 +158,31 @@ export default function ProfilePage() {
                     <p id="employee-id">{employeeData.id}</p>
                 </div>
                  <div className="grid grid-cols-2">
-                    <Label htmlFor="status">Current Status</Label>
+                    <Label htmlFor="status">Employment Status</Label>
                     <p id="status">{employeeData.status}</p>
                 </div>
+                 <div className="grid grid-cols-2">
+                    <Label htmlFor="cellphone">Cellphone</Label>
+                    <p id="cellphone">{employeeData.cellphoneNumber}</p>
+                </div>
+                 <div className="grid grid-cols-2">
+                    <Label htmlFor="salary">Salary</Label>
+                    <p id="salary">{new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(employeeData.salary)}</p>
+                </div>
+                {employeeData.licensePermission && (employeeData.licenses || []).length > 0 && (
+                    <div>
+                        <Label>Licenses</Label>
+                        <div className="space-y-2 mt-1">
+                            {employeeData.licenses.map((license, index) => (
+                                <div key={index} className="p-2 border rounded-md text-sm">
+                                    <p><strong>Type:</strong> {license.type}</p>
+                                    <p><strong>Number:</strong> {license.number}</p>
+                                    <p><strong>Country:</strong> {license.country}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </CardContent>
       </Card>
@@ -172,7 +194,7 @@ export default function ProfilePage() {
             </div>
             {!isEditing && (
                 <Button onClick={() => setIsEditing(true)} disabled={pendingRequest || user?.role === 'admin'}>
-                    {pendingRequest ? "Request Pending" : (user?.role === 'admin' ? "Admin Info Managed by HR" : "Request Edit")}
+                    {pendingRequest ? "Request Pending" : "Request Edit"}
                 </Button>
             )}
         </CardHeader>

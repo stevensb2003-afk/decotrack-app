@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Check, X, Pencil } from 'lucide-react';
+import { UserPlus, Check, X, Pencil, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -18,10 +18,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Employee, getAllEmployees, createEmployee, updateEmployee } from '@/services/employeeService';
+import { Employee, License, getAllEmployees, createEmployee, updateEmployee } from '@/services/employeeService';
 import { ChangeRequest, getPendingChangeRequests, updateChangeRequestStatus } from '@/services/changeRequestService';
 import { Switch } from '../ui/switch';
 import { useAuth } from '@/hooks/use-auth';
+
+const initialNewEmployeeData: Omit<Employee, 'id'> = {
+    name: '',
+    email: '',
+    role: '',
+    idType: 'Cédula',
+    idNumber: '',
+    cellphoneNumber: '',
+    licensePermission: false,
+    licenses: [],
+    status: 'Active',
+    salary: 0
+};
 
 export default function HRDashboard() {
   const { user } = useAuth();
@@ -33,18 +46,7 @@ export default function HRDashboard() {
   const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
   const [isEditingDetail, setIsEditingDetail] = useState(false);
 
-  
-  const [newEmployeeData, setNewEmployeeData] = useState<Omit<Employee, 'id'>>({
-      name: '',
-      email: '',
-      role: '',
-      idType: 'Cédula',
-      idNumber: '',
-      cellphoneNumber: '',
-      licensePermission: false,
-      status: 'Active',
-      salary: 0
-  });
+  const [newEmployeeData, setNewEmployeeData] = useState<Omit<Employee, 'id'>>(initialNewEmployeeData);
 
   const { toast } = useToast();
   
@@ -92,10 +94,7 @@ export default function HRDashboard() {
         description: `${newEmployeeData.name} has been added to the employee list.`,
     });
     setCreateIsDialogOpen(false);
-    setNewEmployeeData({
-        name: '', email: '', role: '', idType: 'Cédula', idNumber: '', 
-        cellphoneNumber: '', licensePermission: false, status: 'Active', salary: 0
-    });
+    setNewEmployeeData(initialNewEmployeeData);
     fetchData();
   };
   
@@ -125,6 +124,41 @@ export default function HRDashboard() {
           default: return 'bg-gray-100 text-gray-800';
       }
   }
+
+  const handleLicenseChange = (index: number, field: keyof License, value: string, isNew: boolean) => {
+    if (isNew) {
+        const newLicenses = [...newEmployeeData.licenses];
+        newLicenses[index] = { ...newLicenses[index], [field]: value };
+        setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
+    } else if (selectedEmployee) {
+        const newLicenses = [...selectedEmployee.licenses];
+        newLicenses[index] = { ...newLicenses[index], [field]: value };
+        setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
+    }
+  };
+
+  const addLicenseField = (isNew: boolean) => {
+      if (isNew) {
+          if(newEmployeeData.licenses.length < 3) {
+            setNewEmployeeData(prev => ({...prev, licenses: [...prev.licenses, { type: '', number: '', country: ''}]}));
+          }
+      } else if (selectedEmployee && selectedEmployee.licenses.length < 3) {
+          setSelectedEmployee(prev => prev ? ({...prev, licenses: [...prev.licenses, { type: '', number: '', country: ''}]}) : prev);
+      }
+  };
+
+  const removeLicenseField = (index: number, isNew: boolean) => {
+    if(isNew) {
+        const newLicenses = [...newEmployeeData.licenses];
+        newLicenses.splice(index, 1);
+        setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
+    } else if (selectedEmployee) {
+        const newLicenses = [...selectedEmployee.licenses];
+        newLicenses.splice(index, 1);
+        setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
+    }
+  };
+
 
   const canEdit = user?.role === 'admin' || user?.role === 'hr';
 
@@ -209,13 +243,31 @@ export default function HRDashboard() {
                       <Label htmlFor="cellphone-create">Cellphone Number</Label>
                       <Input id="cellphone-create" type="tel" value={newEmployeeData.cellphoneNumber} onChange={e => setNewEmployeeData({...newEmployeeData, cellphoneNumber: e.target.value})} />
 
+                       <Label htmlFor="salary-create">Salary (CRC)</Label>
+                      <Input id="salary-create" type="number" value={newEmployeeData.salary} onChange={e => setNewEmployeeData({...newEmployeeData, salary: parseFloat(e.target.value) || 0})} />
+
                       <div className="flex items-center space-x-2">
                         <Label htmlFor="license-create">Has License?</Label>
                         <Switch id="license-create" checked={newEmployeeData.licensePermission} onCheckedChange={val => setNewEmployeeData({...newEmployeeData, licensePermission: val})} />
                       </div>
-
-                       <Label htmlFor="salary-create">Salary (CRC)</Label>
-                      <Input id="salary-create" type="number" value={newEmployeeData.salary} onChange={e => setNewEmployeeData({...newEmployeeData, salary: parseFloat(e.target.value) || 0})} />
+                      {newEmployeeData.licensePermission && (
+                        <div className="space-y-4 rounded-md border p-4">
+                           <Label>License Details</Label>
+                            {newEmployeeData.licenses.map((license, index) => (
+                                <div key={index} className="space-y-2 relative">
+                                    <Input placeholder="License Type (e.g. Car, Motorcycle)" value={license.type} onChange={e => handleLicenseChange(index, 'type', e.target.value, true)} />
+                                    <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, true)} />
+                                    <Input placeholder="Country" value={license.country} onChange={e => handleLicenseChange(index, 'country', e.target.value, true)} />
+                                    <Button variant="ghost" size="icon" className="absolute top-0 right-0" onClick={() => removeLicenseField(index, true)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                            ))}
+                            {newEmployeeData.licenses.length < 3 && (
+                                <Button variant="outline" size="sm" onClick={() => addLicenseField(true)}>Add License</Button>
+                            )}
+                        </div>
+                      )}
                   </div>
                   <DialogFooter>
                       <Button onClick={handleCreateEmployee}>Add Employee</Button>
@@ -293,9 +345,9 @@ export default function HRDashboard() {
                             <Label htmlFor="update-cellphone">Cellphone</Label>
                             <Input id="update-cellphone" value={selectedEmployee.cellphoneNumber} onChange={(e) => setSelectedEmployee({...selectedEmployee, cellphoneNumber: e.target.value})} />
                         </div>
-                        <div className="flex items-center space-x-2">
-                           <Label htmlFor="update-license">Has License?</Label>
-                           <Switch id="update-license" checked={selectedEmployee.licensePermission} onCheckedChange={val => setSelectedEmployee({...selectedEmployee, licensePermission: val})} />
+                        <div>
+                            <Label htmlFor="update-salary">Salary (CRC)</Label>
+                            <Input id="update-salary" type="number" value={selectedEmployee.salary} onChange={(e) => setSelectedEmployee({...selectedEmployee, salary: parseFloat(e.target.value) || 0})} />
                         </div>
                         <div>
                             <Label htmlFor="update-status">Status</Label>
@@ -308,10 +360,29 @@ export default function HRDashboard() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div>
-                            <Label htmlFor="update-salary">Salary (CRC)</Label>
-                            <Input id="update-salary" type="number" value={selectedEmployee.salary} onChange={(e) => setSelectedEmployee({...selectedEmployee, salary: parseFloat(e.target.value) || 0})} />
+
+                        <div className="flex items-center space-x-2">
+                           <Label htmlFor="update-license">Has License?</Label>
+                           <Switch id="update-license" checked={selectedEmployee.licensePermission} onCheckedChange={val => setSelectedEmployee({...selectedEmployee, licensePermission: val, licenses: val ? selectedEmployee.licenses : []})} />
                         </div>
+                        {selectedEmployee.licensePermission && (
+                            <div className="space-y-4 rounded-md border p-4">
+                                <Label>License Details</Label>
+                                {(selectedEmployee.licenses || []).map((license, index) => (
+                                    <div key={index} className="space-y-2 relative">
+                                        <Input placeholder="License Type" value={license.type} onChange={e => handleLicenseChange(index, 'type', e.target.value, false)} />
+                                        <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, false)} />
+                                        <Input placeholder="Country" value={license.country} onChange={e => handleLicenseChange(index, 'country', e.target.value, false)} />
+                                        <Button variant="ghost" size="icon" className="absolute top-0 right-0" onClick={() => removeLicenseField(index, false)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                {selectedEmployee.licenses.length < 3 && (
+                                    <Button variant="outline" size="sm" onClick={() => addLicenseField(false)}>Add License</Button>
+                                )}
+                            </div>
+                        )}
                     </>
                 ) : (
                     <>
@@ -321,9 +392,24 @@ export default function HRDashboard() {
                         <div className="grid grid-cols-2"><Label>ID Type</Label><p>{selectedEmployee.idType}</p></div>
                         <div className="grid grid-cols-2"><Label>ID Number</Label><p>{selectedEmployee.idNumber}</p></div>
                         <div className="grid grid-cols-2"><Label>Cellphone</Label><p>{selectedEmployee.cellphoneNumber}</p></div>
-                        <div className="grid grid-cols-2"><Label>License</Label><p>{selectedEmployee.licensePermission ? 'Yes' : 'No'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Status</Label><p>{selectedEmployee.status}</p></div>
                         <div className="grid grid-cols-2"><Label>Salary</Label><p>{new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(selectedEmployee.salary)}</p></div>
+                        <div className="grid grid-cols-2"><Label>Status</Label><p>{selectedEmployee.status}</p></div>
+                        <div className="grid grid-cols-2"><Label>Has License?</Label><p>{selectedEmployee.licensePermission ? 'Yes' : 'No'}</p></div>
+                        {selectedEmployee.licensePermission && (selectedEmployee.licenses || []).length > 0 && (
+                            <div>
+                                <Label>Licenses</Label>
+                                <div className="space-y-2 mt-1">
+                                    {selectedEmployee.licenses.map((license, index) => (
+                                        <div key={index} className="p-2 border rounded-md text-sm">
+                                            <p><strong>Type:</strong> {license.type}</p>
+                                            <p><strong>Number:</strong> {license.number}</p>
+                                            <p><strong>Country:</strong> {license.country}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                     </>
                 )}
             </div>

@@ -1,6 +1,12 @@
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, doc, query, where } from 'firebase/firestore';
 
+export type License = {
+    type: string;
+    number: string;
+    country: string;
+};
+
 export type Employee = {
     id: string;
     name: string;
@@ -10,6 +16,7 @@ export type Employee = {
     idNumber: string;
     cellphoneNumber: string;
     licensePermission: boolean;
+    licenses: License[];
     status: 'Active' | 'LOA' | 'Terminated';
     salary: number; // Stored as a number
 };
@@ -32,7 +39,12 @@ export const getEmployeeByEmail = async (email: string): Promise<Employee | null
 };
 
 export const createEmployee = async (employeeData: Omit<Employee, 'id'>) => {
-    const docRef = await addDoc(employeesCollection, employeeData);
+    // Ensure licenses is always an array
+    const dataToCreate = {
+        ...employeeData,
+        licenses: employeeData.licenses || [],
+    };
+    const docRef = await addDoc(employeesCollection, dataToCreate);
     return docRef.id;
 };
 
