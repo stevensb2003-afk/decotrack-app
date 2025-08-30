@@ -12,7 +12,7 @@ export type Employee = {
     name: string;
     email: string;
     role: string;
-    idType: 'Cédula' | 'Pasaporte' | 'Residencia';
+    idType: 'ID Nacional' | 'Pasaporte' | 'Cédula Extranjero';
     idNumber: string;
     cellphoneNumber: string;
     licensePermission: boolean;

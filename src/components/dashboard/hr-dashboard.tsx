@@ -28,7 +28,7 @@ const initialNewEmployeeData: Omit<Employee, 'id'> = {
     name: '',
     email: '',
     role: '',
-    idType: 'Cédula',
+    idType: 'ID Nacional',
     idNumber: '',
     cellphoneNumber: '',
     licensePermission: false,
@@ -268,8 +268,10 @@ export default function HRDashboard() {
   
   const handleSaveChanges = async () => {
     if (!selectedEmployee) return;
+
+    const { id, ...dataToUpdate } = selectedEmployee;
     
-    await updateEmployee(selectedEmployee.id, selectedEmployee);
+    await updateEmployee(id, dataToUpdate);
 
     toast({
         title: "Record Updated",
@@ -432,9 +434,9 @@ export default function HRDashboard() {
                       <Select value={newEmployeeData.idType} onValueChange={(val: Employee['idType']) => setNewEmployeeData({...newEmployeeData, idType: val})}>
                         <SelectTrigger><SelectValue/></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Cédula">Cédula</SelectItem>
+                          <SelectItem value="ID Nacional">ID Nacional</SelectItem>
                           <SelectItem value="Pasaporte">Pasaporte</SelectItem>
-                          <SelectItem value="Residencia">Residencia</SelectItem>
+                          <SelectItem value="Cédula Extranjero">Cédula Extranjero</SelectItem>
                         </SelectContent>
                       </Select>
                       
@@ -554,9 +556,9 @@ export default function HRDashboard() {
                             <Select value={selectedEmployee.idType} onValueChange={(val: Employee['idType']) => setSelectedEmployee({...selectedEmployee, idType: val})}>
                                 <SelectTrigger><SelectValue/></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Cédula">Cédula</SelectItem>
+                                    <SelectItem value="ID Nacional">ID Nacional</SelectItem>
                                     <SelectItem value="Pasaporte">Pasaporte</SelectItem>
-                                    <SelectItem value="Residencia">Residencia</SelectItem>
+                                    <SelectItem value="Cédula Extranjero">Cédula Extranjero</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
