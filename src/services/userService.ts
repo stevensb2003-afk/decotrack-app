@@ -1,6 +1,6 @@
 'use server';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where, deleteDoc } from 'firebase/firestore';
 import { createEmployee } from './employeeService';
 
 export type Role = 'employee' | 'hr' | 'management' | 'admin';
@@ -45,9 +45,8 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
 };
 
 export const getUserByEmail = async (email: string): Promise<SystemUser | null> => {
-    // One-time check to create a default admin if none exist
     const newAdmin = await createDefaultAdminIfNeeded(email);
-    if(newAdmin) {
+    if(newAdmin && newAdmin.email.toLowerCase() === email.toLowerCase()) {
         return newAdmin;
     }
 
@@ -63,6 +62,13 @@ export const getUserByEmail = async (email: string): Promise<SystemUser | null> 
 
 export const createUser = async (userData: Omit<SystemUser, 'id'>) => {
   const docRef = await addDoc(usersCollection, userData);
+  if (userData.role !== 'admin') {
+      await createEmployee({
+        name: userData.name,
+        email: userData.email,
+        role: userData.role.charAt(0).toUpperCase() + userData.role.slice(1),
+      });
+    }
   return docRef.id;
 };
 
@@ -75,3 +81,8 @@ export const updateUserPassword = async (userId: string, newPassword: string) =>
     const userDoc = doc(db, 'systemUsers', userId);
     await updateDoc(userDoc, { password: newPassword });
 }
+
+export const deleteUser = async (userId: string) => {
+  const userDoc = doc(db, 'systemUsers', userId);
+  await deleteDoc(userDoc);
+};

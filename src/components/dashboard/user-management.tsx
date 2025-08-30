@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, UserPlus, Eye } from 'lucide-react';
+import { MoreHorizontal, UserPlus, Eye, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,15 +21,23 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { SystemUser, Role, getAllUsers, createUser, updateUserRole } from '@/services/userService';
-import { createEmployee } from '@/services/employeeService';
-
+import { SystemUser, Role, getAllUsers, createUser, updateUserRole, deleteUser } from '@/services/userService';
 
 const SECURITY_CODE = "D3co.2025";
 
@@ -41,6 +49,7 @@ export default function UserManagement() {
   const [isCodePromptOpen, setIsCodePromptOpen] = useState(false);
   const [isPasswordViewOpen, setIsPasswordViewOpen] = useState(false);
   const [selectedUserForPassword, setSelectedUserForPassword] = useState<SystemUser | null>(null);
+  const [userToDelete, setUserToDelete] = useState<SystemUser | null>(null);
   const [securityCodeInput, setSecurityCodeInput] = useState("");
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: '' as Role | ''});
   const { toast } = useToast();
@@ -73,16 +82,7 @@ export default function UserManagement() {
     
     await createUser(newUserEntry);
 
-    if (newUser.role !== 'admin') {
-      await createEmployee({
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role.charAt(0).toUpperCase() + newUser.role.slice(1),
-      });
-      toast({ title: "User & Employee Created", description: "New user and corresponding employee record have been created." });
-    } else {
-        toast({ title: "User Created", description: "New user has been created successfully." });
-    }
+    toast({ title: "User Created", description: "New user has been created successfully." });
 
     setIsCreating(false);
     setNewUser({ name: '', email: '', password: '', role: ''});
@@ -108,6 +108,13 @@ export default function UserManagement() {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    await deleteUser(userToDelete.id);
+    toast({ title: "User Deleted", description: `User ${userToDelete.email} has been deleted.` });
+    setUserToDelete(null);
+    fetchUsers();
+  };
 
   return (
     <>
@@ -122,7 +129,12 @@ export default function UserManagement() {
                   <Button><UserPlus className="mr-2 h-4 w-4" /> Create User</Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader><DialogTitle>Create New User</DialogTitle></DialogHeader>
+                  <DialogHeader>
+                    <DialogTitle>Create New User</DialogTitle>
+                    <DialogDescription>
+                      Non-admin users will automatically have an employee profile created.
+                    </DialogDescription>
+                  </DialogHeader>
                   <div className="grid gap-4 py-4">
                       <Label htmlFor="name-create">Name</Label>
                       <Input id="name-create" value={newUser.name} onChange={(e) => setNewUser({...newUser, name: e.target.value})} placeholder="John Doe" />
@@ -166,7 +178,7 @@ export default function UserManagement() {
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0" disabled={authUser?.role !== 'admin' && user.role === 'admin'}>
+                        <Button variant="ghost" className="h-8 w-8 p-0" disabled={authUser?.email === user.email}>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -178,6 +190,10 @@ export default function UserManagement() {
                             <DropdownMenuItem onClick={() => handleViewPasswordClick(user)}>
                               <Eye className="mr-2 h-4 w-4" />
                               View Password
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setUserToDelete(user)} className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete User
                             </DropdownMenuItem>
                           </>
                         )}
@@ -193,7 +209,9 @@ export default function UserManagement() {
       
       <Dialog open={!!isEditing} onOpenChange={(open) => !open && setIsEditing(null)}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader><DialogTitle>Edit Role for {isEditing?.email}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Edit Role for {isEditing?.email}</DialogTitle>
+          </DialogHeader>
           <div className="py-4">
             <Label htmlFor="role-edit">Role</Label>
             <Select defaultValue={isEditing?.role} onValueChange={(newRole) => handleRoleChange(isEditing!.id, newRole as Role)}>
@@ -254,6 +272,21 @@ export default function UserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the user account for <span className="font-semibold">{userToDelete?.email}</span> and remove their data from our servers.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className={buttonVariants({ variant: "destructive" })}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
