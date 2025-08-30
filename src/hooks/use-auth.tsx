@@ -2,46 +2,53 @@
 
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { getUserByEmail, SystemUser } from '@/services/userService';
 
 type Role = 'employee' | 'hr' | 'management' | 'admin' | null;
 
 interface AuthContextType {
-  user: { email: string; role: Role } | null;
-  login: (email: string, role: Role) => void;
+  user: SystemUser | null;
+  login: (email: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<{ email: string; role: Role } | null>(null);
+const AuthProviderClient = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<SystemUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    // This effect runs only on the client-side
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
-      if (pathname === '/login') {
-        router.replace('/dashboard');
-      }
-    } else {
-        if (pathname !== '/login') {
-            router.replace('/login');
-        }
+       if (pathname === '/login') {
+         router.replace('/dashboard');
+       }
+    } else if (pathname !== '/login') {
+      router.replace('/login');
     }
     setLoading(false);
-  }, []);
+  }, [pathname, router]);
 
-  const login = (email: string, role: Role) => {
-    const userData = { email, role };
-    localStorage.setItem('user', JSON.stringify(userData));
-    setUser(userData);
-    router.push('/dashboard');
+  const login = async (email: string) => {
+    setLoading(true);
+    const systemUser = await getUserByEmail(email);
+
+    if (systemUser) {
+      localStorage.setItem('user', JSON.stringify(systemUser));
+      setUser(systemUser);
+      router.push('/dashboard');
+    } else {
+        // Handle user not found
+        console.error("Login failed: User not found");
+        // We'll need a toast message here later
+    }
+    setLoading(false);
   };
 
   const logout = () => {
@@ -50,12 +57,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     router.push('/login');
   };
 
-  return (
+   return (
     <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
 };
+
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+    const [isClient, setIsClient] = useState(false)
+ 
+    useEffect(() => {
+        setIsClient(true)
+    }, [])
+
+    if (!isClient) {
+        return null;
+    }
+    
+    return <AuthProviderClient>{children}</AuthProviderClient>
+}
+
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

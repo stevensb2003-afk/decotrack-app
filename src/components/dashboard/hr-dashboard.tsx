@@ -27,39 +27,42 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { mockEmployees, setMockEmployees, mockChangeRequests, setMockChangeRequests, ChangeRequest } from '@/lib/mock-data';
+import { Employee, getAllEmployees, createEmployee, updateEmployee } from '@/services/employeeService';
+import { ChangeRequest, getPendingChangeRequests, updateChangeRequestStatus } from '@/services/changeRequestService';
 
 export default function HRDashboard() {
-  const [employees, setEmployees] = useState(mockEmployees);
-  const [changeRequests, setChangeRequests] = useState(mockChangeRequests);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCreateDialogOpen, setCreateIsDialogOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<(typeof employees)[0] | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [effectiveDate, setEffectiveDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
   
+  const fetchData = async () => {
+      const emps = await getAllEmployees();
+      const reqs = await getPendingChangeRequests();
+      setEmployees(emps);
+      setChangeRequests(reqs);
+  };
+
   useEffect(() => {
-    setEmployees(mockEmployees);
-    setChangeRequests(mockChangeRequests.filter(req => req.status === 'pending'));
+    fetchData();
   }, []);
 
-  const handleUpdateClick = (employee: (typeof employees)[0]) => {
+  const handleUpdateClick = (employee: Employee) => {
     setSelectedEmployee(employee);
     setEffectiveDate(new Date());
     setIsDialogOpen(true);
   };
   
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     if (!selectedEmployee) return;
 
     const updatedName = (document.getElementById('name-update') as HTMLInputElement).value;
     const updatedRole = (document.getElementById('role-update') as HTMLInputElement).value;
     
-    const updatedEmployees = employees.map(emp => 
-      emp.id === selectedEmployee.id ? { ...emp, name: updatedName, role: updatedRole } : emp
-    );
-    setEmployees(updatedEmployees);
-    setMockEmployees(updatedEmployees);
+    await updateEmployee(selectedEmployee.id, { name: updatedName, role: updatedRole });
 
     toast({
         title: "Record Updated",
@@ -67,59 +70,40 @@ export default function HRDashboard() {
     });
     setIsDialogOpen(false);
     setSelectedEmployee(null);
+    fetchData();
   };
 
-  const handleCreateEmployee = () => {
+  const handleCreateEmployee = async () => {
     const name = (document.getElementById('name-create') as HTMLInputElement).value;
     const email = (document.getElementById('email-create') as HTMLInputElement).value;
     const role = (document.getElementById('role-create') as HTMLInputElement).value;
 
-    const newEmployee = {
-      id: `USR${(employees.length + 1).toString().padStart(3, '0')}`,
-      name,
-      email,
-      role,
-      status: 'Absent'
-    };
-
-    const updatedEmployees = [...employees, newEmployee];
-    setEmployees(updatedEmployees);
-    setMockEmployees(updatedEmployees);
+    await createEmployee({ name, email, role });
 
     toast({
         title: "Employee Created",
         description: `${name} has been added to the employee list.`,
     });
     setCreateIsDialogOpen(false);
+    fetchData();
   };
   
-  const handleRequestAction = (requestId: string, action: 'approved' | 'rejected') => {
-    const request = mockChangeRequests.find(req => req.id === requestId);
+  const handleRequestAction = async (requestId: string, action: 'approved' | 'rejected') => {
+    const request = changeRequests.find(req => req.id === requestId);
     if(!request) return;
 
     if(action === 'approved') {
-        const updatedEmployees = mockEmployees.map(emp => {
-            if (emp.id === request.employeeId) {
-                const fieldToUpdate = request.fieldName.toLowerCase() as 'name' | 'email';
-                return { ...emp, [fieldToUpdate]: request.newValue };
-            }
-            return emp;
-        });
-        setMockEmployees(updatedEmployees);
-        setEmployees(updatedEmployees);
+        const fieldToUpdate = request.fieldName.toLowerCase() as 'name' | 'email';
+        await updateEmployee(request.employeeId, { [fieldToUpdate]: request.newValue });
     }
     
-    const updatedRequests = mockChangeRequests.map(req => 
-        req.id === requestId ? { ...req, status: action } : req
-    );
-    setMockChangeRequests(updatedRequests);
-    setChangeRequests(updatedRequests.filter(req => req.status === 'pending'));
+    await updateChangeRequestStatus(requestId, action);
 
     toast({
         title: `Request ${action.charAt(0).toUpperCase() + action.slice(1)}`,
         description: `The change request has been ${action}.`,
     });
-
+    fetchData();
   };
 
 

@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { getUserByEmail } from "@/services/userService";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -26,7 +27,6 @@ const formSchema = z.object({
   }),
 });
 
-type Role = 'employee' | 'hr' | 'management' | 'admin';
 
 export function LoginForm() {
   const { login } = useAuth();
@@ -40,24 +40,22 @@ export function LoginForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Determine role based on email for demo purposes
-    let role: Role = 'employee';
-    if (values.email === 'decoinnova24@gmail.com') {
-      role = 'admin';
-    } else if (values.email.includes('hr@')) {
-      role = 'hr';
-    } else if (values.email.includes('manager@')) {
-      role = 'management';
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    const systemUser = await getUserByEmail(values.email);
+
+    if (systemUser && systemUser.password === values.password) {
+        await login(values.email);
+        toast({
+            title: "Login Successful",
+            description: "Redirecting to your dashboard...",
+        });
+    } else {
+        toast({
+            title: "Login Failed",
+            description: "Invalid email or password.",
+            variant: "destructive"
+        });
     }
-
-    // Call login from auth context
-    login(values.email, role);
-
-    toast({
-      title: "Login Successful",
-      description: "Redirecting to your dashboard...",
-    });
   }
 
   return (

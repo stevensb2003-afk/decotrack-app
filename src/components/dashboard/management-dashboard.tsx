@@ -1,17 +1,34 @@
+"use client";
+
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, UserCheck, UserX, ArrowRight, ArrowLeft } from "lucide-react";
-import { mockEmployees, recentActivity } from "@/lib/mock-data";
+import { getAllEmployees, Employee } from '@/services/employeeService';
+import { getRecentActivities, RecentActivity } from '@/services/attendanceService';
 
 export default function ManagementDashboard() {
-    const totalEmployees = mockEmployees.length;
-    const presentEmployees = mockEmployees.filter(e => e.status === 'Present').length;
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [activities, setActivities] = useState<RecentActivity[]>([]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            const emps = await getAllEmployees();
+            const acts = await getRecentActivities();
+            setEmployees(emps);
+            setActivities(acts);
+        };
+        fetchData();
+    }, []);
+
+    const totalEmployees = employees.length;
+    const presentEmployees = employees.filter(e => e.status === 'Present').length;
     const absentEmployees = totalEmployees - presentEmployees;
 
     const kpiData = [
         { title: "Total Employees", value: totalEmployees.toString(), icon: Users, change: "All registered employees" },
-        { title: "Present Employees", value: presentEmployees.toString(), icon: UserCheck, change: `${Math.round((presentEmployees/totalEmployees)*100)}% attendance` },
-        { title: "Absent Employees", value: absentEmployees.toString(), icon: UserX, change: `${Math.round((absentEmployees/totalEmployees)*100)}% absent` },
+        { title: "Present Employees", value: presentEmployees.toString(), icon: UserCheck, change: totalEmployees > 0 ? `${Math.round((presentEmployees/totalEmployees)*100)}% attendance` : `0% attendance` },
+        { title: "Absent Employees", value: absentEmployees.toString(), icon: UserX, change: totalEmployees > 0 ? `${Math.round((absentEmployees/totalEmployees)*100)}% absent` : `0% absent` },
     ];
 
   return (
@@ -45,7 +62,7 @@ export default function ManagementDashboard() {
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {recentActivity.map((activity, index) => (
+                {activities.map((activity, index) => (
                     <TableRow key={index}>
                         <TableCell className="font-medium">{activity.name}</TableCell>
                         <TableCell>

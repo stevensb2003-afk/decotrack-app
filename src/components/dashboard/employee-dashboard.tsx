@@ -5,48 +5,56 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowRight, ArrowLeft, Hourglass } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-
-type AttendanceRecord = {
-  type: 'Entry' | 'Exit';
-  timestamp: Date;
-};
-
-const mockRecords: AttendanceRecord[] = [
-  { type: 'Exit', timestamp: new Date(new Date().getTime() - 24 * 60 * 60 * 1000) },
-  { type: 'Entry', timestamp: new Date(new Date().getTime() - (24 + 8) * 60 * 60 * 1000) },
-  { type: 'Exit', timestamp: new Date(new Date().getTime() - 2 * 24 * 60 * 60 * 1000) },
-  { type: 'Entry', timestamp: new Date(new Date().getTime() - (2* 24 + 8) * 60 * 60 * 1000) },
-  { type: 'Exit', timestamp: new Date(new Date().getTime() - 3 * 24 * 60 * 60 * 1000) },
-];
-
+import { useAuth } from "@/hooks/use-auth";
+import { AttendanceRecord, markAttendance, getEmployeeAttendance } from "@/services/attendanceService";
+import { getEmployeeByEmail } from "@/services/employeeService";
+import { Timestamp } from "firebase/firestore";
 
 export default function EmployeeDashboard() {
   const { toast } = useToast();
-  const [records, setRecords] = useState<AttendanceRecord[]>(mockRecords);
+  const { user } = useAuth();
+  const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [lastAction, setLastAction] = useState<'Exit' | 'Entry' | null>(null);
   const [timeWorked, setTimeWorked] = useState("0h 0m");
 
   useEffect(() => {
+    const fetchEmployeeData = async () => {
+      if (user?.email) {
+        const employee = await getEmployeeByEmail(user.email);
+        if (employee) {
+          setEmployeeId(employee.id);
+          const attendanceRecords = await getEmployeeAttendance(employee.id, 5);
+          setRecords(attendanceRecords);
+        }
+      }
+    };
+    fetchEmployeeData();
+  }, [user]);
+
+  useEffect(() => {
     if (records.length > 0) {
-      const latestRecord = records.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+      const latestRecord = records.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis())[0];
       setLastAction(latestRecord.type);
     }
   }, [records]);
   
   useEffect(() => {
-    const todayRecords = records.filter(r => new Date(r.timestamp).toDateString() === new Date().toDateString());
+    if (records.length === 0) return;
+
+    const todayRecords = records.filter(r => r.timestamp.toDate().toDateString() === new Date().toDateString());
     const latestEntry = todayRecords.find(r => r.type === 'Entry');
     
     if (lastAction === 'Exit' && latestEntry) {
         const latestExit = todayRecords.find(r => r.type === 'Exit');
-        if (latestExit && latestExit.timestamp > latestEntry.timestamp) {
-            const diff = latestExit.timestamp.getTime() - latestEntry.timestamp.getTime();
+        if (latestExit && latestExit.timestamp.toMillis() > latestEntry.timestamp.toMillis()) {
+            const diff = latestExit.timestamp.toMillis() - latestEntry.timestamp.toMillis();
             const hours = Math.floor(diff / 3600000);
             const minutes = Math.floor((diff % 3600000) / 60000);
             setTimeWorked(`${hours}h ${minutes}m`);
         }
     } else if (lastAction === 'Entry' && latestEntry) {
-        const diff = new Date().getTime() - latestEntry.timestamp.getTime();
+        const diff = new Date().getTime() - latestEntry.timestamp.toMillis();
         const hours = Math.floor(diff / 3600000);
         const minutes = Math.floor((diff % 3600000) / 60000);
         setTimeWorked(`${hours}h ${minutes}m (ongoing)`);
@@ -55,13 +63,21 @@ export default function EmployeeDashboard() {
     }
   }, [records, lastAction]);
 
-  const handleMarking = (type: 'Entry' | 'Exit') => {
-    const newRecord = { type, timestamp: new Date() };
+  const handleMarking = async (type: 'Entry' | 'Exit') => {
+    if (!employeeId) return;
+
+    const newRecord = { 
+        employeeId, 
+        type, 
+        timestamp: Timestamp.now() 
+    };
+    await markAttendance(newRecord);
+    
     setRecords([newRecord, ...records]);
     setLastAction(type);
     toast({
       title: `Marked ${type} Successfully`,
-      description: `Your ${type.toLowerCase()} at ${newRecord.timestamp.toLocaleTimeString()} has been recorded.`,
+      description: `Your ${type.toLowerCase()} at ${newRecord.timestamp.toDate().toLocaleTimeString()} has been recorded.`,
     });
   };
 
@@ -107,8 +123,8 @@ export default function EmployeeDashboard() {
                         {record.type}
                         </span>
                     </TableCell>
-                    <TableCell>{new Date(record.timestamp).toLocaleDateString()}</TableCell>
-                    <TableCell>{new Date(record.timestamp).toLocaleTimeString()}</TableCell>
+                    <TableCell>{record.timestamp.toDate().toLocaleDateString()}</TableCell>
+                    <TableCell>{record.timestamp.toDate().toLocaleTimeString()}</TableCell>
                     </TableRow>
                 ))}
                 </TableBody>

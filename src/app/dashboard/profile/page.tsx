@@ -7,28 +7,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { mockEmployees, mockChangeRequests, setMockChangeRequests } from '@/lib/mock-data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Employee, getEmployeeByEmail, updateEmployee } from '@/services/employeeService';
+import { createChangeRequest, getPendingRequestForEmployee } from '@/services/changeRequestService';
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [employeeData, setEmployeeData] = useState<(typeof mockEmployees)[0] | null>(null);
+  const [employeeData, setEmployeeData] = useState<Employee | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', role: '' });
   const [pendingRequest, setPendingRequest] = useState(false);
 
 
   useEffect(() => {
-    if (user) {
-      const employee = mockEmployees.find(e => e.email === user.email);
-      if (employee) {
-        setEmployeeData(employee);
-        setFormData({ name: employee.name, email: employee.email, role: employee.role });
-      }
-      const existingRequest = mockChangeRequests.some(req => req.employeeId === employee?.id && req.status === 'pending');
-      setPendingRequest(existingRequest);
-    }
+    const fetchProfileData = async () => {
+        if (user) {
+            const employee = await getEmployeeByEmail(user.email);
+            if (employee) {
+                setEmployeeData(employee);
+                setFormData({ name: employee.name, email: employee.email, role: employee.role });
+                const hasPending = await getPendingRequestForEmployee(employee.id);
+                setPendingRequest(hasPending);
+            }
+        }
+    };
+    fetchProfileData();
   }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,7 +40,7 @@ export default function ProfilePage() {
     setFormData(prev => ({ ...prev, [id]: value }));
   };
 
-  const handleSubmitRequest = () => {
+  const handleSubmitRequest = async () => {
     if (!employeeData) return;
 
     const changes: { fieldName: string, oldValue: string, newValue: string }[] = [];
@@ -53,17 +57,16 @@ export default function ProfilePage() {
       return;
     }
     
-    const newRequests = changes.map((change, index) => ({
-        id: `REQ${Date.now()}${index}`,
-        employeeId: employeeData.id,
-        employeeName: employeeData.name,
-        fieldName: change.fieldName,
-        oldValue: change.oldValue,
-        newValue: change.newValue,
-        status: 'pending' as const,
-    }));
-
-    setMockChangeRequests([...mockChangeRequests, ...newRequests]);
+    for (const change of changes) {
+        await createChangeRequest({
+            employeeId: employeeData.id,
+            employeeName: employeeData.name,
+            fieldName: change.fieldName,
+            oldValue: change.oldValue,
+            newValue: change.newValue,
+            status: 'pending',
+        });
+    }
 
     toast({
       title: "Request Submitted",
