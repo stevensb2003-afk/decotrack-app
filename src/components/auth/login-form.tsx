@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { getUserByEmail } from "@/services/userService";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -41,20 +40,18 @@ export function LoginForm() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const systemUser = await getUserByEmail(values.email);
-
-    if (systemUser && systemUser.password === values.password) {
-        await login(values.email);
-        toast({
-            title: "Login Successful",
-            description: "Redirecting to your dashboard...",
-        });
-    } else {
-        toast({
-            title: "Login Failed",
-            description: "Invalid email or password.",
-            variant: "destructive"
-        });
+    try {
+      await login(values.email, values.password);
+      toast({
+          title: "Login Successful",
+          description: "Redirecting to your dashboard...",
+      });
+    } catch (error) {
+      toast({
+          title: "Login Failed",
+          description: "Invalid email or password.",
+          variant: "destructive"
+      });
     }
   }
 
