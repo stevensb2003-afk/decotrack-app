@@ -39,24 +39,24 @@ export default function ManagementDashboard() {
 
     useEffect(() => {
         if (employees.length > 0) {
-            const today = new Date().toDateString();
-            let presentToday = 0;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
 
             const attendanceQuery = query(
                 collection(db, 'attendance'),
-                where('timestamp', '>=', new Date(today))
+                where('timestamp', '>=', today),
+                orderBy('timestamp', 'asc') // Fetch in chronological order
             );
 
             const unsubscribe = onSnapshot(attendanceQuery, (snapshot) => {
                 const latestActions = new Map<string, 'Entry' | 'Exit'>();
+                // Process records in order to find the *last* action for each employee
                 snapshot.docs.forEach(doc => {
                     const record = doc.data() as AttendanceRecord;
-                    if (!latestActions.has(record.employeeId)) {
-                        latestActions.set(record.employeeId, record.type);
-                    }
+                    latestActions.set(record.employeeId, record.type);
                 });
 
-                presentToday = 0;
+                let presentToday = 0;
                 for (const type of latestActions.values()) {
                     if (type === 'Entry') {
                         presentToday++;
