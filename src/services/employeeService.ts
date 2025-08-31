@@ -26,6 +26,7 @@ export type Employee = {
     hireDate: Timestamp;
     employmentType: 'Full time' | 'Part time' | 'Practicant' | 'n/a';
     salaryType: 'Hourly' | 'Salary' | 'Profesional Services';
+    avatarUrl?: string;
 };
 
 const employeesCollection = collection(db, 'employees');
@@ -50,6 +51,7 @@ export const createEmployee = async (employeeData: Omit<Employee, 'id'>) => {
     const dataToCreate = {
         ...employeeData,
         licenses: employeeData.licenses || [],
+        avatarUrl: '',
     };
     const docRef = await addDoc(employeesCollection, dataToCreate);
     return docRef.id;

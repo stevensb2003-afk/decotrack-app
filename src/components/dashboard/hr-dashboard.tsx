@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon } from 'lucide-react';
+import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
 import { updateUserPassword } from '@/services/userService';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
 const initialNewEmployeeData: Omit<Employee, 'id'> = {
     name: '',
@@ -47,6 +48,7 @@ const initialNewEmployeeData: Omit<Employee, 'id'> = {
     hireDate: Timestamp.now(),
     employmentType: 'n/a',
     salaryType: 'Salary',
+    avatarUrl: '',
 };
 
 const countries = [
@@ -273,7 +275,13 @@ export default function HRDashboard() {
   }, []);
 
   const handleViewDetailsClick = (employee: Employee) => {
-    setSelectedEmployee(employee);
+    const employeeCopy: Employee = {
+        ...employee,
+        birthDate: employee.birthDate,
+        hireDate: employee.hireDate,
+        licenses: employee.licenses ? [...employee.licenses] : []
+    };
+    setSelectedEmployee(employeeCopy);
     setIsDetailViewOpen(true);
     setIsEditingDetail(false);
   };
@@ -416,6 +424,11 @@ export default function HRDashboard() {
         }
     }
   };
+
+  const getInitials = (name: string = '') => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
 
   return (
     <div className="space-y-6">
@@ -631,7 +644,15 @@ export default function HRDashboard() {
             <TableBody>
               {employees.map((employee) => (
                 <TableRow key={employee.id} className="cursor-pointer" onClick={() => handleViewDetailsClick(employee)}>
-                  <TableCell className="font-medium">{employee.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-3">
+                        <Avatar>
+                            <AvatarImage src={employee.avatarUrl || ''} alt={employee.name} />
+                            <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
+                        </Avatar>
+                        {employee.name}
+                    </div>
+                  </TableCell>
                   <TableCell>{employee.email}</TableCell>
                   <TableCell>{employee.role}</TableCell>
                   <TableCell>
@@ -649,7 +670,13 @@ export default function HRDashboard() {
       <Dialog open={isDetailViewOpen} onOpenChange={setIsDetailViewOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader className="flex-row items-center justify-between">
-            <DialogTitle>Details for {selectedEmployee?.name}</DialogTitle>
+            <div className='flex items-center gap-4'>
+                <Avatar className="h-12 w-12">
+                    <AvatarImage src={selectedEmployee?.avatarUrl || ''} alt={selectedEmployee?.name} />
+                    <AvatarFallback>{getInitials(selectedEmployee?.name)}</AvatarFallback>
+                </Avatar>
+                <DialogTitle>Details for {selectedEmployee?.name}</DialogTitle>
+            </div>
             {canEdit && (
                 <Button variant="ghost" size="icon" onClick={() => setIsEditingDetail(!isEditingDetail)}>
                     <Pencil className="h-4 w-4" />
@@ -833,7 +860,7 @@ export default function HRDashboard() {
                         <div className="grid grid-cols-2"><Label>Hire Date</Label><p>{selectedEmployee.hireDate ? format(selectedEmployee.hireDate.toDate(), "PPP") : 'N/A'}</p></div>
                         <div className="grid grid-cols-2"><Label>Employment Type</Label><p>{selectedEmployee.employmentType}</p></div>
                         <div className="grid grid-cols-2"><Label>Salary Type</Label><p>{selectedEmployee.salaryType}</p></div>
-                        <div className="grid grid-cols-2"><Label>Salary</Label><p>{new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(selectedEmployee.salary)}</p></div>
+                        <div className="grid grid-cols-2"><Label>Salary</Label><p>{new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(selectedEmployee.salary || 0)}</p></div>
                         <div className="grid grid-cols-2"><Label>Status</Label><p>{selectedEmployee.status}</p></div>
                         <div className="grid grid-cols-2"><Label>Has License?</Label><p>{selectedEmployee.licensePermission ? 'Yes' : 'No'}</p></div>
                         {selectedEmployee.licensePermission && (selectedEmployee.licenses || []).length > 0 && (

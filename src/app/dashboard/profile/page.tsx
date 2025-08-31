@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Employee, getEmployeeByEmail } from '@/services/employeeService';
+import { Employee, getEmployeeByEmail, updateEmployee } from '@/services/employeeService';
 import { createChangeRequest, getPendingRequestForEmployee } from '@/services/changeRequestService';
 import { Camera, CalendarIcon, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
@@ -37,27 +37,28 @@ export default function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const fetchProfileData = async () => {
+      if (user) {
+          setIsLoading(true);
+          const employee = await getEmployeeByEmail(user.email);
+          if (employee) {
+              setEmployeeData(employee);
+              setFormData({ 
+                  name: employee.name, 
+                  email: employee.email, 
+                  role: employee.role,
+                  cellphoneNumber: employee.cellphoneNumber || '',
+                  birthDate: employee.birthDate ? employee.birthDate.toDate() : new Date()
+              });
+              setAvatarUrl(employee.avatarUrl || `https://i.pravatar.cc/150?u=${employee.email}`);
+              const hasPending = await getPendingRequestForEmployee(employee.id);
+              setPendingRequest(hasPending);
+          }
+          setIsLoading(false);
+      }
+  };
+
   useEffect(() => {
-    const fetchProfileData = async () => {
-        if (user) {
-            setIsLoading(true);
-            const employee = await getEmployeeByEmail(user.email);
-            if (employee) {
-                setEmployeeData(employee);
-                setFormData({ 
-                    name: employee.name, 
-                    email: employee.email, 
-                    role: employee.role,
-                    cellphoneNumber: employee.cellphoneNumber || '',
-                    birthDate: employee.birthDate ? employee.birthDate.toDate() : new Date()
-                });
-                setAvatarUrl(`https://i.pravatar.cc/150?u=${employee.email}`);
-                const hasPending = await getPendingRequestForEmployee(employee.id);
-                setPendingRequest(hasPending);
-            }
-            setIsLoading(false);
-        }
-    };
     fetchProfileData();
   }, [user]);
 
@@ -142,13 +143,21 @@ export default function ProfilePage() {
       fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (file && employeeData) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarUrl(reader.result as string);
-        toast({ title: "Profile Picture Updated", description: "Your new picture has been set locally." });
+      reader.onloadend = async () => {
+        const newAvatarUrl = reader.result as string;
+        setAvatarUrl(newAvatarUrl);
+        try {
+          await updateEmployee(employeeData.id, { avatarUrl: newAvatarUrl });
+          toast({ title: "Profile Picture Updated", description: "Your new picture has been saved." });
+        } catch (error) {
+          toast({ title: "Update Failed", description: "Could not save your new profile picture.", variant: "destructive" });
+          // Revert UI if update fails
+          setAvatarUrl(employeeData.avatarUrl || `https://i.pravatar.cc/150?u=${employeeData.email}`);
+        }
       };
       reader.readAsDataURL(file);
     }
