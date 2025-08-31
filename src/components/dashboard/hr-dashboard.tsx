@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -711,7 +712,7 @@ export default function HRDashboard() {
                         </div>
                         <div>
                             <Label htmlFor="update-salary">Salary (CRC)</Label>
-                            <Input id="update-salary" type="number" value={selectedEmployee.salary} onChange={(e) => setSelectedEmployee({...selectedEmployee, salary: parseFloat(e.target.value) || 0})} />
+                            <Input id="update-salary" type="number" value={selectedEmployee.salary || 0} onChange={(e) => setSelectedEmployee({...selectedEmployee, salary: parseFloat(e.target.value) || 0})} />
                         </div>
                         <div>
                             <Label htmlFor="update-status">Status</Label>
@@ -734,7 +735,7 @@ export default function HRDashboard() {
                                 <Label>License Details</Label>
                                 {(selectedEmployee.licenses || []).map((license, index) => (
                                     <div key={index} className="space-y-2">
-                                        <div className="flex items-center gap-x-2">
+                                       <div className="flex items-center gap-x-2">
                                             <div className="flex-grow">
                                                 <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, false)}>
                                                 <SelectTrigger>
