@@ -12,6 +12,7 @@ import { Employee, getEmployeeByEmail, updateEmployee } from '@/services/employe
 import { createChangeRequest, getPendingRequestForEmployee } from '@/services/changeRequestService';
 import { updateUserPassword } from '@/services/userService';
 import { Camera } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -161,9 +162,21 @@ export default function ProfilePage() {
                     <Label htmlFor="status">Employment Status</Label>
                     <p id="status">{employeeData.status}</p>
                 </div>
+                <div className="grid grid-cols-2">
+                    <Label htmlFor="employmentType">Employment Type</Label>
+                    <p id="employmentType">{employeeData.employmentType}</p>
+                </div>
+                <div className="grid grid-cols-2">
+                    <Label htmlFor="hireDate">Hire Date</Label>
+                    <p id="hireDate">{employeeData.hireDate ? format(employeeData.hireDate.toDate(), "PPP") : 'N/A'}</p>
+                </div>
                  <div className="grid grid-cols-2">
                     <Label htmlFor="cellphone">Cellphone</Label>
                     <p id="cellphone">{employeeData.cellphoneNumber}</p>
+                </div>
+                 <div className="grid grid-cols-2">
+                    <Label htmlFor="salaryType">Salary Type</Label>
+                    <p id="salaryType">{employeeData.salaryType}</p>
                 </div>
                  <div className="grid grid-cols-2">
                     <Label htmlFor="salary">Salary</Label>
