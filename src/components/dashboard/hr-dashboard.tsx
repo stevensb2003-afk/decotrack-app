@@ -374,7 +374,7 @@ export default function HRDashboard() {
   const canEdit = user?.role === 'admin' || user?.role === 'hr';
 
   const licenseTypes = ["A1", "A2", "A3", "B1", "B2", "B3", "B4", "C1", "C2", "D1", "D2", "D3", "E1", "E2"];
-  const employeeRoles: Employee['role'][] = ["Cajero", "Chofer", "Vendedor", "Recursos Humanos", "Contabilidad"];
+  const employeeRoles: Employee['role'][] = ["Cajero", "Chofer", "Vendedor", "Recursos Humanos", "Contabilidad", "Marketing"];
   const employmentTypes: Employee['employmentType'][] = ["Full time", "Part time", "Practicant", "n/a"];
   const salaryTypes: Employee['salaryType'][] = ["Hourly", "Salary", "Profesional Services"];
 
