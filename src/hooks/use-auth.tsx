@@ -22,12 +22,18 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const checkAuthStatus = () => {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+        }
+      } catch (error) {
+        console.error("Failed to parse user from localStorage", error);
+        localStorage.removeItem('user');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     checkAuthStatus();
@@ -35,10 +41,10 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (!loading) {
-      if (user && (pathname === '/login' || pathname === '/forgot-password')) {
+      if (user && (pathname === '/login' || pathname === '/forgot-password' || pathname === '/')) {
         router.replace('/dashboard');
       } else if (!user && pathname !== '/login' && pathname !== '/forgot-password') {
-        router.replace('/login');
+         router.replace('/login');
       }
     }
   }, [user, loading, pathname, router]);
