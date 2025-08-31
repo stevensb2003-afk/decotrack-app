@@ -6,6 +6,7 @@ export type License = {
     type: string;
     number: string;
     country: string;
+    expirationDate: Timestamp;
 };
 
 export type Employee = {

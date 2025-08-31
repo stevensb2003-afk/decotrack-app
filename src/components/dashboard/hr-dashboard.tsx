@@ -360,13 +360,29 @@ export default function HRDashboard() {
     }
   };
 
+  const handleLicenseDateChange = (index: number, date: Date | undefined, isNew: boolean) => {
+    if(!date) return;
+    const timestamp = Timestamp.fromDate(date);
+
+    if (isNew) {
+        const newLicenses = [...(newEmployeeData.licenses || [])];
+        newLicenses[index] = { ...newLicenses[index], expirationDate: timestamp };
+        setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
+    } else if (selectedEmployee) {
+        const newLicenses = [...(selectedEmployee.licenses || [])];
+        newLicenses[index] = { ...newLicenses[index], expirationDate: timestamp };
+        setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
+    }
+  };
+
+
   const addLicenseField = (isNew: boolean) => {
       if (isNew) {
           if((newEmployeeData.licenses || []).length < 3) {
-            setNewEmployeeData(prev => ({...prev, licenses: [...(prev.licenses || []), { type: '', number: '', country: ''}]}));
+            setNewEmployeeData(prev => ({...prev, licenses: [...(prev.licenses || []), { type: '', number: '', country: '', expirationDate: Timestamp.now()}]}));
           }
       } else if (selectedEmployee && (selectedEmployee.licenses || []).length < 3) {
-          setSelectedEmployee(prev => prev ? ({...prev, licenses: [...(prev.licenses || []), { type: '', number: '', country: ''}]}) : prev);
+          setSelectedEmployee(prev => prev ? ({...prev, licenses: [...(prev.licenses || []), { type: '', number: '', country: '', expirationDate: Timestamp.now()}]}) : prev);
       }
   };
 
@@ -577,6 +593,17 @@ export default function HRDashboard() {
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !license.expirationDate && "text-muted-foreground")}>
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {license.expirationDate ? format(license.expirationDate.toDate(), "PPP") : <span>Expiration Date</span>}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0">
+                                            <Calendar mode="single" selected={license.expirationDate?.toDate()} onSelect={date => handleLicenseDateChange(index, date, true)} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                             ))}
                             {(newEmployeeData.licenses || []).length < 3 && (
@@ -774,6 +801,17 @@ export default function HRDashboard() {
                                                 ))}
                                             </SelectContent>
                                         </Select>
+                                         <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !license.expirationDate && "text-muted-foreground")}>
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {license.expirationDate ? format(license.expirationDate.toDate(), "PPP") : <span>Expiration Date</span>}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                                <Calendar mode="single" selected={license.expirationDate?.toDate()} onSelect={date => handleLicenseDateChange(index, date, false)} initialFocus />
+                                            </PopoverContent>
+                                        </Popover>
                                     </div>
                                 ))}
                                 {(selectedEmployee.licenses || []).length < 3 && (
@@ -807,6 +845,7 @@ export default function HRDashboard() {
                                             <p><strong>Type:</strong> {license.type}</p>
                                             <p><strong>Number:</strong> {license.number}</p>
                                             <p><strong>Country:</strong> {license.country}</p>
+                                            <p><strong>Expiration:</strong> {license.expirationDate ? format(license.expirationDate.toDate(), "PPP") : 'N/A'}</p>
                                         </div>
                                     ))}
                                 </div>

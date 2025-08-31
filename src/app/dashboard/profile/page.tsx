@@ -221,6 +221,7 @@ export default function ProfilePage() {
                                     <p><strong>Type:</strong> {license.type}</p>
                                     <p><strong>Number:</strong> {license.number}</p>
                                     <p><strong>Country:</strong> {license.country}</p>
+                                    <p><strong>Expiration:</strong> {license.expirationDate ? format(license.expirationDate.toDate(), "PPP") : 'N/A'}</p>
                                 </div>
                             ))}
                         </div>
