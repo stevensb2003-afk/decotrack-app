@@ -272,7 +272,7 @@ export default function HRDashboard() {
   }, []);
 
   const handleViewDetailsClick = (employee: Employee) => {
-    setSelectedEmployee(JSON.parse(JSON.stringify(employee)));
+    setSelectedEmployee(employee);
     setIsDetailViewOpen(true);
     setIsEditingDetail(false);
   };
@@ -538,7 +538,7 @@ export default function HRDashboard() {
                            <Label>License Details</Label>
                             {(newEmployeeData.licenses || []).map((license, index) => (
                                 <div key={index} className="space-y-2">
-                                    <div className="flex items-center gap-x-2">
+                                     <div className="flex items-center gap-x-2">
                                         <div className="flex-grow">
                                             <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, true)}>
                                             <SelectTrigger>
@@ -649,11 +649,11 @@ export default function HRDashboard() {
                         </div>
                         <div>
                             <Label htmlFor="update-idNumber">ID Number</Label>
-                            <Input id="update-idNumber" value={selectedEmployee.idNumber} onChange={(e) => setSelectedEmployee({...selectedEmployee, idNumber: e.target.value})} />
+                            <Input id="update-idNumber" value={selectedEmployee.idNumber || ''} onChange={(e) => setSelectedEmployee({...selectedEmployee, idNumber: e.target.value})} />
                         </div>
                         <div>
                             <Label htmlFor="update-cellphone">Cellphone</Label>
-                            <Input id="update-cellphone" value={selectedEmployee.cellphoneNumber} onChange={(e) => setSelectedEmployee({...selectedEmployee, cellphoneNumber: e.target.value})} />
+                            <Input id="update-cellphone" value={selectedEmployee.cellphoneNumber || ''} onChange={(e) => setSelectedEmployee({...selectedEmployee, cellphoneNumber: e.target.value})} />
                         </div>
                         <div>
                             <Label htmlFor="update-nationality">Nationality</Label>
