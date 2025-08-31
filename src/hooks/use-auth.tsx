@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
@@ -21,25 +22,26 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const checkAuthStatus = () => {
-      setLoading(true);
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
-        if (pathname === '/login') {
-          router.replace('/dashboard');
-        }
-      } else {
-        setUser(null);
-        if (pathname !== '/login') {
-          router.replace('/login');
-        }
       }
       setLoading(false);
     };
-    
+
     checkAuthStatus();
-  }, [pathname, router]);
+  }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      if (user && (pathname === '/login' || pathname === '/forgot-password')) {
+        router.replace('/dashboard');
+      } else if (!user && pathname !== '/login' && pathname !== '/forgot-password') {
+        router.replace('/login');
+      }
+    }
+  }, [user, loading, pathname, router]);
 
   const login = async (email: string, pass: string) => {
     setLoading(true);
