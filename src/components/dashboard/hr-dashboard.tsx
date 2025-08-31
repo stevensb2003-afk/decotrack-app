@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Check, X, Pencil, Trash2 } from 'lucide-react';
+import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -23,18 +23,28 @@ import { Employee, License, getAllEmployees, createEmployee, updateEmployee } fr
 import { ChangeRequest, getPendingChangeRequests, updateChangeRequestStatus } from '@/services/changeRequestService';
 import { Switch } from '../ui/switch';
 import { useAuth } from '@/hooks/use-auth';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Calendar } from '../ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Timestamp } from 'firebase/firestore';
 
 const initialNewEmployeeData: Omit<Employee, 'id'> = {
     name: '',
     email: '',
-    role: '',
+    role: 'employee',
     idType: 'ID Nacional',
     idNumber: '',
     cellphoneNumber: '',
     licensePermission: false,
     licenses: [],
     status: 'Active',
-    salary: 0
+    salary: 0,
+    nationality: '',
+    birthDate: Timestamp.now(),
+    hireDate: Timestamp.now(),
+    employmentType: 'n/a',
+    salaryType: 'Salary',
 };
 
 const countries = [
@@ -364,6 +374,20 @@ export default function HRDashboard() {
   const canEdit = user?.role === 'admin' || user?.role === 'hr';
 
   const licenseTypes = ["A1", "A2", "A3", "B1", "B2", "B3", "B4", "C1", "C2", "D1", "D2", "D3", "E1", "E2"];
+  const employeeRoles: Employee['role'][] = ["Cajero", "Chofer", "Vendedor", "Recursos Humanos", "Contabilidad"];
+  const employmentTypes: Employee['employmentType'][] = ["Full time", "Part time", "Practicant", "n/a"];
+  const salaryTypes: Employee['salaryType'][] = ["Hourly", "Salary", "Profesional Services"];
+
+  const handleDateChange = (date: Date | undefined, field: 'birthDate' | 'hireDate', isNew: boolean) => {
+    if (date) {
+        const timestamp = Timestamp.fromDate(date);
+        if (isNew) {
+            setNewEmployeeData({ ...newEmployeeData, [field]: timestamp });
+        } else if (selectedEmployee) {
+            setSelectedEmployee({ ...selectedEmployee, [field]: timestamp });
+        }
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -428,7 +452,12 @@ export default function HRDashboard() {
                       <Input id="email-create" type="email" value={newEmployeeData.email} onChange={e => setNewEmployeeData({...newEmployeeData, email: e.target.value})} />
                       
                       <Label htmlFor="role-create">Role</Label>
-                      <Input id="role-create" value={newEmployeeData.role} onChange={e => setNewEmployeeData({...newEmployeeData, role: e.target.value})} />
+                      <Select value={newEmployeeData.role} onValueChange={(val: Employee['role']) => setNewEmployeeData({...newEmployeeData, role: val})}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {employeeRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
 
                       <Label htmlFor="id-type-create">ID Type</Label>
                       <Select value={newEmployeeData.idType} onValueChange={(val: Employee['idType']) => setNewEmployeeData({...newEmployeeData, idType: val})}>
@@ -445,6 +474,56 @@ export default function HRDashboard() {
                       
                       <Label htmlFor="cellphone-create">Cellphone Number</Label>
                       <Input id="cellphone-create" type="tel" value={newEmployeeData.cellphoneNumber} onChange={e => setNewEmployeeData({...newEmployeeData, cellphoneNumber: e.target.value})} />
+                      
+                      <Label htmlFor="nationality-create">Nationality</Label>
+                      <Select value={newEmployeeData.nationality} onValueChange={val => setNewEmployeeData({...newEmployeeData, nationality: val})}>
+                          <SelectTrigger><SelectValue placeholder="Select Nationality"/></SelectTrigger>
+                          <SelectContent>
+                              {countries.map(c => <SelectItem key={c.value} value={c.label}>{c.label}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+
+                      <Label htmlFor="birthdate-create">Birth Date</Label>
+                       <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newEmployeeData.birthDate && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {newEmployeeData.birthDate ? format(newEmployeeData.birthDate.toDate(), "PPP") : <span>Pick a date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar mode="single" selected={newEmployeeData.birthDate.toDate()} onSelect={date => handleDateChange(date, 'birthDate', true)} initialFocus />
+                        </PopoverContent>
+                      </Popover>
+
+                      <Label htmlFor="hiredate-create">Hire Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newEmployeeData.hireDate && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {newEmployeeData.hireDate ? format(newEmployeeData.hireDate.toDate(), "PPP") : <span>Pick a date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar mode="single" selected={newEmployeeData.hireDate.toDate()} onSelect={date => handleDateChange(date, 'hireDate', true)} initialFocus />
+                        </PopoverContent>
+                      </Popover>
+
+                      <Label htmlFor="employment-type-create">Employment Type</Label>
+                      <Select value={newEmployeeData.employmentType} onValueChange={(val: Employee['employmentType']) => setNewEmployeeData({...newEmployeeData, employmentType: val})}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {employmentTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+
+                      <Label htmlFor="salary-type-create">Salary Type</Label>
+                      <Select value={newEmployeeData.salaryType} onValueChange={(val: Employee['salaryType']) => setNewEmployeeData({...newEmployeeData, salaryType: val})}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {salaryTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
 
                        <Label htmlFor="salary-create">Salary (CRC)</Label>
                       <Input id="salary-create" type="number" value={newEmployeeData.salary} onChange={e => setNewEmployeeData({...newEmployeeData, salary: parseFloat(e.target.value) || 0})} />
@@ -549,7 +628,12 @@ export default function HRDashboard() {
                         </div>
                         <div>
                             <Label htmlFor="update-role">Role</Label>
-                            <Input id="update-role" value={selectedEmployee.role} onChange={(e) => setSelectedEmployee({...selectedEmployee, role: e.target.value})} />
+                            <Select value={selectedEmployee.role} onValueChange={(val: Employee['role']) => setSelectedEmployee({...selectedEmployee, role: val})}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    {employeeRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div>
                             <Label htmlFor="update-idType">ID Type</Label>
@@ -569,6 +653,61 @@ export default function HRDashboard() {
                         <div>
                             <Label htmlFor="update-cellphone">Cellphone</Label>
                             <Input id="update-cellphone" value={selectedEmployee.cellphoneNumber} onChange={(e) => setSelectedEmployee({...selectedEmployee, cellphoneNumber: e.target.value})} />
+                        </div>
+                        <div>
+                            <Label htmlFor="update-nationality">Nationality</Label>
+                            <Select value={selectedEmployee.nationality} onValueChange={val => setSelectedEmployee({...selectedEmployee, nationality: val})}>
+                                <SelectTrigger><SelectValue placeholder="Select Nationality"/></SelectTrigger>
+                                <SelectContent>
+                                    {countries.map(c => <SelectItem key={c.value} value={c.label}>{c.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                           <Label htmlFor="update-birthdate">Birth Date</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !selectedEmployee.birthDate && "text-muted-foreground")}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {selectedEmployee.birthDate ? format(selectedEmployee.birthDate.toDate(), "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar mode="single" selected={selectedEmployee.birthDate.toDate()} onSelect={date => handleDateChange(date, 'birthDate', false)} initialFocus />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div>
+                           <Label htmlFor="update-hiredate">Hire Date</Label>
+                           <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !selectedEmployee.hireDate && "text-muted-foreground")}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {selectedEmployee.hireDate ? format(selectedEmployee.hireDate.toDate(), "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar mode="single" selected={selectedEmployee.hireDate.toDate()} onSelect={date => handleDateChange(date, 'hireDate', false)} initialFocus />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                         <div>
+                            <Label htmlFor="update-employment-type">Employment Type</Label>
+                            <Select value={selectedEmployee.employmentType} onValueChange={(val: Employee['employmentType']) => setSelectedEmployee({...selectedEmployee, employmentType: val})}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {employmentTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label htmlFor="update-salary-type">Salary Type</Label>
+                            <Select value={selectedEmployee.salaryType} onValueChange={(val: Employee['salaryType']) => setSelectedEmployee({...selectedEmployee, salaryType: val})}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {salaryTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div>
                             <Label htmlFor="update-salary">Salary (CRC)</Label>
@@ -639,6 +778,11 @@ export default function HRDashboard() {
                         <div className="grid grid-cols-2"><Label>ID Type</Label><p>{selectedEmployee.idType}</p></div>
                         <div className="grid grid-cols-2"><Label>ID Number</Label><p>{selectedEmployee.idNumber}</p></div>
                         <div className="grid grid-cols-2"><Label>Cellphone</Label><p>{selectedEmployee.cellphoneNumber}</p></div>
+                        <div className="grid grid-cols-2"><Label>Nationality</Label><p>{selectedEmployee.nationality}</p></div>
+                        <div className="grid grid-cols-2"><Label>Birth Date</Label><p>{selectedEmployee.birthDate ? format(selectedEmployee.birthDate.toDate(), "PPP") : 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Hire Date</Label><p>{selectedEmployee.hireDate ? format(selectedEmployee.hireDate.toDate(), "PPP") : 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Employment Type</Label><p>{selectedEmployee.employmentType}</p></div>
+                        <div className="grid grid-cols-2"><Label>Salary Type</Label><p>{selectedEmployee.salaryType}</p></div>
                         <div className="grid grid-cols-2"><Label>Salary</Label><p>{new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(selectedEmployee.salary)}</p></div>
                         <div className="grid grid-cols-2"><Label>Status</Label><p>{selectedEmployee.status}</p></div>
                         <div className="grid grid-cols-2"><Label>Has License?</Label><p>{selectedEmployee.licensePermission ? 'Yes' : 'No'}</p></div>

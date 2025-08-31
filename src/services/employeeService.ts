@@ -1,5 +1,6 @@
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, doc, query, where } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 
 export type License = {
     type: string;
@@ -11,7 +12,7 @@ export type Employee = {
     id: string;
     name: string;
     email: string;
-    role: string;
+    role: 'Cajero' | 'Chofer' | 'Vendedor' | 'Recursos Humanos' | 'Contabilidad' | 'management' | 'admin' | 'employee';
     idType: 'ID Nacional' | 'Pasaporte' | 'Cédula Extranjero';
     idNumber: string;
     cellphoneNumber: string;
@@ -19,6 +20,11 @@ export type Employee = {
     licenses: License[];
     status: 'Active' | 'LOA' | 'Terminated';
     salary: number; // Stored as a number
+    nationality: string;
+    birthDate: Timestamp;
+    hireDate: Timestamp;
+    employmentType: 'Full time' | 'Part time' | 'Practicant' | 'n/a';
+    salaryType: 'Hourly' | 'Salary' | 'Profesional Services';
 };
 
 const employeesCollection = collection(db, 'employees');
@@ -34,8 +40,8 @@ export const getEmployeeByEmail = async (email: string): Promise<Employee | null
     if (snapshot.empty) {
         return null;
     }
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as Employee;
+    const docData = snapshot.docs[0];
+    return { id: docData.id, ...docData.data() } as Employee;
 };
 
 export const createEmployee = async (employeeData: Omit<Employee, 'id'>) => {
