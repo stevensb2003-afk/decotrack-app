@@ -6,28 +6,75 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Users, UserCheck, UserX, ArrowRight, ArrowLeft } from "lucide-react";
 import { getAllEmployees, Employee } from '@/services/employeeService';
 import { getRecentActivities, RecentActivity } from '@/services/attendanceService';
+import { AttendanceRecord } from '@/services/attendanceService';
+import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function ManagementDashboard() {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [activities, setActivities] = useState<RecentActivity[]>([]);
+    const [presentCount, setPresentCount] = useState(0);
 
     useEffect(() => {
         const fetchData = async () => {
             const emps = await getAllEmployees();
-            const acts = await getRecentActivities();
             setEmployees(emps);
+            
+            const acts = await getRecentActivities(10, emps);
             setActivities(acts);
+            
+            const q = query(collection(db, 'attendance'), orderBy('timestamp', 'desc'));
+            const unsubscribe = onSnapshot(q, async () => {
+                const updatedEmps = await getAllEmployees();
+                const updatedActs = await getRecentActivities(10, updatedEmps);
+                setEmployees(updatedEmps);
+                setActivities(updatedActs);
+            });
+
+            return () => unsubscribe();
         };
+
         fetchData();
     }, []);
 
+    useEffect(() => {
+        if (employees.length > 0) {
+            const today = new Date().toDateString();
+            let presentToday = 0;
+
+            const attendanceQuery = query(
+                collection(db, 'attendance'),
+                where('timestamp', '>=', new Date(today))
+            );
+
+            const unsubscribe = onSnapshot(attendanceQuery, (snapshot) => {
+                const latestActions = new Map<string, 'Entry' | 'Exit'>();
+                snapshot.docs.forEach(doc => {
+                    const record = doc.data() as AttendanceRecord;
+                    if (!latestActions.has(record.employeeId)) {
+                        latestActions.set(record.employeeId, record.type);
+                    }
+                });
+
+                presentToday = 0;
+                for (const type of latestActions.values()) {
+                    if (type === 'Entry') {
+                        presentToday++;
+                    }
+                }
+                setPresentCount(presentToday);
+            });
+
+            return () => unsubscribe();
+        }
+    }, [employees]);
+
     const totalEmployees = employees.length;
-    const presentEmployees = employees.filter(e => e.status === 'Present').length;
-    const absentEmployees = totalEmployees - presentEmployees;
+    const absentEmployees = totalEmployees - presentCount;
 
     const kpiData = [
         { title: "Total Employees", value: totalEmployees.toString(), icon: Users, change: "All registered employees" },
-        { title: "Present Employees", value: presentEmployees.toString(), icon: UserCheck, change: totalEmployees > 0 ? `${Math.round((presentEmployees/totalEmployees)*100)}% attendance` : `0% attendance` },
+        { title: "Present Employees", value: presentCount.toString(), icon: UserCheck, change: totalEmployees > 0 ? `${Math.round((presentCount/totalEmployees)*100)}% attendance` : `0% attendance` },
         { title: "Absent Employees", value: absentEmployees.toString(), icon: UserX, change: totalEmployees > 0 ? `${Math.round((absentEmployees/totalEmployees)*100)}% absent` : `0% absent` },
     ];
 

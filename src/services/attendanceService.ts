@@ -1,7 +1,7 @@
 
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, limit, getDoc, doc } from 'firebase/firestore';
-import { getEmployeeByEmail } from './employeeService';
+import { Employee, getAllEmployees } from './employeeService';
 
 export type AttendanceRecord = {
   id?: string;
@@ -36,7 +36,10 @@ export const getEmployeeAttendance = async (employeeId: string, recordLimit: num
   return records.slice(0, recordLimit);
 };
 
-export const getRecentActivities = async (recordLimit: number = 5): Promise<RecentActivity[]> => {
+export const getRecentActivities = async (recordLimit: number = 5, allEmployees?: Employee[]): Promise<RecentActivity[]> => {
+    const employees = allEmployees || await getAllEmployees();
+    const employeeMap = new Map(employees.map(e => [e.id, e.name]));
+
     const q = query(
         attendanceCollection,
         orderBy("timestamp", "desc"),
@@ -44,18 +47,16 @@ export const getRecentActivities = async (recordLimit: number = 5): Promise<Rece
     );
     const snapshot = await getDocs(q);
 
-    const activities = await Promise.all(snapshot.docs.map(async (d) => {
+    const activities = snapshot.docs.map((d) => {
         const data = d.data() as AttendanceRecord;
-        const employeeDoc = doc(db, 'employees', data.employeeId);
-        const employeeSnap = await getDoc(employeeDoc);
-        const employeeName = employeeSnap.exists() ? employeeSnap.data().name : `Employee ${data.employeeId.substring(0, 5)}`;
+        const employeeName = employeeMap.get(data.employeeId) || `Employee ${data.employeeId.substring(0, 5)}`;
         
         return {
             name: employeeName,
             type: data.type,
             time: data.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
-    }));
+    });
 
     return activities;
 };
