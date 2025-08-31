@@ -10,12 +10,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Employee, getEmployeeByEmail } from '@/services/employeeService';
 import { createChangeRequest, getPendingRequestForEmployee } from '@/services/changeRequestService';
-import { Camera, CalendarIcon } from 'lucide-react';
+import { Camera, CalendarIcon, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
+import Link from 'next/link';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -167,6 +168,12 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
+       <Link href="/dashboard" passHref>
+        <Button variant="outline">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
+        </Button>
+      </Link>
        <Card>
         <CardHeader>
             <div className="flex items-center gap-4">
