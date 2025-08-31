@@ -29,6 +29,7 @@ import { Calendar } from '../ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
+import { updateUserPassword } from '@/services/userService';
 
 const initialNewEmployeeData: Omit<Employee, 'id'> = {
     name: '',
@@ -315,8 +316,18 @@ export default function HRDashboard() {
     if(!request) return;
 
     if(action === 'approved') {
-        const fieldToUpdate = request.fieldName.toLowerCase() as 'name' | 'email';
-        await updateEmployee(request.employeeId, { [fieldToUpdate]: request.newValue });
+        if(request.fieldName.toLowerCase() === 'password') {
+            await updateUserPassword(request.employeeId, request.newValue);
+        } else {
+            const fieldToUpdate = request.fieldName.toLowerCase() as keyof Employee;
+            let valueToUpdate: string | Timestamp = request.newValue;
+
+            if (fieldToUpdate === 'birthDate') {
+                valueToUpdate = Timestamp.fromDate(new Date(request.newValue));
+            }
+
+            await updateEmployee(request.employeeId, { [fieldToUpdate]: valueToUpdate });
+        }
     }
     
     await updateChangeRequestStatus(requestId, action);
@@ -414,8 +425,8 @@ export default function HRDashboard() {
                               <TableRow key={req.id}>
                                   <TableCell>{req.employeeName}</TableCell>
                                   <TableCell>{req.fieldName}</TableCell>
-                                  <TableCell>{req.oldValue}</TableCell>
-                                  <TableCell className="font-medium">{req.newValue}</TableCell>
+                                  <TableCell>{req.fieldName.toLowerCase() === 'password' ? '********' : req.oldValue}</TableCell>
+                                  <TableCell className="font-medium">{req.fieldName.toLowerCase() === 'password' ? '********' : req.newValue}</TableCell>
                                   <TableCell className="text-right space-x-2">
                                       <Button size="icon" variant="outline" className="h-8 w-8 text-green-600" onClick={() => handleRequestAction(req.id, 'approved')}>
                                         <Check className="h-4 w-4" />
@@ -538,7 +549,7 @@ export default function HRDashboard() {
                            <Label>License Details</Label>
                             {(newEmployeeData.licenses || []).map((license, index) => (
                                 <div key={index} className="space-y-2">
-                                     <div className="flex items-center gap-x-2">
+                                    <div className="flex items-center gap-x-2">
                                         <div className="flex-grow">
                                             <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, true)}>
                                             <SelectTrigger>

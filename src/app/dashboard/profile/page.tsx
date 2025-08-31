@@ -8,18 +8,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Employee, getEmployeeByEmail, updateEmployee } from '@/services/employeeService';
+import { Employee, getEmployeeByEmail } from '@/services/employeeService';
 import { createChangeRequest, getPendingRequestForEmployee } from '@/services/changeRequestService';
-import { updateUserPassword } from '@/services/userService';
-import { Camera } from 'lucide-react';
+import { Camera, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { Timestamp } from 'firebase/firestore';
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [employeeData, setEmployeeData] = useState<Employee | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', role: '' });
+  const [formData, setFormData] = useState({ 
+    name: '', 
+    email: '', 
+    role: '', 
+    cellphoneNumber: '',
+    birthDate: new Date()
+  });
   const [pendingRequest, setPendingRequest] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [newPassword, setNewPassword] = useState('');
@@ -34,7 +43,13 @@ export default function ProfilePage() {
             const employee = await getEmployeeByEmail(user.email);
             if (employee) {
                 setEmployeeData(employee);
-                setFormData({ name: employee.name, email: employee.email, role: employee.role });
+                setFormData({ 
+                    name: employee.name, 
+                    email: employee.email, 
+                    role: employee.role,
+                    cellphoneNumber: employee.cellphoneNumber || '',
+                    birthDate: employee.birthDate ? employee.birthDate.toDate() : new Date()
+                });
                 setAvatarUrl(`https://i.pravatar.cc/150?u=${employee.email}`);
                 const hasPending = await getPendingRequestForEmployee(employee.id);
                 setPendingRequest(hasPending);
@@ -50,6 +65,12 @@ export default function ProfilePage() {
     setFormData(prev => ({ ...prev, [id]: value }));
   };
 
+  const handleDateChange = (date: Date | undefined) => {
+    if(date) {
+        setFormData(prev => ({ ...prev, birthDate: date }));
+    }
+  }
+
   const handleSubmitRequest = async () => {
     if (!employeeData) return;
 
@@ -60,6 +81,12 @@ export default function ProfilePage() {
     }
     if (formData.email !== employeeData.email) {
       changes.push({ fieldName: 'Email', oldValue: employeeData.email, newValue: formData.email });
+    }
+    if(formData.cellphoneNumber !== employeeData.cellphoneNumber) {
+        changes.push({ fieldName: 'cellphoneNumber', oldValue: employeeData.cellphoneNumber, newValue: formData.cellphoneNumber})
+    }
+    if(format(formData.birthDate, "PPP") !== format(employeeData.birthDate.toDate(), "PPP")) {
+        changes.push({ fieldName: 'birthDate', oldValue: format(employeeData.birthDate.toDate(), "PPP"), newValue: format(formData.birthDate, "PPP")})
     }
 
     if (changes.length === 0) {
@@ -86,7 +113,7 @@ export default function ProfilePage() {
     setPendingRequest(true);
   };
 
-  const handlePasswordChange = async () => {
+  const handlePasswordChangeRequest = async () => {
     if (newPassword !== confirmPassword) {
       toast({ title: "Passwords do not match", variant: "destructive" });
       return;
@@ -95,9 +122,16 @@ export default function ProfilePage() {
       toast({ title: "Password too short", description: "Password must be at least 6 characters.", variant: "destructive" });
       return;
     }
-    if (user) {
-      await updateUserPassword(user.id, newPassword);
-      toast({ title: "Password Changed", description: "Your password has been updated successfully." });
+    if (user && employeeData) {
+      await createChangeRequest({
+        employeeId: user.id,
+        employeeName: employeeData.name,
+        fieldName: 'Password',
+        oldValue: 'current_password', // Placeholder
+        newValue: newPassword,
+        status: 'pending'
+      })
+      toast({ title: "Request Submitted", description: "Your password change request has been submitted for approval." });
       setNewPassword('');
       setConfirmPassword('');
     }
@@ -171,10 +205,6 @@ export default function ProfilePage() {
                     <p id="hireDate">{employeeData.hireDate ? format(employeeData.hireDate.toDate(), "PPP") : 'N/A'}</p>
                 </div>
                  <div className="grid grid-cols-2">
-                    <Label htmlFor="cellphone">Cellphone</Label>
-                    <p id="cellphone">{employeeData.cellphoneNumber}</p>
-                </div>
-                 <div className="grid grid-cols-2">
                     <Label htmlFor="salaryType">Salary Type</Label>
                     <p id="salaryType">{employeeData.salaryType}</p>
                 </div>
@@ -221,6 +251,24 @@ export default function ProfilePage() {
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" value={formData.email} onChange={handleInputChange} disabled={!isEditing} />
             </div>
+            <div>
+              <Label htmlFor="cellphoneNumber">Cellphone</Label>
+              <Input id="cellphoneNumber" value={formData.cellphoneNumber} onChange={handleInputChange} disabled={!isEditing} />
+            </div>
+            <div>
+                <Label htmlFor="birthDate">Birth Date</Label>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !formData.birthDate && "text-muted-foreground")} disabled={!isEditing}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.birthDate ? format(formData.birthDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar mode="single" selected={formData.birthDate} onSelect={handleDateChange} initialFocus />
+                    </PopoverContent>
+                </Popover>
+            </div>
              <div>
               <Label htmlFor="role">Role</Label>
               <Input id="role" value={formData.role} disabled />
@@ -238,7 +286,7 @@ export default function ProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle>Security</CardTitle>
-          <CardDescription>Change your account password.</CardDescription>
+          <CardDescription>Request a password change from an administrator.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -251,7 +299,7 @@ export default function ProfilePage() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handlePasswordChange}>Change Password</Button>
+          <Button onClick={handlePasswordChangeRequest} disabled={pendingRequest}>Request Password Change</Button>
         </CardFooter>
       </Card>
     </div>
