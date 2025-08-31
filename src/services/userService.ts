@@ -1,8 +1,8 @@
 
 'use server';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where, deleteDoc } from 'firebase/firestore';
-import { createEmployee } from './employeeService';
+import { collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where, deleteDoc, Timestamp } from 'firebase/firestore';
+import { createEmployee, Employee } from './employeeService';
 
 export type Role = 'employee' | 'hr' | 'management' | 'admin';
 
@@ -40,18 +40,22 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
         };
         const docRef = await addDoc(usersCollection, newUser);
         
-        // Also create an employee record for the admin
         await createEmployee({
             name: newUser.name,
             email: newUser.email,
             role: newUser.role,
-            idType: 'Cédula',
+            idType: 'ID Nacional',
             idNumber: 'N/A',
             cellphoneNumber: 'N/A',
             licensePermission: false,
             licenses: [],
             status: 'Active',
-            salary: 0
+            salary: 0,
+            nationality: 'N/A',
+            birthDate: Timestamp.now(),
+            hireDate: Timestamp.now(),
+            employmentType: 'n/a',
+            salaryType: 'Salary',
         });
 
         return { ...newUser, id: docRef.id };
@@ -81,14 +85,19 @@ export const createUser = async (userData: Omit<SystemUser, 'id'>) => {
       await createEmployee({
         name: userData.name,
         email: userData.email,
-        role: userData.role,
-        idType: 'Cédula',
+        role: userData.role as Employee['role'],
+        idType: 'ID Nacional',
         idNumber: '',
         cellphoneNumber: '',
         licensePermission: false,
         licenses: [],
         status: 'Active',
-        salary: 0
+        salary: 0,
+        nationality: '',
+        birthDate: Timestamp.now(),
+        hireDate: Timestamp.now(),
+        employmentType: 'n/a',
+        salaryType: 'Salary',
       });
     }
   return docRef.id;
