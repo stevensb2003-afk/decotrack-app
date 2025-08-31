@@ -673,7 +673,7 @@ export default function HRDashboard() {
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="single" selected={selectedEmployee.birthDate.toDate()} onSelect={date => handleDateChange(date, 'birthDate', false)} initialFocus />
+                                    <Calendar mode="single" selected={selectedEmployee.birthDate?.toDate()} onSelect={date => handleDateChange(date, 'birthDate', false)} initialFocus />
                                 </PopoverContent>
                             </Popover>
                         </div>
@@ -687,7 +687,7 @@ export default function HRDashboard() {
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="single" selected={selectedEmployee.hireDate.toDate()} onSelect={date => handleDateChange(date, 'hireDate', false)} initialFocus />
+                                    <Calendar mode="single" selected={selectedEmployee.hireDate?.toDate()} onSelect={date => handleDateChange(date, 'hireDate', false)} initialFocus />
                                 </PopoverContent>
                             </Popover>
                         </div>
