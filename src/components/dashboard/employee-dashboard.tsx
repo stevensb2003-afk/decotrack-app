@@ -24,7 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, differenceInMonths, addMonths } from "date-fns";
+import { format, differenceInMonths, addMonths, differenceInDays } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { createTimeOffRequest, getEmployeeTimeOffRequests, TimeOffRequest, TimeOffReason, VacationBank, getVacationBank, updateVacationBank } from "@/services/timeOffRequestService";
@@ -161,6 +161,18 @@ export default function EmployeeDashboard() {
         return;
     }
 
+    if (newRequest.reason === 'Vacaciones') {
+      const requestedDays = differenceInDays(newRequest.endDate, newRequest.startDate) + 1;
+      if (!vacationBank || vacationBank.balance < requestedDays) {
+        toast({
+          title: "Insufficient Vacation Balance",
+          description: `You do not have enough days for this request. Your balance is ${vacationBank?.balance || 0} days.`,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     let attachmentUrl = undefined;
     if(newRequest.attachment) {
         // In a real app, upload this to Firebase Storage and get URL
@@ -168,16 +180,25 @@ export default function EmployeeDashboard() {
          toast({title: "File Upload", description: "File upload is a mock. No real file was saved."});
     }
 
-    await createTimeOffRequest({
+    const requestPayload: any = {
         employeeId: employee.id,
         employeeName: employee.name,
         reason: newRequest.reason,
         startDate: Timestamp.fromDate(newRequest.startDate),
         endDate: Timestamp.fromDate(newRequest.endDate),
-        hours: newRequest.hours,
-        comments: newRequest.comments,
-        attachmentUrl: attachmentUrl,
-    });
+    };
+    
+    if (newRequest.hours) {
+        requestPayload.hours = newRequest.hours;
+    }
+    if (newRequest.comments) {
+        requestPayload.comments = newRequest.comments;
+    }
+    if (attachmentUrl) {
+        requestPayload.attachmentUrl = attachmentUrl;
+    }
+
+    await createTimeOffRequest(requestPayload);
     
     toast({ title: "Request Submitted", description: "Your time off request has been sent for approval." });
     setTorDialogOpen(false);
