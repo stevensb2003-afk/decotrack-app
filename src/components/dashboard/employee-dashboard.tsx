@@ -75,19 +75,20 @@ export default function EmployeeDashboard() {
         const bank = await getVacationBank(employeeData.id);
         if(bank) {
           const hireDate = employeeData.hireDate.toDate();
+          const lastAccrualDate = new Date(bank.lastAccrualYear, bank.lastAccrualMonth, hireDate.getDate());
           const now = new Date();
-          const monthsSinceLastAccrual = differenceInMonths(now, new Date(bank.lastAccrualYear, bank.lastAccrualMonth));
+          const monthsSinceLastAccrual = differenceInMonths(now, lastAccrualDate);
 
           if(monthsSinceLastAccrual > 0) {
               const newBalance = bank.balance + monthsSinceLastAccrual;
-              const lastAccrualDate = addMonths(new Date(bank.lastAccrualYear, bank.lastAccrualMonth), monthsSinceLastAccrual);
+              const newLastAccrualDate = addMonths(lastAccrualDate, monthsSinceLastAccrual);
               
               await updateVacationBank(bank.id, { 
                 balance: newBalance,
-                lastAccrualYear: lastAccrualDate.getFullYear(),
-                lastAccrualMonth: lastAccrualDate.getMonth()
+                lastAccrualYear: newLastAccrualDate.getFullYear(),
+                lastAccrualMonth: newLastAccrualDate.getMonth()
               });
-              setVacationBank({ ...bank, balance: newBalance });
+              setVacationBank({ ...bank, balance: newBalance, lastAccrualYear: newLastAccrualDate.getFullYear(), lastAccrualMonth: newLastAccrualDate.getMonth() });
           } else {
             setVacationBank(bank);
           }

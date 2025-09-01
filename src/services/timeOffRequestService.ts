@@ -1,5 +1,6 @@
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp } from 'firebase/firestore';
+import { getEmployeeByEmail } from './employeeService';
 
 export type TimeOffReason = 
     | 'Vacaciones'
@@ -69,17 +70,36 @@ export const updateTimeOffRequestStatus = async (requestId: string, status: 'app
 export const getVacationBank = async (employeeId: string): Promise<VacationBank | null> => {
     const q = query(vacationBankCollection, where("employeeId", "==", employeeId));
     const snapshot = await getDocs(q);
+    
     if (snapshot.empty) {
-        // Create a new bank if it doesn't exist
-        const newBank = {
+        const employeeQuery = query(collection(db, 'employees'), where('id', '==', employeeId));
+        const employeeSnapshot = await getDocs(employeeQuery);
+
+        // Fallback to fetching all employees if direct query fails (might happen if ID is not a field)
+        let employee = null;
+        if (employeeSnapshot.empty) {
+            const allEmployees = await getDocs(collection(db, 'employees'));
+            const doc = allEmployees.docs.find(d => d.id === employeeId);
+            if(doc) employee = {id: doc.id, ...doc.data()};
+        } else {
+            const doc = employeeSnapshot.docs[0];
+            employee = {id: doc.id, ...doc.data()};
+        }
+
+        if(!employee) return null;
+        
+        const hireDate = (employee.hireDate as Timestamp).toDate();
+
+        const newBankData = {
             employeeId,
             balance: 0,
-            lastAccrualYear: new Date().getFullYear(),
-            lastAccrualMonth: new Date().getMonth(),
+            lastAccrualYear: hireDate.getFullYear(),
+            lastAccrualMonth: hireDate.getMonth(),
         };
-        const docRef = await addDoc(vacationBankCollection, newBank);
-        return { id: docRef.id, ...newBank };
+        const docRef = await addDoc(vacationBankCollection, newBankData);
+        return { id: docRef.id, ...newBankData };
     }
+    
     const docData = snapshot.docs[0];
     return { id: docData.id, ...docData.data() } as VacationBank;
 };
