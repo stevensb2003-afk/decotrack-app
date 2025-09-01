@@ -77,7 +77,7 @@ export default function DashboardHeader() {
            <span>DecoTrack</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
             <Button
                 variant="outline"
                 size="icon"
@@ -87,6 +87,9 @@ export default function DashboardHeader() {
                 <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                 <span className="sr-only">Toggle theme</span>
             </Button>
+            
+            {employee && <p className="text-sm font-medium hidden sm:block">{employee.name}</p>}
+
             <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="icon" className="rounded-full">

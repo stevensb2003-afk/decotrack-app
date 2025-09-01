@@ -77,16 +77,16 @@ export default function EmployeeDashboard() {
             const hireDate = employeeData.hireDate.toDate();
             const now = new Date();
             
-            // Calculate total months since hire date
-            const totalMonths = (now.getFullYear() - hireDate.getFullYear()) * 12 + (now.getMonth() - hireDate.getMonth());
-            
-            // For this logic, we assume used days are tracked elsewhere and we are just calculating the raw accrual.
-            // In a real scenario, we'd subtract used days.
-            const accruedDays = Math.max(0, totalMonths);
+            const accruedDays = differenceInMonths(now, hireDate);
 
-            // Here we just set the balance to what it should be based on hire date.
-            // A more complex system would track used days.
-            const newBalance = accruedDays;
+            const usedDays = torRequests
+                .filter(req => req.reason === 'Vacaciones' && req.status === 'approved')
+                .reduce((total, req) => {
+                    const days = differenceInDays(req.endDate.toDate(), req.startDate.toDate()) + 1;
+                    return total + days;
+                }, 0);
+            
+            const newBalance = accruedDays - usedDays;
             
             if (bank.balance !== newBalance) {
                 await updateVacationBank(bank.id, { balance: newBalance });
@@ -183,7 +183,7 @@ export default function EmployeeDashboard() {
          toast({title: "File Upload", description: "File upload is a mock. No real file was saved."});
     }
 
-    const requestPayload: any = {
+    const requestPayload: Omit<TimeOffRequest, 'id' | 'requestedAt' | 'status'> = {
         employeeId: employee.id,
         employeeName: employee.name,
         reason: newRequest.reason,
