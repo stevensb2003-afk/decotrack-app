@@ -15,10 +15,11 @@ import { LogOut, User, Building, PanelLeft, Sun, Moon } from 'lucide-react';
 import Link from 'next/link';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import DashboardSidebar from './sidebar';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import Image from 'next/image';
+import { getEmployeeByEmail, Employee } from '@/services/employeeService';
 
 export default function DashboardHeader() {
   const { user, logout } = useAuth();
@@ -26,11 +27,23 @@ export default function DashboardHeader() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   // This state is just to satisfy the prop of DashboardSidebar, it won't be used on mobile
   const [_, setAdminView] = useState('overview');
+  const [employee, setEmployee] = useState<Employee | null>(null);
   const router = useRouter();
 
 
-  const getInitials = (email: string = '') => {
-    return email.charAt(0).toUpperCase();
+  useEffect(() => {
+    const fetchEmployee = async () => {
+      if (user?.email) {
+        const emp = await getEmployeeByEmail(user.email);
+        setEmployee(emp);
+      }
+    };
+    fetchEmployee();
+  }, [user]);
+
+  const getInitials = (name: string = '') => {
+    if (!name) return user?.email?.charAt(0).toUpperCase() || '';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
   const handleProfileClick = () => {
@@ -78,15 +91,15 @@ export default function DashboardHeader() {
             <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="icon" className="rounded-full">
                 <Avatar>
-                    <AvatarImage data-ai-hint="profile avatar" src={`https://i.pravatar.cc/150?u=${user?.email}`} />
-                    <AvatarFallback>{getInitials(user?.email)}</AvatarFallback>
+                    <AvatarImage data-ai-hint="profile avatar" src={employee?.avatarUrl} />
+                    <AvatarFallback>{getInitials(employee?.name)}</AvatarFallback>
                 </Avatar>
                 <span className="sr-only">Toggle user menu</span>
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
-                    <p className="font-semibold">My Account</p>
+                    <p className="font-semibold">{employee?.name || 'My Account'}</p>
                     <p className="text-xs text-muted-foreground font-normal">{user?.email}</p>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
