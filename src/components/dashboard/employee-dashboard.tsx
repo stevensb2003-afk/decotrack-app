@@ -260,60 +260,59 @@ export default function EmployeeDashboard() {
                         <DialogDescription>Complete the form to submit your request.</DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-6">
-                        <Label htmlFor="reason">Reason</Label>
-                        <Select value={newRequest.reason} onValueChange={(val: TimeOffReason) => setNewRequest({...newRequest, reason: val})}>
-                            <SelectTrigger><SelectValue placeholder="Select a reason" /></SelectTrigger>
-                            <SelectContent>
-                                {timeOffReasons.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="start-date">Start Date</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newRequest.startDate && "text-muted-foreground")}>
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {newRequest.startDate ? format(newRequest.startDate, "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar mode="single" selected={newRequest.startDate} onSelect={(d) => setNewRequest(prev => ({...prev, startDate: d}))} initialFocus />
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                             <div>
-                                <Label htmlFor="end-date">End Date</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newRequest.endDate && "text-muted-foreground")}>
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {newRequest.endDate ? format(newRequest.endDate, "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar mode="single" selected={newRequest.endDate} onSelect={(d) => setNewRequest(prev => ({...prev, endDate: d}))} initialFocus />
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="reason">Reason</Label>
+                            <Select value={newRequest.reason} onValueChange={(val: TimeOffReason) => setNewRequest({...newRequest, reason: val})}>
+                                <SelectTrigger><SelectValue placeholder="Select a reason" /></SelectTrigger>
+                                <SelectContent>
+                                    {timeOffReasons.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="start-date">Start Date</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newRequest.startDate && "text-muted-foreground")}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {newRequest.startDate ? format(newRequest.startDate, "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar mode="single" selected={newRequest.startDate} onSelect={(d) => setNewRequest(prev => ({...prev, startDate: d}))} initialFocus />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="end-date">End Date</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newRequest.endDate && "text-muted-foreground")}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {newRequest.endDate ? format(newRequest.endDate, "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar mode="single" selected={newRequest.endDate} onSelect={(d) => setNewRequest(prev => ({...prev, endDate: d}))} initialFocus />
+                                </PopoverContent>
+                            </Popover>
                         </div>
 
                         {newRequest.reason === "Permiso para cita médica" && (
-                            <div>
+                            <div className="space-y-2">
                                 <Label htmlFor="hours">Hours</Label>
                                 <Input id="hours" type="number" value={newRequest.hours || ''} onChange={e => setNewRequest(prev => ({...prev, hours: parseInt(e.target.value)}))} />
                             </div>
                         )}
 
                         {newRequest.reason === "Incapacidad por enfermedad" && (
-                             <div>
+                             <div className="space-y-2">
                                 <Label htmlFor="attachment">Medical Certificate</Label>
                                 <Input id="attachment" type="file" onChange={handleFileChange} />
                             </div>
                         )}
                         
-                        <div>
+                        <div className="space-y-2">
                            <Label htmlFor="comments">Comments</Label>
                            <Textarea id="comments" value={newRequest.comments || ''} onChange={e => setNewRequest(prev => ({...prev, comments: e.target.value}))} />
                         </div>
