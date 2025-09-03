@@ -301,45 +301,45 @@ export default function SchedulingDashboard() {
     const startingDayIndex = (getDay(startDay) + 6) % 7; // 0 for Monday
 
     const getDailySchedule = (day: Date) => {
-        const holiday = holidays.find(h => isSameDay(h.date.toDate(), day));
-        if (holiday) {
-            return { type: 'holiday', name: holiday.name, employees: [] };
-        }
-        
-        const scheduledEmployees: {name: string, shift: string}[] = [];
-        const employeesOnLeave: string[] = [];
+      const holiday = holidays.find(h => isSameDay(h.date.toDate(), day));
+      if (holiday) {
+          return { type: 'holiday' as const, name: holiday.name, employees: [], onLeave: [] };
+      }
 
-        timeOffRequests.forEach(req => {
-            if (isWithinInterval(day, {start: req.startDate.toDate(), end: req.endDate.toDate()})) {
-                employeesOnLeave.push(req.employeeName);
-            }
-        });
+      const employeesOnLeave: string[] = [];
+      timeOffRequests.forEach(req => {
+          if (isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() })) {
+              const employee = employees.find(e => e.id === req.employeeId);
+              if (employee) {
+                  employeesOnLeave.push(employee.name);
+              }
+          }
+      });
 
-        assignments.forEach(assignment => {
-            const pattern = rotationPatterns.find(p => p.id === assignment.rotationPatternId);
-            const employeeName = assignment.employeeName;
+      const assignmentsForDay = assignments.filter(assignment =>
+          isWithinInterval(day, { start: assignment.startDate.toDate(), end: assignment.endDate.toDate() }) &&
+          !employeesOnLeave.includes(assignment.employeeName)
+      );
 
-            if (
-                pattern && 
-                isWithinInterval(day, { start: assignment.startDate.toDate(), end: assignment.endDate.toDate() }) &&
-                !employeesOnLeave.includes(employeeName)
-            ) {
-                const daysSinceStart = differenceInDays(day, assignment.startDate.toDate());
-                const weekIndex = Math.floor(daysSinceStart / 7) % (pattern.weeks?.length || 1);
-                const dayIndex = (getDay(day) + 6) % 7; // Monday is 0
-                
-                const shiftId = pattern.weeks?.[weekIndex]?.days[dayIndex];
-                if (shiftId) {
-                    const shift = shifts.find(s => s.id === shiftId);
-                    if (shift) {
-                        scheduledEmployees.push({ name: employeeName, shift: shift.name });
-                    }
-                }
-            }
-        });
-        
-        return { type: 'workday', employees: scheduledEmployees, onLeave: employeesOnLeave };
-    }
+      const scheduledEmployees: { name: string; shift: string }[] = assignmentsForDay.map(assignment => {
+          const pattern = rotationPatterns.find(p => p.id === assignment.rotationPatternId);
+          if (!pattern) return null;
+
+          const daysSinceStart = differenceInDays(day, assignment.startDate.toDate());
+          const weekIndex = Math.floor(daysSinceStart / 7) % (pattern.weeks?.length || 1);
+          const dayIndex = (getDay(day) + 6) % 7;
+
+          const shiftId = pattern.weeks?.[weekIndex]?.days[dayIndex];
+          if (!shiftId) return null;
+
+          const shift = shifts.find(s => s.id === shiftId);
+          if (!shift) return null;
+
+          return { name: assignment.employeeName, shift: shift.name };
+      }).filter((item): item is { name: string; shift: string } => item !== null);
+      
+      return { type: 'workday' as const, employees: scheduledEmployees, onLeave: employeesOnLeave };
+  }
 
 
   return (
