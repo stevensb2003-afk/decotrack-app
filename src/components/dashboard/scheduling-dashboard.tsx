@@ -180,6 +180,16 @@ export default function SchedulingDashboard() {
         toast({ title: "Missing Fields", description: "All fields are required to create an assignment.", variant: "destructive" });
         return;
     }
+    
+    const existingAssignment = assignments.find(a => a.employeeId === employeeId);
+    if (existingAssignment) {
+        toast({
+            title: "Assignment Conflict",
+            description: "This employee already has an active assignment. Please delete it before creating a new one.",
+            variant: "destructive",
+        });
+        return;
+    }
 
     const employee = employees.find(e => e.id === employeeId);
     const pattern = rotationPatterns.find(p => p.id === rotationPatternId);
@@ -261,7 +271,7 @@ export default function SchedulingDashboard() {
                                 </Select>
                             </div>
                             <div className="flex gap-4">
-                                <div>
+                                <div className="w-full">
                                     <Label htmlFor="start-date">Start Date</Label>
                                     <Popover>
                                         <PopoverTrigger asChild>
@@ -275,7 +285,7 @@ export default function SchedulingDashboard() {
                                         </PopoverContent>
                                     </Popover>
                                 </div>
-                                <div>
+                                <div className="w-full">
                                     <Label htmlFor="end-date">End Date</Label>
                                     <Popover>
                                         <PopoverTrigger asChild>
@@ -523,5 +533,8 @@ export default function SchedulingDashboard() {
         </Dialog>
     </Tabs>
   );
+
+    
+}
 
     
