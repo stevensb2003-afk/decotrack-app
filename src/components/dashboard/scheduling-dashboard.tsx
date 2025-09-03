@@ -372,63 +372,68 @@ export default function SchedulingDashboard() {
     const startingDayIndex = (getDay(startDay) + 6) % 7; // 0 for Monday
 
     const getDailySchedule = (day: Date) => {
-      const holiday = holidays.find(h => isSameDay(h.date.toDate(), day));
-      if (holiday) {
-          return { type: 'holiday' as const, name: holiday.name };
-      }
-  
-      const employeesOnLeave = timeOffRequests
-        .filter(req => {
-            const employee = employeeMap.get(req.employeeId);
-            if (!employee) return false;
-            const employeeMatch = filterEmployee === 'all' || req.employeeId === filterEmployee;
-            const locationMatch = filterLocation === 'all' || (employee.locationId === filterLocation);
-            return employeeMatch && locationMatch && isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() });
-        })
-        .map(req => {
-            const employee = employeeMap.get(req.employeeId);
-            return { name: employee?.name || 'Unknown', reason: req.reason, employeeId: req.employeeId };
-        });
-        
-      const onLeaveEmployeeIds = new Set(employeesOnLeave.map(l => l.employeeId));
+        const holiday = holidays.find(h => isSameDay(h.date.toDate(), day));
+        if (holiday) {
+            return { type: 'holiday' as const, name: holiday.name };
+        }
+    
+        const onLeaveEmployeeIds = new Set(
+            timeOffRequests
+                .filter(req => isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() }))
+                .map(req => req.employeeId)
+        );
 
-      const scheduledEmployees = assignments
-          .filter(assignment => {
-              if (onLeaveEmployeeIds.has(assignment.employeeId)) {
-                  return false;
-              }
-              const employee = employeeMap.get(assignment.employeeId);
+        const employeesOnLeave = timeOffRequests
+          .filter(req => {
+              if (!onLeaveEmployeeIds.has(req.employeeId)) return false;
+              const employee = employeeMap.get(req.employeeId);
               if (!employee) return false;
-              
-              const employeeMatch = filterEmployee === 'all' || assignment.employeeId === filterEmployee;
-              const locationMatch = filterLocation === 'all' || employee.locationId === filterLocation;
-
-              return employeeMatch && locationMatch &&
-                  isWithinInterval(day, { start: assignment.startDate.toDate(), end: assignment.endDate.toDate() });
+              const employeeMatch = filterEmployee === 'all' || req.employeeId === filterEmployee;
+              const locationMatch = filterLocation === 'all' || (employee.locationId === filterLocation);
+              return employeeMatch && locationMatch;
           })
-          .map(assignment => {
-              const pattern = rotationPatterns.find(p => p.id === assignment.rotationPatternId);
-              if (!pattern) return null;
+          .map(req => {
+              const employee = employeeMap.get(req.employeeId);
+              return { name: employee?.name || 'Unknown', reason: req.reason, employeeId: req.employeeId };
+          });
+          
+        const scheduledEmployees = assignments
+            .filter(assignment => {
+                if (onLeaveEmployeeIds.has(assignment.employeeId)) {
+                    return false;
+                }
+                const employee = employeeMap.get(assignment.employeeId);
+                if (!employee) return false;
+                
+                const employeeMatch = filterEmployee === 'all' || assignment.employeeId === filterEmployee;
+                const locationMatch = filterLocation === 'all' || employee.locationId === filterLocation;
   
-              const daysSinceStart = differenceInDays(day, assignment.startDate.toDate());
-              if (daysSinceStart < 0) return null;
-              const weekIndex = Math.floor(daysSinceStart / 7) % (pattern.weeks?.length || 1);
-              const dayIndex = (getDay(day) + 6) % 7;
-  
-              const shiftId = pattern.weeks?.[weekIndex]?.days[dayIndex];
-              if (!shiftId) return null;
-  
-              const shift = shifts.find(s => s.id === shiftId);
-              if (!shift) return null;
-  
-              return {
-                  name: assignment.employeeName,
-                  shift: `${shift.name}: ${format(shift.startTime, 'p')} - ${format(shift.endTime, 'p')}`
-              };
-          }).filter((item): item is { name: string; shift: string } => item !== null);
-      
-      return { type: 'workday' as const, employees: scheduledEmployees, onLeave: employeesOnLeave };
-    }
+                return employeeMatch && locationMatch &&
+                    isWithinInterval(day, { start: assignment.startDate.toDate(), end: assignment.endDate.toDate() });
+            })
+            .map(assignment => {
+                const pattern = rotationPatterns.find(p => p.id === assignment.rotationPatternId);
+                if (!pattern) return null;
+    
+                const daysSinceStart = differenceInDays(day, assignment.startDate.toDate());
+                if (daysSinceStart < 0) return null;
+                const weekIndex = Math.floor(daysSinceStart / 7) % (pattern.weeks?.length || 1);
+                const dayIndex = (getDay(day) + 6) % 7;
+    
+                const shiftId = pattern.weeks?.[weekIndex]?.days[dayIndex];
+                if (!shiftId) return null;
+    
+                const shift = shifts.find(s => s.id === shiftId);
+                if (!shift) return null;
+    
+                return {
+                    name: assignment.employeeName,
+                    shift: `${shift.name}: ${format(shift.startTime, 'p')} - ${format(shift.endTime, 'p')}`
+                };
+            }).filter((item): item is { name: string; shift: string } => item !== null);
+        
+        return { type: 'workday' as const, employees: scheduledEmployees, onLeave: employeesOnLeave };
+      }
     
     const getLeaveBackgroundColor = (reason: TimeOffReason) => {
         if (reason === 'Vacaciones') {
@@ -1014,5 +1019,7 @@ export default function SchedulingDashboard() {
 
     
 }
+
+    
 
     
