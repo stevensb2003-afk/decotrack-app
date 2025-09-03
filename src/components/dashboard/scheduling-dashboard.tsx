@@ -318,37 +318,48 @@ export default function SchedulingDashboard() {
       if (holiday) {
           return { type: 'holiday' as const, name: holiday.name };
       }
-
-      const employeesOnLeave: { name: string, reason: string }[] = [];
-      timeOffRequests.forEach(req => {
-          if (isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() })) {
-              const employee = employees.find(e => e.id === req.employeeId);
-              if (employee) {
-                  employeesOnLeave.push({ name: employee.name, reason: req.reason });
-              }
-          }
-      });
-      const onLeaveEmployeeNames = employeesOnLeave.map(e => e.name);
-
+  
+      const employeesOnLeave = timeOffRequests
+        .filter(req => {
+            const employee = employeeMap.get(req.employeeId);
+            const employeeMatch = filterEmployee === 'all' || req.employeeId === filterEmployee;
+            const locationMatch = filterLocation === 'all' || (employee && employee.locationId === filterLocation);
+            return employeeMatch && locationMatch && isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() });
+        })
+        .map(req => {
+            const employee = employeeMap.get(req.employeeId);
+            return { name: employee?.name || 'Unknown', reason: req.reason };
+        });
+        
+      const onLeaveEmployeeIds = new Set(timeOffRequests
+          .filter(req => isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() }))
+          .map(req => req.employeeId)
+      );
+  
       const scheduledEmployees = assignments
-          .filter(assignment =>
-              isWithinInterval(day, { start: assignment.startDate.toDate(), end: assignment.endDate.toDate() }) &&
-              !onLeaveEmployeeNames.includes(assignment.employeeName)
-          )
+          .filter(assignment => {
+              const employee = employeeMap.get(assignment.employeeId);
+              if (!employee) return false;
+              const employeeMatch = filterEmployee === 'all' || assignment.employeeId === filterEmployee;
+              const locationMatch = filterLocation === 'all' || employee.locationId === filterLocation;
+              return employeeMatch && locationMatch &&
+                  isWithinInterval(day, { start: assignment.startDate.toDate(), end: assignment.endDate.toDate() }) &&
+                  !onLeaveEmployeeIds.has(assignment.employeeId)
+          })
           .map(assignment => {
               const pattern = rotationPatterns.find(p => p.id === assignment.rotationPatternId);
               if (!pattern) return null;
-
+  
               const daysSinceStart = differenceInDays(day, assignment.startDate.toDate());
               const weekIndex = Math.floor(daysSinceStart / 7) % (pattern.weeks?.length || 1);
               const dayIndex = (getDay(day) + 6) % 7;
-
+  
               const shiftId = pattern.weeks?.[weekIndex]?.days[dayIndex];
               if (!shiftId) return null;
-
+  
               const shift = shifts.find(s => s.id === shiftId);
               if (!shift) return null;
-
+  
               return {
                   name: assignment.employeeName,
                   shift: `${shift.name}: ${format(shift.startTime, 'p')} - ${format(shift.endTime, 'p')}`
@@ -499,11 +510,37 @@ export default function SchedulingDashboard() {
 
       <TabsContent value="calendar">
           <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-col md:flex-row items-center justify-between gap-2">
                   <div className="flex items-center gap-4">
                       <Button variant="outline" size="icon" onClick={() => setCurrentDate(subMonths(currentDate, 1))}><ChevronLeft/></Button>
                       <CardTitle className="text-2xl">{format(currentDate, 'MMMM yyyy')}</CardTitle>
                       <Button variant="outline" size="icon" onClick={() => setCurrentDate(addMonths(currentDate, 1))}><ChevronRight/></Button>
+                  </div>
+                   <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <Select value={filterLocation} onValueChange={setFilterLocation}>
+                        <SelectTrigger className="w-full md:w-[180px]">
+                            <SelectValue placeholder="Filter by Location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Locations</SelectItem>
+                            {locations.map(loc => (
+                                <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                     <Select value={filterEmployee} onValueChange={setFilterEmployee}>
+                        <SelectTrigger className="w-full md:w-[180px]">
+                            <SelectValue placeholder="Filter by Employee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Employees</SelectItem>
+                            {employees.filter(emp => filterLocation === 'all' || emp.locationId === filterLocation).map(emp => (
+                                <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {(filterEmployee !== 'all' || filterLocation !== 'all') && <Button variant="ghost" onClick={() => {setFilterEmployee('all'); setFilterLocation('all');}}>Clear</Button>}
                   </div>
                   <Button onClick={() => setCurrentDate(new Date())}>Today</Button>
               </CardHeader>
@@ -811,5 +848,7 @@ export default function SchedulingDashboard() {
 
     
 }
+
+    
 
     
