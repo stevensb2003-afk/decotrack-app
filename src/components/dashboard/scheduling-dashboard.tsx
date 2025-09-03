@@ -14,13 +14,9 @@ import { Shift, RotationPattern, Schedule, createShift, getShifts, createRotatio
 import { Employee, getAllEmployees } from '@/services/employeeService';
 import { TimePicker } from '../ui/time-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { add, format } from 'date-fns';
-
-const defaultStartTime = new Date();
-defaultStartTime.setHours(9, 0, 0, 0);
-
-const defaultEndTime = new Date();
-defaultEndTime.setHours(17, 0, 0, 0);
+import { format } from 'date-fns';
+import { Time } from '@internationalized/date';
+import type { TimeValue } from 'react-aria-components';
 
 export default function SchedulingDashboard() {
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -33,8 +29,8 @@ export default function SchedulingDashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   
   const [newShiftName, setNewShiftName] = useState('');
-  const [startTime, setStartTime] = useState<Date>(defaultStartTime);
-  const [endTime, setEndTime] = useState<Date>(defaultEndTime);
+  const [startTime, setStartTime] = useState<TimeValue>(new Time(9, 0));
+  const [endTime, setEndTime] = useState<TimeValue>(new Time(17, 0));
 
   const [newPattern, setNewPattern] = useState({ name: '', shiftIds: [] as string[] });
   
@@ -60,12 +56,17 @@ export default function SchedulingDashboard() {
         toast({title: "Shift name is required", variant: "destructive"});
         return;
     }
-    await createShift({ name: newShiftName, startTime, endTime });
+
+    const today = new Date();
+    const startDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), startTime.hour, startTime.minute);
+    const endDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), endTime.hour, endTime.minute);
+
+    await createShift({ name: newShiftName, startTime: startDateTime, endTime: endDateTime });
     toast({ title: "Shift Created", description: "The new shift has been saved." });
     setIsShiftDialogOpen(false);
     setNewShiftName('');
-    setStartTime(defaultStartTime);
-    setEndTime(defaultEndTime);
+    setStartTime(new Time(9,0));
+    setEndTime(new Time(17,0));
     fetchData();
   }
 
@@ -130,11 +131,11 @@ export default function SchedulingDashboard() {
                         <div className="flex gap-4">
                             <div>
                                 <Label>Start Time</Label>
-                                <TimePicker date={startTime} setDate={setStartTime} />
+                                <TimePicker value={startTime} onChange={setStartTime} />
                             </div>
                             <div>
                                 <Label>End Time</Label>
-                                <TimePicker date={endTime} setDate={setEndTime} />
+                                <TimePicker value={endTime} onChange={setEndTime} />
                             </div>
                         </div>
                     </div>
