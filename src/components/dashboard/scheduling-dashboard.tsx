@@ -1,17 +1,16 @@
-
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, BrainCircuit, Repeat, PlusCircle, Trash2, CalendarDays, List, Filter, Pencil, PartyPopper } from 'lucide-react';
+import { Calendar, BrainCircuit, Repeat, PlusCircle, Trash2, CalendarDays, List, Filter, Pencil, PartyPopper, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Shift, createShift, getShifts, RotationPattern, createRotationPattern, getRotationPatterns, EmployeeScheduleAssignment, createEmployeeScheduleAssignment, getEmployeeScheduleAssignments, deleteEmployeeScheduleAssignment, updateShift, updateRotationPattern, deleteRotationPattern, Holiday, getHolidays, createHoliday, updateHoliday, deleteHoliday } from '@/services/scheduleService';
-import { format, parse } from 'date-fns';
+import { format, parse, getDaysInMonth, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addMonths, subMonths, isWithinInterval, differenceInDays } from 'date-fns';
 import { Employee, getAllEmployees } from '@/services/employeeService';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -21,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { Location, getAllLocations } from '@/services/locationService';
+import { TimeOffRequest, getTimeOffRequests } from '@/services/timeOffRequestService';
 
 
 export default function SchedulingDashboard() {
@@ -30,6 +30,7 @@ export default function SchedulingDashboard() {
   const [assignments, setAssignments] = useState<EmployeeScheduleAssignment[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
 
   const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
   const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false);
@@ -60,6 +61,8 @@ export default function SchedulingDashboard() {
   const [filterEmployee, setFilterEmployee] = useState('all');
   const [filterLocation, setFilterLocation] = useState('all');
 
+  const [currentDate, setCurrentDate] = useState(new Date());
+
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -69,12 +72,14 @@ export default function SchedulingDashboard() {
     const assignmentsData = await getEmployeeScheduleAssignments();
     const holidaysData = await getHolidays();
     const locationsData = await getAllLocations();
+    const timeOffData = await getTimeOffRequests('approved');
     setEmployees(employeesData);
     setShifts(shiftsData);
     setRotationPatterns(patternsData);
     setAssignments(assignmentsData);
     setHolidays(holidaysData);
     setLocations(locationsData);
+    setTimeOffRequests(timeOffData);
   };
 
   useEffect(() => {
@@ -289,6 +294,54 @@ export default function SchedulingDashboard() {
 
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+  // --- Calendar View Logic ---
+    const startDay = startOfMonth(currentDate);
+    const endDay = endOfMonth(currentDate);
+    const daysInMonth = eachDayOfInterval({ start: startDay, end: endDay });
+    const startingDayIndex = (getDay(startDay) + 6) % 7; // 0 for Monday
+
+    const getDailySchedule = (day: Date) => {
+        const holiday = holidays.find(h => isSameDay(h.date.toDate(), day));
+        if (holiday) {
+            return { type: 'holiday', name: holiday.name, employees: [] };
+        }
+        
+        const scheduledEmployees: {name: string, shift: string}[] = [];
+        const employeesOnLeave: string[] = [];
+
+        timeOffRequests.forEach(req => {
+            if (isWithinInterval(day, {start: req.startDate.toDate(), end: req.endDate.toDate()})) {
+                employeesOnLeave.push(req.employeeName);
+            }
+        });
+
+        assignments.forEach(assignment => {
+            const pattern = rotationPatterns.find(p => p.id === assignment.rotationPatternId);
+            const employeeName = assignment.employeeName;
+
+            if (
+                pattern && 
+                isWithinInterval(day, { start: assignment.startDate.toDate(), end: assignment.endDate.toDate() }) &&
+                !employeesOnLeave.includes(employeeName)
+            ) {
+                const daysSinceStart = differenceInDays(day, assignment.startDate.toDate());
+                const weekIndex = Math.floor(daysSinceStart / 7) % (pattern.weeks?.length || 1);
+                const dayIndex = (getDay(day) + 6) % 7; // Monday is 0
+                
+                const shiftId = pattern.weeks?.[weekIndex]?.days[dayIndex];
+                if (shiftId) {
+                    const shift = shifts.find(s => s.id === shiftId);
+                    if (shift) {
+                        scheduledEmployees.push({ name: employeeName, shift: shift.name });
+                    }
+                }
+            }
+        });
+        
+        return { type: 'workday', employees: scheduledEmployees, onLeave: employeesOnLeave };
+    }
+
+
   return (
     <Tabs defaultValue="assignments" className="space-y-4">
       <TabsList>
@@ -427,16 +480,57 @@ export default function SchedulingDashboard() {
         </Card>
       </TabsContent>
 
-       <TabsContent value="calendar">
-        <Card>
-            <CardHeader>
-                <CardTitle>Calendar View</CardTitle>
-                <CardDescription>A monthly view of the generated employee schedules.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <p className="text-muted-foreground">This feature is under construction. Please check back later.</p>
-            </CardContent>
-        </Card>
+      <TabsContent value="calendar">
+          <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-4">
+                      <Button variant="outline" size="icon" onClick={() => setCurrentDate(subMonths(currentDate, 1))}><ChevronLeft/></Button>
+                      <CardTitle className="text-2xl">{format(currentDate, 'MMMM yyyy')}</CardTitle>
+                      <Button variant="outline" size="icon" onClick={() => setCurrentDate(addMonths(currentDate, 1))}><ChevronRight/></Button>
+                  </div>
+                  <Button onClick={() => setCurrentDate(new Date())}>Today</Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                  <div className="grid grid-cols-7 border-t border-l">
+                      {weekDays.map(day => (
+                          <div key={day} className="p-2 border-b border-r text-center font-bold text-sm bg-muted/50">{day}</div>
+                      ))}
+                      {Array.from({ length: startingDayIndex }).map((_, i) => (
+                          <div key={`empty-${i}`} className="border-b border-r" />
+                      ))}
+                      {daysInMonth.map(day => {
+                          const scheduleInfo = getDailySchedule(day);
+                          const isToday = isSameDay(day, new Date());
+                          return (
+                              <div key={day.toString()} className={cn("p-2 border-b border-r min-h-[120px] h-full", isToday && "bg-blue-50")}>
+                                  <div className={cn("text-right text-sm", isToday && "font-bold text-primary")}>{format(day, 'd')}</div>
+                                  {scheduleInfo.type === 'holiday' && (
+                                      <div className="text-center p-2 mt-2 rounded-md bg-accent/20">
+                                          <PartyPopper className="mx-auto h-5 w-5 text-accent"/>
+                                          <p className="text-xs font-semibold text-accent-foreground">{scheduleInfo.name}</p>
+                                      </div>
+                                  )}
+                                   {scheduleInfo.type === 'workday' && (
+                                       <div className="space-y-1 mt-1 text-xs">
+                                          {scheduleInfo.onLeave.map(name => (
+                                              <p key={name} className="truncate p-1 rounded-md bg-yellow-100 text-yellow-800">
+                                                  {name} (Leave)
+                                              </p>
+                                          ))}
+                                          {scheduleInfo.employees.map(emp => (
+                                              <div key={emp.name} className="truncate p-1 rounded-md bg-secondary text-secondary-foreground">
+                                                  <p className="font-semibold">{emp.name}</p>
+                                                  <p className="text-muted-foreground">{emp.shift}</p>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  )}
+                              </div>
+                          )
+                      })}
+                  </div>
+              </CardContent>
+          </Card>
       </TabsContent>
       
       <TabsContent value="holidays">
@@ -683,5 +777,3 @@ export default function SchedulingDashboard() {
 
     
 }
-
-    
