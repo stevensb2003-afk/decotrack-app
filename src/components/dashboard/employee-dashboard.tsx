@@ -1,3 +1,4 @@
+
 "use client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -231,8 +232,8 @@ export default function EmployeeDashboard() {
   }
 
   const weekDays = eachDayOfInterval({
-    start: startOfWeek(new Date()),
-    end: addDays(startOfWeek(new Date()), 6),
+    start: startOfWeek(new Date(), { weekStartsOn: 1 }),
+    end: addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), 6),
   });
 
   const getShiftForDate = (date: Date) => {
@@ -347,7 +348,7 @@ export default function EmployeeDashboard() {
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="single" selected={newRequest.startDate} onSelect={(d) => setNewRequest(prev => ({...prev, startDate: d}))} initialFocus />
+                                    <Calendar mode="single" selected={newRequest.startDate} onSelect={(d) => setNewRequest(prev => ({...prev, startDate: d}))} initialFocus weekStartsOn={1} />
                                 </PopoverContent>
                             </Popover>
                         </div>
@@ -361,7 +362,7 @@ export default function EmployeeDashboard() {
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="single" selected={newRequest.endDate} onSelect={(d) => setNewRequest(prev => ({...prev, endDate: d}))} initialFocus />
+                                    <Calendar mode="single" selected={newRequest.endDate} onSelect={(d) => setNewRequest(prev => ({...prev, endDate: d}))} initialFocus weekStartsOn={1} />
                                 </PopoverContent>
                             </Popover>
                         </div>
@@ -450,3 +451,5 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
+    
