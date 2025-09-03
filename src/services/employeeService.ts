@@ -27,6 +27,11 @@ export type Employee = {
     employmentType: 'Full time' | 'Part time' | 'Practicant' | 'n/a';
     salaryType: 'Hourly' | 'Salary' | 'Profesional Services';
     avatarUrl?: string;
+    managerId?: string;
+    scheduleInfo?: {
+      shiftId: string;
+      rotationPatternId: string;
+    }
 };
 
 const employeesCollection = collection(db, 'employees');

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
-import { Building, LayoutDashboard, Users, BarChart, Settings, LogOut, CalendarOff } from 'lucide-react';
+import { Building, LayoutDashboard, Users, BarChart, Settings, LogOut, CalendarOff, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import Image from 'next/image';
@@ -15,6 +15,7 @@ export default function DashboardSidebar({ onNavigate }: { onNavigate: (view: st
   const navItems = [
     { view: 'overview', label: 'Overview', icon: LayoutDashboard },
     { view: 'employees', label: 'Employees', icon: Users },
+    { view: 'scheduling', label: 'Scheduling', icon: CalendarDays },
     { view: 'time-off', label: 'Time Off', icon: CalendarOff },
     { view: 'reports', label: 'Reports', icon: BarChart },
     { view: 'users', label: 'User Management', icon: Settings },

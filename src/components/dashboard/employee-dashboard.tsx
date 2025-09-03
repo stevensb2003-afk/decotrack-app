@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowRight, ArrowLeft, Hourglass, CalendarPlus, Banknote, AlertTriangle } from "lucide-react";
+import { ArrowRight, ArrowLeft, Hourglass, CalendarPlus, Banknote, AlertTriangle, CalendarDays } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -24,11 +24,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, differenceInMonths, addMonths, differenceInDays } from "date-fns";
+import { format, differenceInDays, getDaysInMonth, startOfWeek, addDays, eachDayOfInterval } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { createTimeOffRequest, getEmployeeTimeOffRequests, TimeOffRequest, TimeOffReason, VacationBank, getVacationBank, updateVacationBank } from "@/services/timeOffRequestService";
 import { Badge } from "../ui/badge";
+import { getScheduleForEmployee, Schedule, getShifts, Shift } from "@/services/scheduleService";
 
 const timeOffReasons: TimeOffReason[] = [
     'Vacaciones',
@@ -60,6 +61,8 @@ export default function EmployeeDashboard() {
   }>({ reason: '', startDate: undefined, endDate: undefined });
   const [vacationBank, setVacationBank] = useState<VacationBank | null>(null);
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
+  const [schedule, setSchedule] = useState<Schedule[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
 
   const fetchEmployeeData = async () => {
     if (user?.email) {
@@ -75,10 +78,17 @@ export default function EmployeeDashboard() {
         const bank = await getVacationBank(employeeData.id);
         if (bank) {
             const hireDate = employeeData.hireDate.toDate();
-            const now = new Date();
             
-            const accruedDays = differenceInMonths(now, hireDate);
+            // Simplified accrual logic
+            const today = new Date();
+            let accruedDays = 0;
+            let lastAccrual = hireDate;
 
+            while(addMonths(lastAccrual, 1) <= today) {
+                accruedDays++;
+                lastAccrual = addMonths(lastAccrual, 1);
+            }
+            
             const usedDays = torRequests
                 .filter(req => req.reason === 'Vacaciones' && req.status === 'approved')
                 .reduce((total, req) => {
@@ -95,6 +105,8 @@ export default function EmployeeDashboard() {
                 setVacationBank(bank);
             }
         }
+         const shiftData = await getShifts();
+         setShifts(shiftData);
       }
       setIsLoading(false);
     }
@@ -218,6 +230,22 @@ export default function EmployeeDashboard() {
     }
   }
 
+  const weekDays = eachDayOfInterval({
+    start: startOfWeek(new Date()),
+    end: addDays(startOfWeek(new Date()), 6),
+  });
+
+  const getShiftForDate = (date: Date) => {
+    const scheduledShift = schedule.find(s => format(s.date.toDate(), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd'));
+    if(!scheduledShift) return { name: 'Day Off', time: ''};
+    const shiftInfo = shifts.find(s => s.id === scheduledShift.shiftId);
+    if(!shiftInfo) return { name: 'Unknown Shift', time: ''};
+    return {
+        name: shiftInfo.name,
+        time: `${format(shiftInfo.startTime, 'p')} - ${format(shiftInfo.endTime, 'p')}`
+    };
+  }
+
   if(isLoading) {
     return <div>Loading dashboard...</div>
   }
@@ -269,6 +297,22 @@ export default function EmployeeDashboard() {
         </div>
       </div>
       <Card>
+        <CardHeader>
+            <CardTitle>My Schedule</CardTitle>
+            <CardDescription>Your work schedule for the current week.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-7 gap-2">
+            {weekDays.map(day => (
+                <div key={day.toString()} className="rounded-lg border p-3 text-center">
+                    <p className="text-sm font-semibold">{format(day, 'EEE')}</p>
+                    <p className="text-xs text-muted-foreground">{format(day, 'MMM d')}</p>
+                    <p className="text-xs mt-2">{getShiftForDate(day).name}</p>
+                    <p className="text-xs font-mono text-primary">{getShiftForDate(day).time}</p>
+                </div>
+            ))}
+        </CardContent>
+      </Card>
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
             <div>
                 <CardTitle>My Time Off Requests</CardTitle>
@@ -293,7 +337,7 @@ export default function EmployeeDashboard() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="space-y-2">
+                         <div className="space-y-2">
                             <Label htmlFor="start-date">Start Date</Label>
                             <Popover>
                                 <PopoverTrigger asChild>
