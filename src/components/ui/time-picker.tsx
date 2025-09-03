@@ -1,25 +1,24 @@
-
 "use client"
 
 import * as React from "react"
-import { Label } from "@/components/ui/label"
 import { TimeField } from "@/components/ui/time-field"
-import { Time } from "@internationalized/date"
-import type {TimeValue} from 'react-aria-components';
+import { Time, type TimeValue } from "@internationalized/date"
 
 interface TimePickerProps {
   date: Date;
-  setDate: (date: Date | null) => void;
+  setDate: (date: Date) => void;
 }
 
 export function TimePicker({ date, setDate }: TimePickerProps) {
-  const timeValue = date ? new Time(date.getHours(), date.getMinutes()) : null;
+  const timeValue = React.useMemo(() => {
+    return date ? new Time(date.getHours(), date.getMinutes()) : null;
+  }, [date]);
 
   const onTimeChange = (newTime: TimeValue) => {
-    const newDate = new Date(date.getTime());
+    const newDate = new Date(date);
     newDate.setHours(newTime.hour, newTime.minute);
     setDate(newDate);
-  }
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -29,5 +28,5 @@ export function TimePicker({ date, setDate }: TimePickerProps) {
         onChange={onTimeChange}
       />
     </div>
-  )
+  );
 }
