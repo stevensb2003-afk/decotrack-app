@@ -24,7 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, differenceInDays, getDaysInMonth, startOfWeek, addDays, eachDayOfInterval } from "date-fns";
+import { format, differenceInDays, getDaysInMonth, startOfWeek, addDays, eachDayOfInterval, addMonths } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { createTimeOffRequest, getEmployeeTimeOffRequests, TimeOffRequest, TimeOffReason, VacationBank, getVacationBank, updateVacationBank } from "@/services/timeOffRequestService";
