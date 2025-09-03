@@ -11,10 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Shift, createShift, getShifts, RotationPattern, createRotationPattern, getRotationPatterns, EmployeeScheduleAssignment, createEmployeeScheduleAssignment, getEmployeeScheduleAssignments, deleteEmployeeScheduleAssignment } from '@/services/scheduleService';
-import { TimePicker } from '../ui/time-picker';
 import { format } from 'date-fns';
-import { Time, TimeValue, getLocalTimeZone, today } from '@internationalized/date';
-import { Checkbox } from '../ui/checkbox';
 import { Employee, getAllEmployees } from '@/services/employeeService';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -22,8 +19,6 @@ import { Calendar as CalendarComponent } from '../ui/calendar';
 import { Timestamp } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 
-const defaultStartTime = new Time(9, 0);
-const defaultEndTime = new Time(17, 0);
 
 export default function SchedulingDashboard() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -35,9 +30,7 @@ export default function SchedulingDashboard() {
   const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false);
   const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
   
-  const [newShiftName, setNewShiftName] = useState('');
-  const [startTime, setStartTime] = useState<TimeValue>(defaultStartTime);
-  const [endTime, setEndTime] = useState<TimeValue>(defaultEndTime);
+  const [newShift, setNewShift] = useState({ name: '', startTime: '09:00', endTime: '17:00'});
 
   const [newPatternName, setNewPatternName] = useState('');
   const [selectedShiftsForPattern, setSelectedShiftsForPattern] = useState<string[]>([]);
@@ -69,21 +62,25 @@ export default function SchedulingDashboard() {
   }, []);
   
   const handleCreateShift = async () => {
-    if(!newShiftName || !startTime || !endTime) {
+    if(!newShift.name || !newShift.startTime || !newShift.endTime) {
         toast({title: "Shift details are required", variant: "destructive"});
         return;
     }
-    const todayDate = today(getLocalTimeZone());
+    const [startHours, startMinutes] = newShift.startTime.split(':').map(Number);
+    const [endHours, endMinutes] = newShift.endTime.split(':').map(Number);
+    const startDate = new Date();
+    startDate.setHours(startHours, startMinutes, 0, 0);
+    const endDate = new Date();
+    endDate.setHours(endHours, endMinutes, 0, 0);
+
     await createShift({ 
-        name: newShiftName, 
-        startTime: startTime.toDate(todayDate), 
-        endTime: endTime.toDate(todayDate) 
+        name: newShift.name, 
+        startTime: startDate, 
+        endTime: endDate
     });
     toast({ title: "Shift Created", description: "The new shift has been saved." });
     setIsShiftDialogOpen(false);
-    setNewShiftName('');
-    setStartTime(defaultStartTime);
-    setEndTime(defaultEndTime);
+    setNewShift({ name: '', startTime: '09:00', endTime: '17:00'});
     fetchData();
   }
 
@@ -298,11 +295,17 @@ export default function SchedulingDashboard() {
                     <div className="space-y-4 py-4">
                         <div>
                             <Label htmlFor="shift-name">Shift Name</Label>
-                            <Input id="shift-name" value={newShiftName} onChange={e => setNewShiftName(e.target.value)} placeholder="e.g., Morning Shift"/>
+                            <Input id="shift-name" value={newShift.name} onChange={e => setNewShift({...newShift, name: e.target.value})} placeholder="e.g., Morning Shift"/>
                         </div>
                         <div className="flex gap-4">
-                           <TimePicker label="Start Time" value={startTime} onChange={setStartTime} />
-                           <TimePicker label="End Time" value={endTime} onChange={setEndTime} />
+                           <div className="w-full">
+                               <Label>Start Time</Label>
+                               <Input type="time" value={newShift.startTime} onChange={e => setNewShift({...newShift, startTime: e.target.value})} />
+                           </div>
+                           <div className="w-full">
+                               <Label>End Time</Label>
+                               <Input type="time" value={newShift.endTime} onChange={e => setNewShift({...newShift, endTime: e.target.value})} />
+                           </div>
                         </div>
                     </div>
                     <DialogFooter><Button onClick={handleCreateShift}>Create Shift</Button></DialogFooter>
@@ -378,3 +381,5 @@ export default function SchedulingDashboard() {
     </Tabs>
   );
 }
+
+    
