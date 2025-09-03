@@ -1,39 +1,40 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, UserCheck, UserX, ArrowRight, ArrowLeft } from "lucide-react";
+import { Users, UserCheck, UserX } from "lucide-react";
 import { getAllEmployees, Employee } from '@/services/employeeService';
-import { getRecentActivities, RecentActivity } from '@/services/attendanceService';
+import { getDailyAttendanceSummary, DailyAttendanceSummary } from '@/services/attendanceService';
 import { AttendanceRecord } from '@/services/attendanceService';
-import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function ManagementDashboard() {
     const [employees, setEmployees] = useState<Employee[]>([]);
-    const [activities, setActivities] = useState<RecentActivity[]>([]);
+    const [summary, setSummary] = useState<DailyAttendanceSummary[]>([]);
     const [presentCount, setPresentCount] = useState(0);
 
+    const fetchData = async () => {
+        const emps = await getAllEmployees();
+        setEmployees(emps);
+        
+        const summaryData = await getDailyAttendanceSummary(10, emps);
+        setSummary(summaryData);
+        
+        const q = query(collection(db, 'attendance'), orderBy('timestamp', 'desc'));
+        const unsubscribe = onSnapshot(q, async () => {
+            const updatedEmps = await getAllEmployees();
+            const updatedSummary = await getDailyAttendanceSummary(10, updatedEmps);
+            setEmployees(updatedEmps);
+            setSummary(updatedSummary);
+        });
+
+        return () => unsubscribe();
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
-            const emps = await getAllEmployees();
-            setEmployees(emps);
-            
-            const acts = await getRecentActivities(10, emps);
-            setActivities(acts);
-            
-            const q = query(collection(db, 'attendance'), orderBy('timestamp', 'desc'));
-            const unsubscribe = onSnapshot(q, async () => {
-                const updatedEmps = await getAllEmployees();
-                const updatedActs = await getRecentActivities(10, updatedEmps);
-                setEmployees(updatedEmps);
-                setActivities(updatedActs);
-            });
-
-            return () => unsubscribe();
-        };
-
         fetchData();
     }, []);
 
@@ -96,33 +97,33 @@ export default function ManagementDashboard() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Real-time Entry/Exit Report</CardTitle>
-          <CardDescription>A live feed of employee attendance activities.</CardDescription>
+          <CardTitle>Daily Attendance Report</CardTitle>
+          <CardDescription>A summary of employee clock-in and clock-out times.</CardDescription>
         </CardHeader>
         <CardContent>
             <Table>
                 <TableHeader>
                 <TableRow>
                     <TableHead>Employee</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Time</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Clock In</TableHead>
+                    <TableHead>Clock Out</TableHead>
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {activities.map((activity, index) => (
+                {summary.map((daySummary, index) => (
                     <TableRow key={index}>
-                        <TableCell className="font-medium">{activity.name}</TableCell>
-                        <TableCell>
-                            <span className={`flex items-center gap-2 ${activity.type === 'Entry' ? 'text-primary' : 'text-destructive'}`}>
-                            {activity.type === 'Entry' ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
-                            {activity.type}
-                            </span>
-                        </TableCell>
-                        <TableCell>{activity.time}</TableCell>
+                        <TableCell className="font-medium">{daySummary.employeeName}</TableCell>
+                        <TableCell>{daySummary.date}</TableCell>
+                        <TableCell className="text-primary">{daySummary.clockIn || 'N/A'}</TableCell>
+                        <TableCell className="text-destructive">{daySummary.clockOut || 'N/A'}</TableCell>
                     </TableRow>
                 ))}
                 </TableBody>
             </Table>
+             {summary.length === 0 && (
+                <p className="text-sm text-center text-muted-foreground py-4">No attendance records found.</p>
+            )}
         </CardContent>
       </Card>
     </div>

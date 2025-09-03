@@ -1,7 +1,8 @@
 
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, limit, getDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, limit } from 'firebase/firestore';
 import { Employee, getAllEmployees } from './employeeService';
+import { format } from 'date-fns';
 
 export type AttendanceRecord = {
   id?: string;
@@ -14,7 +15,16 @@ export type RecentActivity = {
     name: string;
     type: 'Entry' | 'Exit';
     time: string;
-}
+};
+
+export type DailyAttendanceSummary = {
+  employeeId: string;
+  employeeName: string;
+  date: string; // "PPP" format
+  clockIn: string | null; // "p" format
+  clockOut: string | null; // "p" format
+};
+
 
 const attendanceCollection = collection(db, 'attendance');
 
@@ -36,27 +46,58 @@ export const getEmployeeAttendance = async (employeeId: string, recordLimit: num
   return records.slice(0, recordLimit);
 };
 
-export const getRecentActivities = async (recordLimit: number = 5, allEmployees?: Employee[]): Promise<RecentActivity[]> => {
+export const getDailyAttendanceSummary = async (daysLimit: number = 5, allEmployees?: Employee[]): Promise<DailyAttendanceSummary[]> => {
     const employees = allEmployees || await getAllEmployees();
     const employeeMap = new Map(employees.map(e => [e.id, e.name]));
 
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - (daysLimit -1));
+    startDate.setHours(0, 0, 0, 0);
+
     const q = query(
         attendanceCollection,
-        orderBy("timestamp", "desc"),
-        limit(recordLimit)
+        where("timestamp", ">=", startDate),
+        orderBy("timestamp", "asc")
     );
     const snapshot = await getDocs(q);
+    const records = snapshot.docs.map(doc => doc.data() as AttendanceRecord);
 
-    const activities = snapshot.docs.map((d) => {
-        const data = d.data() as AttendanceRecord;
-        const employeeName = employeeMap.get(data.employeeId) || `Employee ${data.employeeId.substring(0, 5)}`;
-        
+    const dailyGroups: { [key: string]: AttendanceRecord[] } = {};
+
+    records.forEach(record => {
+        const dateKey = format(record.timestamp.toDate(), 'yyyy-MM-dd');
+        const groupKey = `${record.employeeId}-${dateKey}`;
+        if (!dailyGroups[groupKey]) {
+            dailyGroups[groupKey] = [];
+        }
+        dailyGroups[groupKey].push(record);
+    });
+
+    const summary: DailyAttendanceSummary[] = Object.values(dailyGroups).map(group => {
+        const firstRecord = group[0];
+        const entries = group.filter(r => r.type === 'Entry');
+        const exits = group.filter(r => r.type === 'Exit');
+
+        const clockIn = entries.length > 0 ? format(entries[0].timestamp.toDate(), 'p') : null;
+        const clockOut = exits.length > 0 ? format(exits[exits.length - 1].timestamp.toDate(), 'p') : null;
+
         return {
-            name: employeeName,
-            type: data.type,
-            time: data.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            employeeId: firstRecord.employeeId,
+            employeeName: employeeMap.get(firstRecord.employeeId) || `Employee ${firstRecord.employeeId.substring(0,5)}`,
+            date: format(firstRecord.timestamp.toDate(), "PPP"),
+            clockIn,
+            clockOut
         };
     });
 
-    return activities;
+    // Sort by date and then by employee name
+    summary.sort((a, b) => {
+        if (b.date !== a.date) {
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+        }
+        return a.employeeName.localeCompare(b.employeeName);
+    });
+
+    return summary;
 };
