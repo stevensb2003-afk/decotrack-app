@@ -2,22 +2,19 @@
 "use client"
 
 import * as React from "react"
-import { TimeField } from "@/components/ui/time-field"
-import { type TimeValue } from "react-aria-components"
+import { TimeField, TimeFieldProps } from "@/components/ui/time-field"
+import { TimeValue } from "react-aria-components"
+import { Label, Input } from "react-aria-components";
 
-interface TimePickerProps {
-  value: TimeValue;
-  onChange: (value: TimeValue) => void;
+interface TimePickerProps extends TimeFieldProps<TimeValue> {
+  label?: string
 }
 
-export function TimePicker({ value, onChange }: TimePickerProps) {
+export function TimePicker({ label, ...props }: TimePickerProps) {
   return (
-    <div className="flex flex-col gap-2">
-      <TimeField
-        aria-label="Time"
-        value={value}
-        onChange={onChange}
-      />
-    </div>
+    <TimeField {...props}>
+      <Label>{label}</Label>
+      <Input />
+    </TimeField>
   );
 }

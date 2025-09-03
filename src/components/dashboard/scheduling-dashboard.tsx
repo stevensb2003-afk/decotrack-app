@@ -129,14 +129,8 @@ export default function SchedulingDashboard() {
                             <Input id="shift-name" value={newShiftName} onChange={e => setNewShiftName(e.target.value)} placeholder="e.g., Morning Shift"/>
                         </div>
                         <div className="flex gap-4">
-                            <div>
-                                <Label>Start Time</Label>
-                                <TimePicker value={startTime} onChange={setStartTime} />
-                            </div>
-                            <div>
-                                <Label>End Time</Label>
-                                <TimePicker value={endTime} onChange={setEndTime} />
-                            </div>
+                           <TimePicker label="Start Time" value={startTime} onChange={setStartTime} />
+                           <TimePicker label="End Time" value={endTime} onChange={setEndTime} />
                         </div>
                     </div>
                     <DialogFooter><Button onClick={handleCreateShift}>Create Shift</Button></DialogFooter>
