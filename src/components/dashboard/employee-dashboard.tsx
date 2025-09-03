@@ -7,7 +7,7 @@ import { ArrowRight, ArrowLeft, Hourglass, CalendarPlus, Banknote, AlertTriangle
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { AttendanceRecord, markAttendance, getEmployeeAttendance } from "@/services/attendanceService";
+import { AttendanceRecord, markAttendance, getEmployeeAttendance, DailyAttendanceSummary, getDailyAttendanceSummary } from "@/services/attendanceService";
 import { getEmployeeByEmail, Employee } from "@/services/employeeService";
 import { Timestamp } from "firebase/firestore";
 import {
@@ -47,7 +47,6 @@ export default function EmployeeDashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [employee, setEmployee] = useState<Employee | null>(null);
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [lastAction, setLastAction] = useState<'Entry' | 'Exit' | null>(null);
   const [timeWorked, setTimeWorked] = useState("0h 0m");
   const [isLoading, setIsLoading] = useState(true);
@@ -67,6 +66,7 @@ export default function EmployeeDashboard() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [rotationPatterns, setRotationPatterns] = useState<RotationPattern[]>([]);
   const [assignment, setAssignment] = useState<EmployeeScheduleAssignment | null>(null);
+  const [dailySummary, setDailySummary] = useState<DailyAttendanceSummary[]>([]);
 
 
   const fetchEmployeeData = async () => {
@@ -76,7 +76,39 @@ export default function EmployeeDashboard() {
       if (employeeData) {
         setEmployee(employeeData);
         const attendanceRecords = await getEmployeeAttendance(employeeData.id, 5);
-        setRecords(attendanceRecords);
+        
+        // Set last action for clock in/out buttons
+        if (attendanceRecords.length > 0) {
+            const latestRecord = attendanceRecords.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis())[0];
+            setLastAction(latestRecord.type);
+        }
+
+        // Get daily summary for recent activity
+        const summary = await getDailyAttendanceSummary(5, [employeeData]);
+        setDailySummary(summary);
+        
+        // Calculate time worked today
+        const todayRecords = attendanceRecords.filter(r => r.timestamp.toDate().toDateString() === new Date().toDateString());
+        if(todayRecords.length > 0) {
+            const latestEntry = todayRecords.find(r => r.type === 'Entry');
+            const latestExit = todayRecords.find(r => r.type === 'Exit');
+            
+            if (latestEntry && !latestExit) {
+                 const diff = new Date().getTime() - latestEntry.timestamp.toMillis();
+                 const hours = Math.floor(diff / 3600000);
+                 const minutes = Math.floor((diff % 3600000) / 60000);
+                 setTimeWorked(`${hours}h ${minutes}m (ongoing)`);
+            } else if (latestEntry && latestExit && latestExit.timestamp.toMillis() > latestEntry.timestamp.toMillis()) {
+                 const diff = latestExit.timestamp.toMillis() - latestEntry.timestamp.toMillis();
+                 const hours = Math.floor(diff / 3600000);
+                 const minutes = Math.floor((diff % 3600000) / 60000);
+                 setTimeWorked(`${hours}h ${minutes}m`);
+            } else {
+                 setTimeWorked("0h 0m");
+            }
+        }
+
+
         const torRequests = await getEmployeeTimeOffRequests(employeeData.id);
         setTimeOffRequests(torRequests);
 
@@ -128,37 +160,6 @@ export default function EmployeeDashboard() {
     fetchEmployeeData();
   }, [user]);
 
-  useEffect(() => {
-    if (records.length > 0) {
-      const latestRecord = records.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis())[0];
-      setLastAction(latestRecord.type);
-    }
-  }, [records]);
-  
-  useEffect(() => {
-    if (records.length === 0) return;
-
-    const todayRecords = records.filter(r => r.timestamp.toDate().toDateString() === new Date().toDateString());
-    const latestEntry = todayRecords.find(r => r.type === 'Entry');
-    
-    if (lastAction === 'Exit' && latestEntry) {
-        const latestExit = todayRecords.find(r => r.type === 'Exit');
-        if (latestExit && latestExit.timestamp.toMillis() > latestEntry.timestamp.toMillis()) {
-            const diff = latestExit.timestamp.toMillis() - latestEntry.timestamp.toMillis();
-            const hours = Math.floor(diff / 3600000);
-            const minutes = Math.floor((diff % 3600000) / 60000);
-            setTimeWorked(`${hours}h ${minutes}m`);
-        }
-    } else if (lastAction === 'Entry' && latestEntry) {
-        const diff = new Date().getTime() - latestEntry.timestamp.toMillis();
-        const hours = Math.floor(diff / 3600000);
-        const minutes = Math.floor((diff % 3600000) / 60000);
-        setTimeWorked(`${hours}h ${minutes}m (ongoing)`);
-    } else {
-        setTimeWorked("0h 0m");
-    }
-  }, [records, lastAction]);
-
   const handleMarking = async (type: 'Entry' | 'Exit') => {
     if (!employee) return;
 
@@ -169,8 +170,7 @@ export default function EmployeeDashboard() {
     };
     await markAttendance(newRecord);
     
-    const newRecords = await getEmployeeAttendance(employee.id, 5);
-    setRecords(newRecords);
+    fetchEmployeeData();
 
     toast({
       title: `Marked ${type} Successfully`,
@@ -447,37 +447,34 @@ export default function EmployeeDashboard() {
       <Card>
           <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Your last 5 attendance marks.</CardDescription>
+              <CardDescription>Your attendance summary for the last 5 days.</CardDescription>
           </CardHeader>
           <CardContent>
           <Table>
               <TableHeader>
               <TableRow>
-                  <TableHead>Type</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Time</TableHead>
+                  <TableHead>Clock In</TableHead>
+                  <TableHead>Clock Out</TableHead>
               </TableRow>
               </TableHeader>
               <TableBody>
-              {records.slice(0, 5).map((record, index) => (
+              {dailySummary.map((summaryItem, index) => (
                   <TableRow key={index}>
-                  <TableCell>
-                      <span className={`flex items-center gap-2 font-medium ${record.type === 'Entry' ? 'text-primary' : 'text-destructive'}`}>
-                      {record.type === 'Entry' ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
-                      {record.type}
-                      </span>
-                  </TableCell>
-                  <TableCell>{record.timestamp.toDate().toLocaleDateString()}</TableCell>
-                  <TableCell>{record.timestamp.toDate().toLocaleTimeString()}</TableCell>
+                    <TableCell>{summaryItem.date}</TableCell>
+                    <TableCell className="text-primary">{summaryItem.clockIn || 'N/A'}</TableCell>
+                    <TableCell className="text-destructive">{summaryItem.clockOut || 'N/A'}</TableCell>
                   </TableRow>
               ))}
               </TableBody>
           </Table>
+           {dailySummary.length === 0 && (
+                <p className="text-sm text-center text-muted-foreground py-4">No recent activity found.</p>
+            )}
           </CardContent>
       </Card>
     </div>
   );
 }
 
-    
     
