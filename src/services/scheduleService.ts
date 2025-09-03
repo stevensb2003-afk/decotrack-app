@@ -11,12 +11,22 @@ export type Shift = {
   endTime: Date;
 };
 
+export type GracePolicy = {
+    id: string;
+    name: string;
+    graceInEarly: number; // minutes
+    graceInLate: number; // minutes
+    graceOutEarly: number; // minutes
+    graceOutLate: number; // minutes
+};
+
 export type RotationPattern = {
   id: string;
   name: string;
   weeks: {
       days: (string | null)[]; // Array of 7 shift IDs or null for "Day Off"
   }[];
+  gracePolicyId?: string;
 };
 
 export type EmployeeScheduleAssignment = {
@@ -49,6 +59,7 @@ const rotationPatternsCollection = collection(db, 'rotationPatterns');
 const scheduleCollection = collection(db, 'schedule');
 const holidaysCollection = collection(db, 'holidays');
 const assignmentsCollection = collection(db, 'employeeScheduleAssignments');
+const gracePoliciesCollection = collection(db, 'gracePolicies');
 
 
 // --- Shift Management ---
@@ -82,6 +93,28 @@ export const updateShift = async (shiftId: string, shiftData: Omit<Shift, 'id'>)
         endTime: Timestamp.fromDate(shiftData.endTime),
     });
 };
+
+// --- Grace Policy Management ---
+
+export const createGracePolicy = async (policyData: Omit<GracePolicy, 'id'>) => {
+    return await addDoc(gracePoliciesCollection, policyData);
+};
+
+export const getGracePolicies = async (): Promise<GracePolicy[]> => {
+    const snapshot = await getDocs(gracePoliciesCollection);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GracePolicy));
+};
+
+export const updateGracePolicy = async (policyId: string, policyData: Partial<Omit<GracePolicy, 'id'>>) => {
+    const policyDoc = doc(db, 'gracePolicies', policyId);
+    return await updateDoc(policyDoc, policyData);
+};
+
+export const deleteGracePolicy = async (policyId: string) => {
+    const policyDoc = doc(db, 'gracePolicies', policyId);
+    return await deleteDoc(policyDoc);
+};
+
 
 // --- Rotation Pattern Management ---
 

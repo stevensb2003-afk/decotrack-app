@@ -5,12 +5,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, BrainCircuit, Repeat, PlusCircle, Trash2, CalendarDays, List, Filter, Pencil, PartyPopper, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, BrainCircuit, Repeat, PlusCircle, Trash2, CalendarDays, List, Filter, Pencil, PartyPopper, ChevronLeft, ChevronRight, Timer } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Shift, createShift, getShifts, RotationPattern, createRotationPattern, getRotationPatterns, EmployeeScheduleAssignment, createEmployeeScheduleAssignment, getEmployeeScheduleAssignments, deleteEmployeeScheduleAssignment, updateShift, updateRotationPattern, deleteRotationPattern, Holiday, getHolidays, createHoliday, updateHoliday, deleteHoliday } from '@/services/scheduleService';
+import { Shift, createShift, getShifts, RotationPattern, createRotationPattern, getRotationPatterns, EmployeeScheduleAssignment, createEmployeeScheduleAssignment, getEmployeeScheduleAssignments, deleteEmployeeScheduleAssignment, updateShift, updateRotationPattern, deleteRotationPattern, Holiday, getHolidays, createHoliday, updateHoliday, deleteHoliday, GracePolicy, getGracePolicies, createGracePolicy, updateGracePolicy, deleteGracePolicy } from '@/services/scheduleService';
 import { format, parse, getDaysInMonth, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addMonths, subMonths, isWithinInterval, differenceInDays } from 'date-fns';
 import { Employee, getAllEmployees } from '@/services/employeeService';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
@@ -29,6 +29,7 @@ export default function SchedulingDashboard() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [rotationPatterns, setRotationPatterns] = useState<RotationPattern[]>([]);
+  const [gracePolicies, setGracePolicies] = useState<GracePolicy[]>([]);
   const [assignments, setAssignments] = useState<EmployeeScheduleAssignment[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -38,6 +39,7 @@ export default function SchedulingDashboard() {
   const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false);
   const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
   const [isHolidayDialogOpen, setIsHolidayDialogOpen] = useState(false);
+  const [isGracePolicyDialogOpen, setIsGracePolicyDialogOpen] = useState(false);
   
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [newShift, setNewShift] = useState({ name: '', startTime: '09:00', endTime: '17:00'});
@@ -48,6 +50,7 @@ export default function SchedulingDashboard() {
   const [patternWeeks, setPatternWeeks] = useState<{ days: (string | null)[] }[]>([
     { days: Array(7).fill(null) }
   ]);
+  const [patternGracePolicyId, setPatternGracePolicyId] = useState<string | undefined>(undefined);
   const [patternToDelete, setPatternToDelete] = useState<RotationPattern | null>(null);
 
   const [newAssignment, setNewAssignment] = useState<{
@@ -59,6 +62,9 @@ export default function SchedulingDashboard() {
 
   const [editingHoliday, setEditingHoliday] = useState<Holiday | null>(null);
   const [newHoliday, setNewHoliday] = useState<{name: string, date: Date | undefined}>({name: '', date: undefined});
+
+  const [editingGracePolicy, setEditingGracePolicy] = useState<GracePolicy | null>(null);
+  const [newGracePolicy, setNewGracePolicy] = useState<Omit<GracePolicy, 'id'>>({ name: '', graceInEarly: 0, graceInLate: 0, graceOutEarly: 0, graceOutLate: 0});
 
   const [filterEmployee, setFilterEmployee] = useState('all');
   const [filterLocation, setFilterLocation] = useState('all');
@@ -75,6 +81,8 @@ export default function SchedulingDashboard() {
     const holidaysData = await getHolidays();
     const locationsData = await getAllLocations();
     const timeOffData = await getTimeOffRequests('approved');
+    const gracePoliciesData = await getGracePolicies();
+
     setEmployees(employeesData);
     setShifts(shiftsData);
     setRotationPatterns(patternsData);
@@ -82,6 +90,7 @@ export default function SchedulingDashboard() {
     setHolidays(holidaysData);
     setLocations(locationsData);
     setTimeOffRequests(timeOffData);
+    setGracePolicies(gracePoliciesData);
   };
 
   useEffect(() => {
@@ -140,6 +149,7 @@ export default function SchedulingDashboard() {
     setEditingPattern(null);
     setPatternName('');
     setPatternWeeks([{ days: Array(7).fill(null) }]);
+    setPatternGracePolicyId(undefined);
     setIsPatternDialogOpen(true);
   }
 
@@ -147,6 +157,7 @@ export default function SchedulingDashboard() {
     setEditingPattern(pattern);
     setPatternName(pattern.name);
     setPatternWeeks(pattern.weeks || [{ days: Array(7).fill(null) }]);
+    setPatternGracePolicyId(pattern.gracePolicyId);
     setIsPatternDialogOpen(true);
   };
 
@@ -156,7 +167,7 @@ export default function SchedulingDashboard() {
         return;
     }
 
-    const patternData = { name: patternName, weeks: patternWeeks };
+    const patternData = { name: patternName, weeks: patternWeeks, gracePolicyId: patternGracePolicyId };
     if (editingPattern) {
         await updateRotationPattern(editingPattern.id, patternData);
         toast({ title: "Pattern Updated", description: "The rotation pattern has been successfully updated." });
@@ -290,6 +301,48 @@ export default function SchedulingDashboard() {
         fetchData();
     }
 
+    // --- Grace Policy Functions ---
+
+    const handleOpenCreateGracePolicyDialog = () => {
+        setEditingGracePolicy(null);
+        setNewGracePolicy({ name: '', graceInEarly: 0, graceInLate: 0, graceOutEarly: 0, graceOutLate: 0 });
+        setIsGracePolicyDialogOpen(true);
+    };
+
+    const handleOpenEditGracePolicyDialog = (policy: GracePolicy) => {
+        setEditingGracePolicy(policy);
+        setNewGracePolicy({ ...policy });
+        setIsGracePolicyDialogOpen(true);
+    };
+
+    const handleSaveGracePolicy = async () => {
+        if (!newGracePolicy.name) {
+            toast({ title: "Policy name is required", variant: "destructive" });
+            return;
+        }
+        if (editingGracePolicy) {
+            await updateGracePolicy(editingGracePolicy.id, newGracePolicy);
+            toast({ title: "Grace Policy Updated" });
+        } else {
+            await createGracePolicy(newGracePolicy);
+            toast({ title: "Grace Policy Created" });
+        }
+        fetchData();
+        setIsGracePolicyDialogOpen(false);
+    };
+
+    const handleDeleteGracePolicy = async (policyId: string) => {
+        const isAssigned = rotationPatterns.some(p => p.gracePolicyId === policyId);
+        if (isAssigned) {
+            toast({ title: "Cannot Delete Policy", description: "This policy is assigned to one or more rotation patterns.", variant: "destructive" });
+            return;
+        }
+        await deleteGracePolicy(policyId);
+        toast({ title: "Grace Policy Deleted" });
+        fetchData();
+    };
+
+
 
   const getShiftNameById = (id: string | null) => {
       if (id === null) return 'Day Off';
@@ -322,8 +375,9 @@ export default function SchedulingDashboard() {
       const employeesOnLeave = timeOffRequests
         .filter(req => {
             const employee = employeeMap.get(req.employeeId);
+            if (!employee) return false;
             const employeeMatch = filterEmployee === 'all' || req.employeeId === filterEmployee;
-            const locationMatch = filterLocation === 'all' || (employee && employee.locationId === filterLocation);
+            const locationMatch = filterLocation === 'all' || (employee.locationId === filterLocation);
             return employeeMatch && locationMatch && isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() });
         })
         .map(req => {
@@ -331,15 +385,20 @@ export default function SchedulingDashboard() {
             return { name: employee?.name || 'Unknown', reason: req.reason };
         });
         
-      const onLeaveEmployeeIds = new Set(employeesOnLeave.map(l => employeeMap.get(employees.find(e => e.name === l.name)?.id || '')?.id));
+      const onLeaveEmployeeIds = new Set(employeesOnLeave.map(l => {
+          const employee = employees.find(e => e.name === l.name);
+          return employee?.id;
+      }));
 
       const scheduledEmployees = assignments
           .filter(assignment => {
               const employee = employeeMap.get(assignment.employeeId);
               if (!employee) return false;
               if (onLeaveEmployeeIds.has(employee.id)) return false;
+              
               const employeeMatch = filterEmployee === 'all' || assignment.employeeId === filterEmployee;
               const locationMatch = filterLocation === 'all' || employee.locationId === filterLocation;
+
               return employeeMatch && locationMatch &&
                   isWithinInterval(day, { start: assignment.startDate.toDate(), end: assignment.endDate.toDate() });
           })
@@ -377,12 +436,13 @@ export default function SchedulingDashboard() {
 
   return (
     <Tabs defaultValue="assignments" className="space-y-4">
-      <TabsList>
+      <TabsList className="grid grid-cols-3 md:grid-cols-6 w-full md:w-auto">
         <TabsTrigger value="assignments"><List className="mr-2 h-4 w-4"/>Assignments</TabsTrigger>
         <TabsTrigger value="calendar"><CalendarDays className="mr-2 h-4 w-4"/>Calendar View</TabsTrigger>
         <TabsTrigger value="holidays"><PartyPopper className="mr-2 h-4 w-4"/>Holidays</TabsTrigger>
         <TabsTrigger value="shifts"><Repeat className="mr-2 h-4 w-4"/>Shifts</TabsTrigger>
         <TabsTrigger value="patterns"><BrainCircuit className="mr-2 h-4 w-4"/>Rotation Patterns</TabsTrigger>
+        <TabsTrigger value="grace"><Timer className="mr-2 h-4 w-4"/>Grace Policies</TabsTrigger>
       </TabsList>
       
       <TabsContent value="assignments">
@@ -562,14 +622,14 @@ export default function SchedulingDashboard() {
                             const scheduleInfo = getDailySchedule(day);
                             const isToday = isSameDay(day, new Date());
                             return (
-                                <div key={day.toString()} className={cn("p-2 border-b border-r min-h-[120px] h-full", isToday && "bg-blue-100 dark:bg-blue-900/50")}>
+                                <div key={day.toString()} className={cn("p-2 border-b border-r min-h-[120px] h-full", isToday && "bg-blue-200 dark:bg-blue-900/50")}>
                                     <div className={cn("text-right text-sm", isToday && "font-bold text-primary")}>{format(day, 'd')}</div>
                                     <div className="space-y-1 mt-1 text-xs">
                                         {scheduleInfo.type === 'holiday' && (
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <div className="flex justify-center items-center h-full">
-                                                        <PartyPopper className="h-8 w-8 text-red-700 dark:text-accent"/>
+                                                        <PartyPopper className="h-8 w-8 text-red-700 dark:text-red-500"/>
                                                     </div>
                                                 </TooltipTrigger>
                                                 <TooltipContent><p>{scheduleInfo.name}</p></TooltipContent>
@@ -726,6 +786,11 @@ export default function SchedulingDashboard() {
                                 </div>
                             </CardHeader>
                             <CardContent>
+                                {p.gracePolicyId && (
+                                    <div className="mb-2 text-sm">
+                                        <span className="font-semibold">Grace Policy:</span> {gracePolicies.find(gp => gp.id === p.gracePolicyId)?.name || 'N/A'}
+                                    </div>
+                                )}
                                 {p.weeks && p.weeks.map((week, weekIndex) => (
                                     <div key={weekIndex} className="mb-4">
                                         <p className="font-semibold mb-2">Week {weekIndex + 1}</p>
@@ -745,6 +810,52 @@ export default function SchedulingDashboard() {
                     {rotationPatterns.length === 0 && <p className="text-muted-foreground text-sm py-4 text-center">No rotation patterns created yet.</p>}
                 </CardContent>
             </Card>
+      </TabsContent>
+      
+      <TabsContent value="grace">
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                <CardTitle>Grace Policies</CardTitle>
+                <CardDescription>Define grace periods for clock-ins and clock-outs.</CardDescription>
+                </div>
+                <Button onClick={handleOpenCreateGracePolicyDialog}><PlusCircle className="mr-2 h-4 w-4"/>Add Policy</Button>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Policy Name</TableHead>
+                            <TableHead>In Early (min)</TableHead>
+                            <TableHead>In Late (min)</TableHead>
+                            <TableHead>Out Early (min)</TableHead>
+                            <TableHead>Out Late (min)</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {gracePolicies.map(p => (
+                            <TableRow key={p.id}>
+                                <TableCell>{p.name}</TableCell>
+                                <TableCell>{p.graceInEarly}</TableCell>
+                                <TableCell>{p.graceInLate}</TableCell>
+                                <TableCell>{p.graceOutEarly}</TableCell>
+                                <TableCell>{p.graceOutLate}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" onClick={() => handleOpenEditGracePolicyDialog(p)}>
+                                        <Pencil className="h-4 w-4"/>
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteGracePolicy(p.id)}>
+                                        <Trash2 className="h-4 w-4 text-destructive"/>
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+                {gracePolicies.length === 0 && <p className="text-muted-foreground text-sm py-4 text-center">No grace policies created yet.</p>}
+            </CardContent>
+        </Card>
       </TabsContent>
 
        <Dialog open={isShiftDialogOpen} onOpenChange={setIsShiftDialogOpen}>
@@ -779,6 +890,16 @@ export default function SchedulingDashboard() {
                     <div>
                         <Label htmlFor="pattern-name">Pattern Name</Label>
                         <Input id="pattern-name" value={patternName} onChange={(e) => setPatternName(e.target.value)} placeholder="e.g., 2-Week Standard Rotation" />
+                    </div>
+                     <div>
+                        <Label htmlFor="grace-policy-select">Grace Policy</Label>
+                        <Select value={patternGracePolicyId} onValueChange={setPatternGracePolicyId}>
+                            <SelectTrigger><SelectValue placeholder="Select a grace policy (optional)" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">No Grace Policy</SelectItem>
+                                {gracePolicies.map(gp => <SelectItem key={gp.id} value={gp.id}>{gp.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
                     </div>
                     {patternWeeks.map((week, weekIndex) => (
                         <div key={weekIndex} className="p-4 border rounded-lg space-y-3">
@@ -848,14 +969,44 @@ export default function SchedulingDashboard() {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <Dialog open={isGracePolicyDialogOpen} onOpenChange={setIsGracePolicyDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{editingGracePolicy ? 'Edit Grace Policy' : 'Create New Grace Policy'}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div>
+                        <Label htmlFor="gp-name">Policy Name</Label>
+                        <Input id="gp-name" value={newGracePolicy.name} onChange={e => setNewGracePolicy({...newGracePolicy, name: e.target.value})} placeholder="e.g., Standard Policy" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="gp-in-early">Clock-in Early (min)</Label>
+                            <Input id="gp-in-early" type="number" value={newGracePolicy.graceInEarly} onChange={e => setNewGracePolicy({...newGracePolicy, graceInEarly: parseInt(e.target.value) || 0})} />
+                        </div>
+                         <div>
+                            <Label htmlFor="gp-in-late">Clock-in Late (min)</Label>
+                            <Input id="gp-in-late" type="number" value={newGracePolicy.graceInLate} onChange={e => setNewGracePolicy({...newGracePolicy, graceInLate: parseInt(e.target.value) || 0})} />
+                        </div>
+                         <div>
+                            <Label htmlFor="gp-out-early">Clock-out Early (min)</Label>
+                            <Input id="gp-out-early" type="number" value={newGracePolicy.graceOutEarly} onChange={e => setNewGracePolicy({...newGracePolicy, graceOutEarly: parseInt(e.target.value) || 0})} />
+                        </div>
+                         <div>
+                            <Label htmlFor="gp-out-late">Clock-out Late (min)</Label>
+                            <Input id="gp-out-late" type="number" value={newGracePolicy.graceOutLate} onChange={e => setNewGracePolicy({...newGracePolicy, graceOutLate: parseInt(e.target.value) || 0})} />
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsGracePolicyDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleSaveGracePolicy}>Save Policy</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </Tabs>
   );
 
     
 }
-
-    
-
-    
-
-    
