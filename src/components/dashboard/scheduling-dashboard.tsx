@@ -10,41 +10,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Shift, RotationPattern, Schedule, createShift, getShifts, createRotationPattern, getRotationPatterns, generateSchedule, getScheduleForMonth, Holiday } from '@/services/scheduleService';
-import { Employee, getAllEmployees } from '@/services/employeeService';
+import { Shift, createShift, getShifts } from '@/services/scheduleService';
 import { TimePicker } from '../ui/time-picker';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { format } from 'date-fns';
 import { Time } from '@internationalized/date';
 import type { TimeValue } from 'react-aria-components';
 
 export default function SchedulingDashboard() {
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [rotationPatterns, setRotationPatterns] = useState<RotationPattern[]>([]);
-  const [schedule, setSchedule] = useState<Schedule[]>([]);
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
-  const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   
   const [newShiftName, setNewShiftName] = useState('');
   const [startTime, setStartTime] = useState<TimeValue>(new Time(9, 0));
   const [endTime, setEndTime] = useState<TimeValue>(new Time(17, 0));
-
-  const [newPattern, setNewPattern] = useState({ name: '', shiftIds: [] as string[] });
   
   const { toast } = useToast();
 
   const fetchData = async () => {
-    const [shiftsData, patternsData, employeesData] = await Promise.all([
-      getShifts(),
-      getRotationPatterns(),
-      getAllEmployees(),
-    ]);
+    const shiftsData = await getShifts();
     setShifts(shiftsData);
-    setRotationPatterns(patternsData);
-    setEmployees(employeesData);
   };
 
   useEffect(() => {
@@ -70,48 +54,14 @@ export default function SchedulingDashboard() {
     fetchData();
   }
 
-  const handleCreatePattern = async () => {
-    if(!newPattern.name || newPattern.shiftIds.length === 0) {
-        toast({title: "Pattern name and at least one shift are required", variant: "destructive"});
-        return;
-    }
-    await createRotationPattern({ name: newPattern.name, shiftSequence: newPattern.shiftIds });
-    toast({ title: "Rotation Pattern Created", description: "The new pattern has been saved." });
-    setIsPatternDialogOpen(false);
-    setNewPattern({ name: '', shiftIds: [] });
-    fetchData();
-  }
-  
-  const handleGenerateSchedules = async () => {
-      toast({ title: "Feature not implemented", description: "The automatic schedule generation is not yet available." });
-  };
-
   return (
-    <Tabs defaultValue="schedule" className="space-y-4">
+    <Tabs defaultValue="shifts" className="space-y-4">
       <TabsList>
-        <TabsTrigger value="schedule"><Calendar className="mr-2 h-4 w-4"/>Schedule</TabsTrigger>
+        <TabsTrigger value="schedule" disabled><Calendar className="mr-2 h-4 w-4"/>Schedule</TabsTrigger>
         <TabsTrigger value="shifts"><Repeat className="mr-2 h-4 w-4"/>Shifts</TabsTrigger>
-        <TabsTrigger value="patterns"><BrainCircuit className="mr-2 h-4 w-4"/>Rotation Patterns</TabsTrigger>
+        <TabsTrigger value="patterns" disabled><BrainCircuit className="mr-2 h-4 w-4"/>Rotation Patterns</TabsTrigger>
       </TabsList>
       
-      <TabsContent value="schedule">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-                <CardTitle>Employee Schedule</CardTitle>
-                <CardDescription>View the generated schedule for all employees.</CardDescription>
-            </div>
-            <Button onClick={handleGenerateSchedules} disabled={isGenerating}>
-              {isGenerating ? "Generating..." : "Generate Schedule"}
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground text-center py-8">Calendar view will be available here once schedules are generated.</p>
-            {/* Calendar View will be implemented here */}
-          </CardContent>
-        </Card>
-      </TabsContent>
-
       <TabsContent value="shifts">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -143,65 +93,11 @@ export default function SchedulingDashboard() {
                     <span>{s.name} ({format(s.startTime, 'p')} - {format(s.endTime, 'p')})</span>
                 </div>
             ))}
-            {shifts.length === 0 && <p className="text-muted-foreground text-sm">No shifts created yet.</p>}
+            {shifts.length === 0 && <p className="text-muted-foreground text-sm py-4 text-center">No shifts created yet.</p>}
           </CardContent>
         </Card>
       </TabsContent>
       
-      <TabsContent value="patterns">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-                <CardTitle>Rotation Patterns</CardTitle>
-                <CardDescription>Create and manage shift rotation patterns for employees.</CardDescription>
-            </div>
-            <Dialog open={isPatternDialogOpen} onOpenChange={setIsPatternDialogOpen}>
-                <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4"/>Add Pattern</Button></DialogTrigger>
-                <DialogContent>
-                    <DialogHeader><DialogTitle>Create New Rotation Pattern</DialogTitle></DialogHeader>
-                     <div className="space-y-4 py-4">
-                        <div>
-                            <Label htmlFor="pattern-name">Pattern Name</Label>
-                            <Input id="pattern-name" value={newPattern.name} onChange={e => setNewPattern({...newPattern, name: e.target.value})} placeholder="e.g., Weekly Rotation"/>
-                        </div>
-                        <div>
-                            <Label>Shift Sequence</Label>
-                            {newPattern.shiftIds.map((shiftId, index) => (
-                                <div key={index} className="flex items-center gap-2 mt-2">
-                                    <Select value={shiftId} onValueChange={val => {
-                                        const newIds = [...newPattern.shiftIds];
-                                        newIds[index] = val;
-                                        setNewPattern({...newPattern, shiftIds: newIds});
-                                    }}>
-                                        <SelectTrigger><SelectValue placeholder={`Day ${index + 1}`} /></SelectTrigger>
-                                        <SelectContent>
-                                            {shifts.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                    <Button variant="ghost" size="icon" onClick={() => {
-                                        const newIds = newPattern.shiftIds.filter((_, i) => i !== index);
-                                        setNewPattern({...newPattern, shiftIds: newIds});
-                                    }}><Trash2 className="h-4 w-4 text-destructive"/></Button>
-                                </div>
-                            ))}
-                            <Button variant="outline" size="sm" className="mt-2" onClick={() => setNewPattern({...newPattern, shiftIds: [...newPattern.shiftIds, '']})}>Add Day to Pattern</Button>
-                        </div>
-                    </div>
-                    <DialogFooter><Button onClick={handleCreatePattern}>Create Pattern</Button></DialogFooter>
-                </DialogContent>
-            </Dialog>
-          </CardHeader>
-          <CardContent>
-            {rotationPatterns.map(p => (
-                <div key={p.id} className="p-2 border-b">
-                    <p className="font-semibold">{p.name}</p>
-                    <p className="text-sm text-muted-foreground">{p.shiftSequence.map(sid => shifts.find(s => s.id === sid)?.name || 'Unknown').join(' -> ')}</p>
-                </div>
-            ))}
-            {rotationPatterns.length === 0 && <p className="text-muted-foreground text-sm">No patterns created yet.</p>}
-          </CardContent>
-        </Card>
-      </TabsContent>
     </Tabs>
   );
 }
