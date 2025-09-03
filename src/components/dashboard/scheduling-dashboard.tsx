@@ -21,7 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { Location, getAllLocations } from '@/services/locationService';
-import { TimeOffRequest, getTimeOffRequests } from '@/services/timeOffRequestService';
+import { TimeOffReason, TimeOffRequest, getTimeOffRequests } from '@/services/timeOffRequestService';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 
@@ -296,14 +296,14 @@ export default function SchedulingDashboard() {
       return shifts.find(s => s.id === id)?.name || 'Unknown';
   }
   
-  const employeeMap = new Map(employees.map(e => [e.id, e]));
+  const employeeMap = useMemo(() => new Map(employees.map(e => [e.id, e])), [employees]);
 
-  const filteredAssignments = assignments.filter(a => {
+  const filteredAssignments = useMemo(() => assignments.filter(a => {
       const employee = employeeMap.get(a.employeeId);
       const employeeMatch = filterEmployee === 'all' || a.employeeId === filterEmployee;
       const locationMatch = filterLocation === 'all' || (employee && employee.locationId === filterLocation);
       return employeeMatch && locationMatch;
-  });
+  }), [assignments, filterEmployee, filterLocation, employeeMap]);
 
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -331,26 +331,24 @@ export default function SchedulingDashboard() {
             return { name: employee?.name || 'Unknown', reason: req.reason };
         });
         
-      const onLeaveEmployeeIds = new Set(timeOffRequests
-          .filter(req => isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() }))
-          .map(req => req.employeeId)
-      );
-  
+      const onLeaveEmployeeIds = new Set(employeesOnLeave.map(l => employeeMap.get(employees.find(e => e.name === l.name)?.id || '')?.id));
+
       const scheduledEmployees = assignments
           .filter(assignment => {
               const employee = employeeMap.get(assignment.employeeId);
               if (!employee) return false;
+              if (onLeaveEmployeeIds.has(employee.id)) return false;
               const employeeMatch = filterEmployee === 'all' || assignment.employeeId === filterEmployee;
               const locationMatch = filterLocation === 'all' || employee.locationId === filterLocation;
               return employeeMatch && locationMatch &&
-                  isWithinInterval(day, { start: assignment.startDate.toDate(), end: assignment.endDate.toDate() }) &&
-                  !onLeaveEmployeeIds.has(assignment.employeeId)
+                  isWithinInterval(day, { start: assignment.startDate.toDate(), end: assignment.endDate.toDate() });
           })
           .map(assignment => {
               const pattern = rotationPatterns.find(p => p.id === assignment.rotationPatternId);
               if (!pattern) return null;
   
               const daysSinceStart = differenceInDays(day, assignment.startDate.toDate());
+              if (daysSinceStart < 0) return null;
               const weekIndex = Math.floor(daysSinceStart / 7) % (pattern.weeks?.length || 1);
               const dayIndex = (getDay(day) + 6) % 7;
   
@@ -367,7 +365,14 @@ export default function SchedulingDashboard() {
           }).filter((item): item is { name: string; shift: string } => item !== null);
       
       return { type: 'workday' as const, employees: scheduledEmployees, onLeave: employeesOnLeave };
-  }
+    }
+    
+    const getLeaveBackgroundColor = (reason: TimeOffReason) => {
+        if (reason === 'Vacaciones') {
+            return 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
+        }
+        return 'bg-red-200 dark:bg-red-800/50 text-red-800 dark:text-red-200';
+    }
 
 
   return (
@@ -557,14 +562,14 @@ export default function SchedulingDashboard() {
                             const scheduleInfo = getDailySchedule(day);
                             const isToday = isSameDay(day, new Date());
                             return (
-                                <div key={day.toString()} className={cn("p-2 border-b border-r min-h-[120px] h-full", isToday && "bg-blue-50")}>
+                                <div key={day.toString()} className={cn("p-2 border-b border-r min-h-[120px] h-full", isToday && "bg-blue-100 dark:bg-blue-900/50")}>
                                     <div className={cn("text-right text-sm", isToday && "font-bold text-primary")}>{format(day, 'd')}</div>
                                     <div className="space-y-1 mt-1 text-xs">
                                         {scheduleInfo.type === 'holiday' && (
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <div className="flex justify-center items-center h-full">
-                                                        <PartyPopper className="h-6 w-6 text-accent"/>
+                                                        <PartyPopper className="h-8 w-8 text-red-700 dark:text-accent"/>
                                                     </div>
                                                 </TooltipTrigger>
                                                 <TooltipContent><p>{scheduleInfo.name}</p></TooltipContent>
@@ -575,8 +580,8 @@ export default function SchedulingDashboard() {
                                                 {scheduleInfo.onLeave.map(leave => (
                                                     <Tooltip key={leave.name}>
                                                         <TooltipTrigger asChild>
-                                                            <p className="truncate p-1 rounded-md bg-yellow-100 text-yellow-800 cursor-default">
-                                                                {leave.name} (Leave)
+                                                            <p className={cn("truncate p-1 rounded-md cursor-default", getLeaveBackgroundColor(leave.reason))}>
+                                                                {leave.name}
                                                             </p>
                                                         </TooltipTrigger>
                                                         <TooltipContent><p>{leave.reason}</p></TooltipContent>
@@ -585,7 +590,7 @@ export default function SchedulingDashboard() {
                                                 {scheduleInfo.employees.map(emp => (
                                                     <Tooltip key={emp.name}>
                                                         <TooltipTrigger asChild>
-                                                            <p className="truncate p-1 rounded-md bg-secondary text-secondary-foreground cursor-default">
+                                                            <p className="truncate p-1 rounded-md bg-green-200 dark:bg-green-800/50 text-green-800 dark:text-green-200 cursor-default">
                                                                 {emp.name}
                                                             </p>
                                                         </TooltipTrigger>
@@ -848,6 +853,8 @@ export default function SchedulingDashboard() {
 
     
 }
+
+    
 
     
 
