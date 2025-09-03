@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -21,6 +22,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { cn } from '@/lib/utils';
 import { Location, getAllLocations } from '@/services/locationService';
 import { TimeOffRequest, getTimeOffRequests } from '@/services/timeOffRequestService';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 
 export default function SchedulingDashboard() {
@@ -168,6 +170,13 @@ export default function SchedulingDashboard() {
 
   const handleDeletePattern = async () => {
     if (!patternToDelete) return;
+    const assigned = assignments.some(a => a.rotationPatternId === patternToDelete.id);
+    if(assigned) {
+        toast({ title: "Cannot Delete Pattern", description: "This pattern is currently assigned to one or more employees.", variant: "destructive"});
+        setPatternToDelete(null);
+        return;
+    }
+
     await deleteRotationPattern(patternToDelete.id);
     toast({ title: "Pattern Deleted", description: `The "${patternToDelete.name}" pattern has been deleted.` });
     setPatternToDelete(null);
@@ -198,11 +207,15 @@ export default function SchedulingDashboard() {
         return;
     }
     
-    const existingAssignment = assignments.find(a => a.employeeId === employeeId);
+    const existingAssignment = assignments.find(a => 
+        a.employeeId === employeeId &&
+        isWithinInterval(startDate, { start: a.startDate.toDate(), end: a.endDate.toDate() })
+    );
+
     if (existingAssignment) {
         toast({
             title: "Assignment Conflict",
-            description: "This employee already has an active assignment. Please delete it before creating a new one.",
+            description: "This employee already has an active assignment for the selected start date.",
             variant: "destructive",
         });
         return;
@@ -303,40 +316,44 @@ export default function SchedulingDashboard() {
     const getDailySchedule = (day: Date) => {
       const holiday = holidays.find(h => isSameDay(h.date.toDate(), day));
       if (holiday) {
-          return { type: 'holiday' as const, name: holiday.name, employees: [], onLeave: [] };
+          return { type: 'holiday' as const, name: holiday.name };
       }
 
-      const employeesOnLeave: string[] = [];
+      const employeesOnLeave: { name: string, reason: string }[] = [];
       timeOffRequests.forEach(req => {
           if (isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() })) {
               const employee = employees.find(e => e.id === req.employeeId);
               if (employee) {
-                  employeesOnLeave.push(employee.name);
+                  employeesOnLeave.push({ name: employee.name, reason: req.reason });
               }
           }
       });
+      const onLeaveEmployeeNames = employeesOnLeave.map(e => e.name);
 
-      const assignmentsForDay = assignments.filter(assignment =>
-          isWithinInterval(day, { start: assignment.startDate.toDate(), end: assignment.endDate.toDate() }) &&
-          !employeesOnLeave.includes(assignment.employeeName)
-      );
+      const scheduledEmployees = assignments
+          .filter(assignment =>
+              isWithinInterval(day, { start: assignment.startDate.toDate(), end: assignment.endDate.toDate() }) &&
+              !onLeaveEmployeeNames.includes(assignment.employeeName)
+          )
+          .map(assignment => {
+              const pattern = rotationPatterns.find(p => p.id === assignment.rotationPatternId);
+              if (!pattern) return null;
 
-      const scheduledEmployees: { name: string; shift: string }[] = assignmentsForDay.map(assignment => {
-          const pattern = rotationPatterns.find(p => p.id === assignment.rotationPatternId);
-          if (!pattern) return null;
+              const daysSinceStart = differenceInDays(day, assignment.startDate.toDate());
+              const weekIndex = Math.floor(daysSinceStart / 7) % (pattern.weeks?.length || 1);
+              const dayIndex = (getDay(day) + 6) % 7;
 
-          const daysSinceStart = differenceInDays(day, assignment.startDate.toDate());
-          const weekIndex = Math.floor(daysSinceStart / 7) % (pattern.weeks?.length || 1);
-          const dayIndex = (getDay(day) + 6) % 7;
+              const shiftId = pattern.weeks?.[weekIndex]?.days[dayIndex];
+              if (!shiftId) return null;
 
-          const shiftId = pattern.weeks?.[weekIndex]?.days[dayIndex];
-          if (!shiftId) return null;
+              const shift = shifts.find(s => s.id === shiftId);
+              if (!shift) return null;
 
-          const shift = shifts.find(s => s.id === shiftId);
-          if (!shift) return null;
-
-          return { name: assignment.employeeName, shift: shift.name };
-      }).filter((item): item is { name: string; shift: string } => item !== null);
+              return {
+                  name: assignment.employeeName,
+                  shift: `${shift.name}: ${format(shift.startTime, 'p')} - ${format(shift.endTime, 'p')}`
+              };
+          }).filter((item): item is { name: string; shift: string } => item !== null);
       
       return { type: 'workday' as const, employees: scheduledEmployees, onLeave: employeesOnLeave };
   }
@@ -491,44 +508,61 @@ export default function SchedulingDashboard() {
                   <Button onClick={() => setCurrentDate(new Date())}>Today</Button>
               </CardHeader>
               <CardContent className="p-0">
-                  <div className="grid grid-cols-7 border-t border-l">
-                      {weekDays.map(day => (
-                          <div key={day} className="p-2 border-b border-r text-center font-bold text-sm bg-muted/50">{day}</div>
-                      ))}
-                      {Array.from({ length: startingDayIndex }).map((_, i) => (
-                          <div key={`empty-${i}`} className="border-b border-r" />
-                      ))}
-                      {daysInMonth.map(day => {
-                          const scheduleInfo = getDailySchedule(day);
-                          const isToday = isSameDay(day, new Date());
-                          return (
-                              <div key={day.toString()} className={cn("p-2 border-b border-r min-h-[120px] h-full", isToday && "bg-blue-50")}>
-                                  <div className={cn("text-right text-sm", isToday && "font-bold text-primary")}>{format(day, 'd')}</div>
-                                  {scheduleInfo.type === 'holiday' && (
-                                      <div className="text-center p-2 mt-2 rounded-md bg-accent/20">
-                                          <PartyPopper className="mx-auto h-5 w-5 text-accent"/>
-                                          <p className="text-xs font-semibold text-accent-foreground">{scheduleInfo.name}</p>
-                                      </div>
-                                  )}
-                                   {scheduleInfo.type === 'workday' && (
-                                       <div className="space-y-1 mt-1 text-xs">
-                                          {scheduleInfo.onLeave.map(name => (
-                                              <p key={name} className="truncate p-1 rounded-md bg-yellow-100 text-yellow-800">
-                                                  {name} (Leave)
-                                              </p>
-                                          ))}
-                                          {scheduleInfo.employees.map(emp => (
-                                              <div key={emp.name} className="truncate p-1 rounded-md bg-secondary text-secondary-foreground">
-                                                  <p className="font-semibold">{emp.name}</p>
-                                                  <p className="text-muted-foreground">{emp.shift}</p>
-                                              </div>
-                                          ))}
-                                      </div>
-                                  )}
-                              </div>
-                          )
-                      })}
-                  </div>
+                  <TooltipProvider>
+                    <div className="grid grid-cols-7 border-t border-l">
+                        {weekDays.map(day => (
+                            <div key={day} className="p-2 border-b border-r text-center font-bold text-sm bg-muted/50">{day}</div>
+                        ))}
+                        {Array.from({ length: startingDayIndex }).map((_, i) => (
+                            <div key={`empty-${i}`} className="border-b border-r" />
+                        ))}
+                        {daysInMonth.map(day => {
+                            const scheduleInfo = getDailySchedule(day);
+                            const isToday = isSameDay(day, new Date());
+                            return (
+                                <div key={day.toString()} className={cn("p-2 border-b border-r min-h-[120px] h-full", isToday && "bg-blue-50")}>
+                                    <div className={cn("text-right text-sm", isToday && "font-bold text-primary")}>{format(day, 'd')}</div>
+                                    <div className="space-y-1 mt-1 text-xs">
+                                        {scheduleInfo.type === 'holiday' && (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <div className="flex justify-center items-center h-full">
+                                                        <PartyPopper className="h-6 w-6 text-accent"/>
+                                                    </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent><p>{scheduleInfo.name}</p></TooltipContent>
+                                            </Tooltip>
+                                        )}
+                                        {scheduleInfo.type === 'workday' && (
+                                            <>
+                                                {scheduleInfo.onLeave.map(leave => (
+                                                    <Tooltip key={leave.name}>
+                                                        <TooltipTrigger asChild>
+                                                            <p className="truncate p-1 rounded-md bg-yellow-100 text-yellow-800 cursor-default">
+                                                                {leave.name} (Leave)
+                                                            </p>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent><p>{leave.reason}</p></TooltipContent>
+                                                    </Tooltip>
+                                                ))}
+                                                {scheduleInfo.employees.map(emp => (
+                                                    <Tooltip key={emp.name}>
+                                                        <TooltipTrigger asChild>
+                                                            <p className="truncate p-1 rounded-md bg-secondary text-secondary-foreground cursor-default">
+                                                                {emp.name}
+                                                            </p>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent><p>{emp.shift}</p></TooltipContent>
+                                                    </Tooltip>
+                                                ))}
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                  </TooltipProvider>
               </CardContent>
           </Card>
       </TabsContent>
@@ -777,3 +811,5 @@ export default function SchedulingDashboard() {
 
     
 }
+
+    
