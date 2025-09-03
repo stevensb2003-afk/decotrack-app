@@ -16,6 +16,12 @@ import { TimePicker } from '../ui/time-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { add, format } from 'date-fns';
 
+const defaultStartTime = new Date();
+defaultStartTime.setHours(9, 0, 0, 0);
+
+const defaultEndTime = new Date();
+defaultEndTime.setHours(17, 0, 0, 0);
+
 export default function SchedulingDashboard() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [rotationPatterns, setRotationPatterns] = useState<RotationPattern[]>([]);
@@ -26,7 +32,7 @@ export default function SchedulingDashboard() {
   const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  const [newShift, setNewShift] = useState({ name: '', startTime: new Date(), endTime: new Date() });
+  const [newShift, setNewShift] = useState({ name: '', startTime: defaultStartTime, endTime: defaultEndTime });
   const [newPattern, setNewPattern] = useState({ name: '', shiftIds: [] as string[] });
   
   const { toast } = useToast();

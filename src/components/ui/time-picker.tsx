@@ -5,17 +5,20 @@ import { TimeField } from "@/components/ui/time-field"
 import { Time, type TimeValue } from "@internationalized/date"
 
 interface TimePickerProps {
-  date: Date;
+  date: Date | null;
   setDate: (date: Date) => void;
 }
 
 export function TimePicker({ date, setDate }: TimePickerProps) {
   const timeValue = React.useMemo(() => {
-    return date ? new Time(date.getHours(), date.getMinutes()) : null;
+    if (!date) return null;
+    return new Time(date.getHours(), date.getMinutes());
   }, [date]);
 
-  const onTimeChange = (newTime: TimeValue) => {
-    const newDate = new Date(date);
+  const onTimeChange = (newTime: TimeValue | null) => {
+    if (!newTime) return;
+
+    const newDate = date ? new Date(date.getTime()) : new Date();
     newDate.setHours(newTime.hour, newTime.minute);
     setDate(newDate);
   };
