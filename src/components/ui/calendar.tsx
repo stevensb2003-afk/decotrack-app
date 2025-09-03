@@ -1,9 +1,11 @@
+
 "use client"
 
 import * as React from "react"
-import { DayPicker } from "react-day-picker"
+import { useDayPicker, DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
@@ -13,6 +15,7 @@ function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
+   const {isDateDisabled, ...dayPickerProps} = useDayPicker(props);
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
