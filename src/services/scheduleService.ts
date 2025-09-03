@@ -132,6 +132,17 @@ export const getHolidays = async (): Promise<Holiday[]> => {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Holiday));
 }
 
+export const updateHoliday = async (holidayId: string, holidayData: Omit<Holiday, 'id'>) => {
+    const holidayDoc = doc(db, 'holidays', holidayId);
+    return await updateDoc(holidayDoc, holidayData);
+};
+
+export const deleteHoliday = async (holidayId: string) => {
+    const holidayDoc = doc(db, 'holidays', holidayId);
+    return await deleteDoc(holidayDoc);
+};
+
+
 // --- Schedule Management ---
 
 export const generateSchedule = async (startDate: Date, endDate: Date) => {

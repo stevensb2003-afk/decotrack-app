@@ -5,12 +5,12 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, BrainCircuit, Repeat, PlusCircle, Trash2, CalendarDays, List, Filter, Pencil } from 'lucide-react';
+import { Calendar, BrainCircuit, Repeat, PlusCircle, Trash2, CalendarDays, List, Filter, Pencil, PartyPopper } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Shift, createShift, getShifts, RotationPattern, createRotationPattern, getRotationPatterns, EmployeeScheduleAssignment, createEmployeeScheduleAssignment, getEmployeeScheduleAssignments, deleteEmployeeScheduleAssignment, updateShift, updateRotationPattern, deleteRotationPattern } from '@/services/scheduleService';
+import { Shift, createShift, getShifts, RotationPattern, createRotationPattern, getRotationPatterns, EmployeeScheduleAssignment, createEmployeeScheduleAssignment, getEmployeeScheduleAssignments, deleteEmployeeScheduleAssignment, updateShift, updateRotationPattern, deleteRotationPattern, Holiday, getHolidays, createHoliday, updateHoliday, deleteHoliday } from '@/services/scheduleService';
 import { format, parse } from 'date-fns';
 import { Employee, getAllEmployees } from '@/services/employeeService';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
@@ -19,6 +19,7 @@ import { Calendar as CalendarComponent } from '../ui/calendar';
 import { Timestamp } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
+import { cn } from '@/lib/utils';
 
 
 export default function SchedulingDashboard() {
@@ -26,10 +27,12 @@ export default function SchedulingDashboard() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [rotationPatterns, setRotationPatterns] = useState<RotationPattern[]>([]);
   const [assignments, setAssignments] = useState<EmployeeScheduleAssignment[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
 
   const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
   const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false);
   const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
+  const [isHolidayDialogOpen, setIsHolidayDialogOpen] = useState(false);
   
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [newShift, setNewShift] = useState({ name: '', startTime: '09:00', endTime: '17:00'});
@@ -42,13 +45,15 @@ export default function SchedulingDashboard() {
   ]);
   const [patternToDelete, setPatternToDelete] = useState<RotationPattern | null>(null);
 
-
   const [newAssignment, setNewAssignment] = useState<{
     employeeId: string;
     rotationPatternId: string;
     startDate: Date | undefined;
     endDate: Date | undefined;
   }>({ employeeId: '', rotationPatternId: '', startDate: undefined, endDate: undefined });
+
+  const [editingHoliday, setEditingHoliday] = useState<Holiday | null>(null);
+  const [newHoliday, setNewHoliday] = useState<{name: string, date: Date | undefined}>({name: '', date: undefined});
 
   const [filterEmployee, setFilterEmployee] = useState('all');
 
@@ -59,10 +64,12 @@ export default function SchedulingDashboard() {
     const shiftsData = await getShifts();
     const patternsData = await getRotationPatterns();
     const assignmentsData = await getEmployeeScheduleAssignments();
+    const holidaysData = await getHolidays();
     setEmployees(employeesData);
     setShifts(shiftsData);
     setRotationPatterns(patternsData);
     setAssignments(assignmentsData);
+    setHolidays(holidaysData);
   };
 
   useEffect(() => {
@@ -219,6 +226,47 @@ export default function SchedulingDashboard() {
       toast({ title: "Assignment Deleted", description: "The schedule assignment has been removed." });
       fetchData();
   }
+  
+  // --- Holiday Functions ---
+
+    const handleOpenCreateHolidayDialog = () => {
+        setEditingHoliday(null);
+        setNewHoliday({ name: '', date: undefined });
+        setIsHolidayDialogOpen(true);
+    };
+
+    const handleOpenEditHolidayDialog = (holiday: Holiday) => {
+        setEditingHoliday(holiday);
+        setNewHoliday({ name: holiday.name, date: holiday.date.toDate() });
+        setIsHolidayDialogOpen(true);
+    };
+
+    const handleSaveHoliday = async () => {
+        const { name, date } = newHoliday;
+        if (!name || !date) {
+            toast({ title: "Missing fields", description: "Holiday name and date are required.", variant: "destructive" });
+            return;
+        }
+        
+        const holidayData = { name, date: Timestamp.fromDate(date) };
+
+        if (editingHoliday) {
+            await updateHoliday(editingHoliday.id, holidayData);
+            toast({ title: "Holiday Updated", description: "The holiday has been successfully updated." });
+        } else {
+            await createHoliday(holidayData);
+            toast({ title: "Holiday Created", description: "The new holiday has been saved." });
+        }
+        fetchData();
+        setIsHolidayDialogOpen(false);
+    };
+    
+    const handleDeleteHoliday = async (holidayId: string) => {
+        await deleteHoliday(holidayId);
+        toast({title: "Holiday Deleted", description: "The holiday has been removed."});
+        fetchData();
+    }
+
 
   const getShiftNameById = (id: string | null) => {
       if (id === null) return 'Day Off';
@@ -236,6 +284,7 @@ export default function SchedulingDashboard() {
       <TabsList>
         <TabsTrigger value="assignments"><List className="mr-2 h-4 w-4"/>Assignments</TabsTrigger>
         <TabsTrigger value="calendar"><CalendarDays className="mr-2 h-4 w-4"/>Calendar View</TabsTrigger>
+        <TabsTrigger value="holidays"><PartyPopper className="mr-2 h-4 w-4"/>Holidays</TabsTrigger>
         <TabsTrigger value="shifts"><Repeat className="mr-2 h-4 w-4"/>Shifts</TabsTrigger>
         <TabsTrigger value="patterns"><BrainCircuit className="mr-2 h-4 w-4"/>Rotation Patterns</TabsTrigger>
       </TabsList>
@@ -360,6 +409,46 @@ export default function SchedulingDashboard() {
             </CardHeader>
             <CardContent>
                 <p className="text-muted-foreground">This feature is under construction. Please check back later.</p>
+            </CardContent>
+        </Card>
+      </TabsContent>
+      
+      <TabsContent value="holidays">
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Holidays</CardTitle>
+                    <CardDescription>Manage company holidays. Employees will not be scheduled on these days.</CardDescription>
+                </div>
+                <Button onClick={handleOpenCreateHolidayDialog}><PlusCircle className="mr-2 h-4 w-4"/>Add Holiday</Button>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Holiday Name</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {holidays.sort((a,b) => a.date.toMillis() - b.date.toMillis()).map(h => (
+                            <TableRow key={h.id}>
+                                <TableCell>{h.name}</TableCell>
+                                <TableCell>{format(h.date.toDate(), "PPP")}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" onClick={() => handleOpenEditHolidayDialog(h)}>
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteHoliday(h.id)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+                 {holidays.length === 0 && <p className="text-muted-foreground text-sm py-4 text-center">No holidays created yet.</p>}
             </CardContent>
         </Card>
       </TabsContent>
@@ -531,10 +620,40 @@ export default function SchedulingDashboard() {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        
+        <Dialog open={isHolidayDialogOpen} onOpenChange={setIsHolidayDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{editingHoliday ? "Edit Holiday" : "Create New Holiday"}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div>
+                        <Label htmlFor="holiday-name">Holiday Name</Label>
+                        <Input id="holiday-name" value={newHoliday.name} onChange={e => setNewHoliday({...newHoliday, name: e.target.value})} placeholder="e.g., New Year's Day"/>
+                    </div>
+                    <div>
+                       <Label htmlFor="holiday-date">Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !newHoliday.date && "text-muted-foreground")}>
+                                    <Calendar className="mr-2 h-4 w-4" />
+                                    {newHoliday.date ? format(newHoliday.date, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <CalendarComponent mode="single" selected={newHoliday.date} onSelect={d => setNewHoliday(prev => ({...prev, date: d}))} initialFocus />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                </div>
+                 <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsHolidayDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleSaveHoliday}>Save Holiday</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </Tabs>
   );
 
     
 }
-
-    

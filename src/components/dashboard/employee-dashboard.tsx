@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowRight, ArrowLeft, Hourglass, CalendarPlus, Banknote, AlertTriangle, CalendarDays } from "lucide-react";
+import { ArrowRight, ArrowLeft, Hourglass, CalendarPlus, Banknote, AlertTriangle, CalendarDays, PartyPopper } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -25,12 +25,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, differenceInDays, getDaysInMonth, startOfWeek, addDays, eachDayOfInterval, addMonths, getDay, isWithinInterval } from "date-fns";
+import { format, differenceInDays, getDaysInMonth, startOfWeek, addDays, eachDayOfInterval, addMonths, getDay, isWithinInterval, isSameDay } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { createTimeOffRequest, getEmployeeTimeOffRequests, TimeOffRequest, TimeOffReason, VacationBank, getVacationBank, updateVacationBank } from "@/services/timeOffRequestService";
 import { Badge } from "../ui/badge";
-import { getEmployeeScheduleAssignments, Shift, getShifts, EmployeeScheduleAssignment, RotationPattern, getRotationPatterns } from "@/services/scheduleService";
+import { getEmployeeScheduleAssignments, Shift, getShifts, EmployeeScheduleAssignment, RotationPattern, getRotationPatterns, Holiday, getHolidays } from "@/services/scheduleService";
 
 const timeOffReasons: TimeOffReason[] = [
     'Vacaciones',
@@ -67,6 +67,7 @@ export default function EmployeeDashboard() {
   const [rotationPatterns, setRotationPatterns] = useState<RotationPattern[]>([]);
   const [assignment, setAssignment] = useState<EmployeeScheduleAssignment | null>(null);
   const [dailySummary, setDailySummary] = useState<DailyAttendanceSummary[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
 
 
   const fetchEmployeeData = async () => {
@@ -146,8 +147,10 @@ export default function EmployeeDashboard() {
          const allShifts = await getShifts();
          const allPatterns = await getRotationPatterns();
          const allAssignments = await getEmployeeScheduleAssignments();
+         const allHolidays = await getHolidays();
          setShifts(allShifts);
          setRotationPatterns(allPatterns);
+         setHolidays(allHolidays);
          
          const employeeAssignment = allAssignments.find(a => a.employeeId === employeeData.id && isWithinInterval(new Date(), { start: a.startDate.toDate(), end: a.endDate.toDate() }));
          setAssignment(employeeAssignment || null);
@@ -248,10 +251,15 @@ export default function EmployeeDashboard() {
   });
 
   const getShiftForDate = (date: Date) => {
-    if (!assignment) return { name: 'Not Assigned', time: ''};
+    const holiday = holidays.find(h => isSameDay(h.date.toDate(), date));
+    if (holiday) {
+        return { name: holiday.name, time: 'Holiday', isHoliday: true };
+    }
+    
+    if (!assignment) return { name: 'Not Assigned', time: '', isHoliday: false };
 
     const pattern = rotationPatterns.find(p => p.id === assignment.rotationPatternId);
-    if (!pattern || !pattern.weeks || pattern.weeks.length === 0) return { name: 'Invalid Pattern', time: ''};
+    if (!pattern || !pattern.weeks || pattern.weeks.length === 0) return { name: 'Invalid Pattern', time: '', isHoliday: false };
 
     const startDate = assignment.startDate.toDate();
     const daysSinceStart = differenceInDays(date, startDate);
@@ -262,14 +270,15 @@ export default function EmployeeDashboard() {
 
     const shiftId = pattern.weeks[weekIndex]?.days[dayIndex];
 
-    if (!shiftId) return { name: 'Day Off', time: '' };
+    if (!shiftId) return { name: 'Day Off', time: '', isHoliday: false };
 
     const shiftInfo = shifts.find(s => s.id === shiftId);
-    if (!shiftInfo) return { name: 'Unknown Shift', time: '' };
+    if (!shiftInfo) return { name: 'Unknown Shift', time: '', isHoliday: false };
 
     return {
         name: shiftInfo.name,
-        time: `${format(shiftInfo.startTime, 'p')} - ${format(shiftInfo.endTime, 'p')}`
+        time: `${format(shiftInfo.startTime, 'p')} - ${format(shiftInfo.endTime, 'p')}`,
+        isHoliday: false
     };
   }
 
@@ -330,14 +339,18 @@ export default function EmployeeDashboard() {
             <CardDescription>Your work schedule for the current week.</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-7 gap-2">
-            {weekDays.map(day => (
-                <div key={day.toString()} className="rounded-lg border p-3 text-center">
-                    <p className="text-sm font-semibold">{format(day, 'EEE')}</p>
-                    <p className="text-xs text-muted-foreground">{format(day, 'MMM d')}</p>
-                    <p className="text-xs mt-2">{getShiftForDate(day).name}</p>
-                    <p className="text-xs font-mono text-primary">{getShiftForDate(day).time}</p>
-                </div>
-            ))}
+            {weekDays.map(day => {
+                const shiftInfo = getShiftForDate(day);
+                return (
+                    <div key={day.toString()} className={`rounded-lg border p-3 text-center ${shiftInfo.isHoliday ? 'bg-accent/20' : ''}`}>
+                        <p className="text-sm font-semibold">{format(day, 'EEE')}</p>
+                        <p className="text-xs text-muted-foreground">{format(day, 'MMM d')}</p>
+                        {shiftInfo.isHoliday && <PartyPopper className="mx-auto mt-2 h-5 w-5 text-accent" />}
+                        <p className={`text-xs mt-2 ${shiftInfo.isHoliday ? 'font-bold text-accent' : ''}`}>{shiftInfo.name}</p>
+                        <p className="text-xs font-mono text-primary">{shiftInfo.time}</p>
+                    </div>
+                );
+            })}
         </CardContent>
       </Card>
       <Card>
@@ -476,5 +489,3 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
-
-    
