@@ -5,38 +5,63 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, BrainCircuit, Repeat, PlusCircle, Trash2, GripVertical } from 'lucide-react';
+import { Calendar, BrainCircuit, Repeat, PlusCircle, Trash2, CalendarDays, List, Filter } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Shift, createShift, getShifts, RotationPattern, createRotationPattern, getRotationPatterns } from '@/services/scheduleService';
+import { Shift, createShift, getShifts, RotationPattern, createRotationPattern, getRotationPatterns, EmployeeScheduleAssignment, createEmployeeScheduleAssignment, getEmployeeScheduleAssignments, deleteEmployeeScheduleAssignment } from '@/services/scheduleService';
 import { TimePicker } from '../ui/time-picker';
 import { format } from 'date-fns';
-import { Time } from '@internationalized/date';
-import type { TimeValue } from 'react-aria-components';
+import { Time, TimeValue, getLocalTimeZone, today } from '@internationalized/date';
 import { Checkbox } from '../ui/checkbox';
+import { Employee, getAllEmployees } from '@/services/employeeService';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Calendar as CalendarComponent } from '../ui/calendar';
+import { Timestamp } from 'firebase/firestore';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+
+const defaultStartTime = new Time(9, 0);
+const defaultEndTime = new Time(17, 0);
 
 export default function SchedulingDashboard() {
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [rotationPatterns, setRotationPatterns] = useState<RotationPattern[]>([]);
+  const [assignments, setAssignments] = useState<EmployeeScheduleAssignment[]>([]);
+
   const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
   const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false);
+  const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
   
   const [newShiftName, setNewShiftName] = useState('');
-  const [startTime, setStartTime] = useState<TimeValue>(new Time(9, 0));
-  const [endTime, setEndTime] = useState<TimeValue>(new Time(17, 0));
+  const [startTime, setStartTime] = useState<TimeValue>(defaultStartTime);
+  const [endTime, setEndTime] = useState<TimeValue>(defaultEndTime);
 
   const [newPatternName, setNewPatternName] = useState('');
-  const [selectedShifts, setSelectedShifts] = useState<string[]>([]);
+  const [selectedShiftsForPattern, setSelectedShiftsForPattern] = useState<string[]>([]);
   
+  const [newAssignment, setNewAssignment] = useState<{
+    employeeId: string;
+    rotationPatternId: string;
+    startDate: Date | undefined;
+    endDate: Date | undefined;
+  }>({ employeeId: '', rotationPatternId: '', startDate: undefined, endDate: undefined });
+
+  const [filterEmployee, setFilterEmployee] = useState('all');
+
   const { toast } = useToast();
 
   const fetchData = async () => {
+    const employeesData = await getAllEmployees();
     const shiftsData = await getShifts();
     const patternsData = await getRotationPatterns();
+    const assignmentsData = await getEmployeeScheduleAssignments();
+    setEmployees(employeesData);
     setShifts(shiftsData);
     setRotationPatterns(patternsData);
+    setAssignments(assignmentsData);
   };
 
   useEffect(() => {
@@ -44,46 +69,76 @@ export default function SchedulingDashboard() {
   }, []);
   
   const handleCreateShift = async () => {
-    if(!newShiftName) {
-        toast({title: "Shift name is required", variant: "destructive"});
+    if(!newShiftName || !startTime || !endTime) {
+        toast({title: "Shift details are required", variant: "destructive"});
         return;
     }
-
-    const today = new Date();
-    const startDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), startTime.hour, startTime.minute);
-    const endDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), endTime.hour, endTime.minute);
-
-    await createShift({ name: newShiftName, startTime: startDateTime, endTime: endDateTime });
+    const todayDate = today(getLocalTimeZone());
+    await createShift({ 
+        name: newShiftName, 
+        startTime: startTime.toDate(todayDate), 
+        endTime: endTime.toDate(todayDate) 
+    });
     toast({ title: "Shift Created", description: "The new shift has been saved." });
     setIsShiftDialogOpen(false);
     setNewShiftName('');
-    setStartTime(new Time(9,0));
-    setEndTime(new Time(17,0));
+    setStartTime(defaultStartTime);
+    setEndTime(defaultEndTime);
     fetchData();
   }
 
   const handleCreatePattern = async () => {
-      if(!newPatternName || selectedShifts.length === 0) {
+      if(!newPatternName || selectedShiftsForPattern.length === 0) {
           toast({ title: "Missing Fields", description: "Pattern name and at least one shift are required.", variant: "destructive" });
           return;
       }
-      await createRotationPattern({ name: newPatternName, shiftSequence: selectedShifts });
+      await createRotationPattern({ name: newPatternName, shiftSequence: selectedShiftsForPattern });
       toast({ title: "Rotation Pattern Created", description: "The new pattern has been saved." });
       setIsPatternDialogOpen(false);
       setNewPatternName('');
-      setSelectedShifts([]);
+      setSelectedShiftsForPattern([]);
       fetchData();
   }
 
-  const handleShiftSelection = (shiftId: string) => {
-    setSelectedShifts(prev => {
-        const newSelection = [...prev];
-        const index = newSelection.indexOf(shiftId);
-        if(index > -1) {
-            newSelection.splice(index, 1);
-        } else {
-            newSelection.push(shiftId);
-        }
+  const handleCreateAssignment = async () => {
+    const { employeeId, rotationPatternId, startDate, endDate } = newAssignment;
+    if (!employeeId || !rotationPatternId || !startDate || !endDate) {
+        toast({ title: "Missing Fields", description: "All fields are required to create an assignment.", variant: "destructive" });
+        return;
+    }
+
+    const employee = employees.find(e => e.id === employeeId);
+    const pattern = rotationPatterns.find(p => p.id === rotationPatternId);
+
+    if(!employee || !pattern) {
+        toast({ title: "Invalid Data", description: "Selected employee or pattern not found.", variant: "destructive"});
+        return;
+    }
+
+    await createEmployeeScheduleAssignment({
+        employeeId,
+        employeeName: employee.name,
+        rotationPatternId,
+        rotationPatternName: pattern.name,
+        startDate: Timestamp.fromDate(startDate),
+        endDate: Timestamp.fromDate(endDate),
+    });
+    
+    toast({ title: "Assignment Created", description: `${employee.name} has been assigned the ${pattern.name} pattern.` });
+    setIsAssignmentDialogOpen(false);
+    setNewAssignment({ employeeId: '', rotationPatternId: '', startDate: undefined, endDate: undefined });
+    fetchData();
+  }
+
+  const handleDeleteAssignment = async (assignmentId: string) => {
+      await deleteEmployeeScheduleAssignment(assignmentId);
+      toast({ title: "Assignment Deleted", description: "The schedule assignment has been removed." });
+      fetchData();
+  }
+
+  const handleShiftSelectionForPattern = (shiftId: string) => {
+    setSelectedShiftsForPattern(prev => {
+        const newSelection = [...prev, shiftId];
         return newSelection;
     });
   };
@@ -92,19 +147,136 @@ export default function SchedulingDashboard() {
       return shifts.find(s => s.id === id)?.name || 'Unknown Shift';
   }
 
+  const filteredAssignments = filterEmployee === 'all' 
+    ? assignments 
+    : assignments.filter(a => a.employeeId === filterEmployee);
+
   return (
-    <Tabs defaultValue="shifts" className="space-y-4">
+    <Tabs defaultValue="assignments" className="space-y-4">
       <TabsList>
-        <TabsTrigger value="schedule"><Calendar className="mr-2 h-4 w-4"/>Schedule</TabsTrigger>
+        <TabsTrigger value="assignments"><List className="mr-2 h-4 w-4"/>Assignments</TabsTrigger>
+        <TabsTrigger value="calendar"><CalendarDays className="mr-2 h-4 w-4"/>Calendar View</TabsTrigger>
         <TabsTrigger value="shifts"><Repeat className="mr-2 h-4 w-4"/>Shifts</TabsTrigger>
         <TabsTrigger value="patterns"><BrainCircuit className="mr-2 h-4 w-4"/>Rotation Patterns</TabsTrigger>
       </TabsList>
+      
+      <TabsContent value="assignments">
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Schedule Assignments</CardTitle>
+                    <CardDescription>Assign rotation patterns to employees for a specific period.</CardDescription>
+                </div>
+                <Dialog open={isAssignmentDialogOpen} onOpenChange={setIsAssignmentDialogOpen}>
+                    <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4"/>New Assignment</Button></DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader><DialogTitle>Create New Schedule Assignment</DialogTitle></DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div>
+                                <Label htmlFor="employee-select">Employee</Label>
+                                <Select value={newAssignment.employeeId} onValueChange={val => setNewAssignment(prev => ({...prev, employeeId: val}))}>
+                                    <SelectTrigger><SelectValue placeholder="Select an employee" /></SelectTrigger>
+                                    <SelectContent>
+                                        {employees.map(emp => <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label htmlFor="pattern-select">Rotation Pattern</Label>
+                                <Select value={newAssignment.rotationPatternId} onValueChange={val => setNewAssignment(prev => ({...prev, rotationPatternId: val}))}>
+                                    <SelectTrigger><SelectValue placeholder="Select a pattern" /></SelectTrigger>
+                                    <SelectContent>
+                                        {rotationPatterns.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="flex gap-4">
+                                <div>
+                                    <Label htmlFor="start-date">Start Date</Label>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                                <Calendar className="mr-2 h-4 w-4" />
+                                                {newAssignment.startDate ? format(newAssignment.startDate, "PPP") : <span>Pick a date</span>}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0">
+                                            <CalendarComponent mode="single" selected={newAssignment.startDate} onSelect={d => setNewAssignment(prev => ({...prev, startDate: d}))} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                                <div>
+                                    <Label htmlFor="end-date">End Date</Label>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                                <Calendar className="mr-2 h-4 w-4" />
+                                                {newAssignment.endDate ? format(newAssignment.endDate, "PPP") : <span>Pick a date</span>}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0">
+                                            <CalendarComponent mode="single" selected={newAssignment.endDate} onSelect={d => setNewAssignment(prev => ({...prev, endDate: d}))} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                            </div>
+                        </div>
+                        <DialogFooter><Button onClick={handleCreateAssignment}>Create Assignment</Button></DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-center gap-2 mb-4">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <Select value={filterEmployee} onValueChange={setFilterEmployee}>
+                        <SelectTrigger className="w-[240px]">
+                            <SelectValue placeholder="Filter by Employee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Employees</SelectItem>
+                            {employees.map(emp => (
+                                <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {filterEmployee !== 'all' && <Button variant="ghost" onClick={() => setFilterEmployee('all')}>Clear</Button>}
+                </div>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Employee</TableHead>
+                            <TableHead>Rotation Pattern</TableHead>
+                            <TableHead>Start Date</TableHead>
+                            <TableHead>End Date</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filteredAssignments.map(a => (
+                            <TableRow key={a.id}>
+                                <TableCell>{a.employeeName}</TableCell>
+                                <TableCell>{a.rotationPatternName}</TableCell>
+                                <TableCell>{format(a.startDate.toDate(), "PPP")}</TableCell>
+                                <TableCell>{format(a.endDate.toDate(), "PPP")}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteAssignment(a.id)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+                {filteredAssignments.length === 0 && <p className="text-muted-foreground text-sm py-4 text-center">No assignments found.</p>}
+            </CardContent>
+        </Card>
+      </TabsContent>
 
-       <TabsContent value="schedule">
+       <TabsContent value="calendar">
         <Card>
             <CardHeader>
-                <CardTitle>Schedule</CardTitle>
-                <CardDescription>Assign shifts and rotation patterns to employees.</CardDescription>
+                <CardTitle>Calendar View</CardTitle>
+                <CardDescription>A monthly view of the generated employee schedules.</CardDescription>
             </CardHeader>
             <CardContent>
                 <p className="text-muted-foreground">This feature is under construction. Please check back later.</p>
@@ -165,23 +337,24 @@ export default function SchedulingDashboard() {
                             <Input id="pattern-name" value={newPatternName} onChange={e => setNewPatternName(e.target.value)} placeholder="e.g., Weekly Rotation"/>
                         </div>
                         <div>
-                            <Label>Shift Sequence (Select in order)</Label>
-                            <div className="space-y-2 rounded-md border p-2 max-h-60 overflow-y-auto">
-                                {shifts.map(shift => (
-                                    <div key={shift.id} className="flex items-center space-x-2">
-                                        <Checkbox id={`shift-${shift.id}`} onCheckedChange={() => handleShiftSelection(shift.id)} />
-                                        <Label htmlFor={`shift-${shift.id}`} className="font-normal">{shift.name}</Label>
+                            <Label>Shift Sequence (Add in order)</Label>
+                            <div className="space-y-2 rounded-md border p-2 min-h-20">
+                                {selectedShiftsForPattern.map((shiftId, index) => (
+                                    <div key={`${shiftId}-${index}`} className="flex items-center justify-between bg-muted p-1 rounded-sm">
+                                        <span>{index + 1}. {getShiftNameById(shiftId)}</span>
                                     </div>
                                 ))}
                             </div>
-                            <div className="mt-2 text-sm text-muted-foreground">
-                                <p>Selected sequence:</p>
-                                {selectedShifts.length > 0 ? (
-                                    <ol className="list-decimal list-inside">
-                                        {selectedShifts.map(id => <li key={id}>{getShiftNameById(id)}</li>)}
-                                    </ol>
-                                ) : <p>No shifts selected.</p>}
+                             <div className="flex flex-wrap gap-2 mt-2">
+                                {shifts.map(shift => (
+                                    <Button key={shift.id} variant="outline" size="sm" onClick={() => handleShiftSelectionForPattern(shift.id)}>
+                                        Add "{getShiftNameById(shift.id)}"
+                                    </Button>
+                                ))}
                             </div>
+                             {selectedShiftsForPattern.length > 0 && 
+                                <Button variant="destructive" size="sm" onClick={() => setSelectedShiftsForPattern([])} className="mt-2">Clear Sequence</Button>
+                            }
                         </div>
                     </div>
                     <DialogFooter><Button onClick={handleCreatePattern}>Create Pattern</Button></DialogFooter>

@@ -28,10 +28,6 @@ export type Employee = {
     salaryType: 'Hourly' | 'Salary' | 'Profesional Services';
     avatarUrl?: string;
     managerId?: string;
-    scheduleInfo?: {
-      shiftId: string;
-      rotationPatternId: string;
-    }
 };
 
 const employeesCollection = collection(db, 'employees');

@@ -1,6 +1,6 @@
-
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp, writeBatch, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp, writeBatch, getDoc, deleteDoc } from 'firebase/firestore';
+import { Employee } from './employeeService';
 
 // --- Data Models ---
 
@@ -15,6 +15,16 @@ export type RotationPattern = {
   id: string;
   name:string;
   shiftSequence: string[]; // Array of shift IDs
+};
+
+export type EmployeeScheduleAssignment = {
+    id: string;
+    employeeId: string;
+    employeeName: string;
+    rotationPatternId: string;
+    rotationPatternName: string;
+    startDate: Timestamp;
+    endDate: Timestamp;
 };
 
 export type Schedule = {
@@ -36,6 +46,8 @@ const shiftsCollection = collection(db, 'shifts');
 const rotationPatternsCollection = collection(db, 'rotationPatterns');
 const scheduleCollection = collection(db, 'schedule');
 const holidaysCollection = collection(db, 'holidays');
+const assignmentsCollection = collection(db, 'employeeScheduleAssignments');
+
 
 // --- Shift Management ---
 
@@ -70,6 +82,22 @@ export const getRotationPatterns = async (): Promise<RotationPattern[]> => {
   const snapshot = await getDocs(rotationPatternsCollection);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RotationPattern));
 };
+
+// --- Schedule Assignment Management ---
+export const createEmployeeScheduleAssignment = async (assignmentData: Omit<EmployeeScheduleAssignment, 'id'>) => {
+    return await addDoc(assignmentsCollection, assignmentData);
+}
+
+export const getEmployeeScheduleAssignments = async (): Promise<EmployeeScheduleAssignment[]> => {
+    const snapshot = await getDocs(assignmentsCollection);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EmployeeScheduleAssignment));
+}
+
+export const deleteEmployeeScheduleAssignment = async (assignmentId: string) => {
+    const assignmentDoc = doc(db, 'employeeScheduleAssignments', assignmentId);
+    return await deleteDoc(assignmentDoc);
+}
+
 
 // --- Holiday Management ---
 
