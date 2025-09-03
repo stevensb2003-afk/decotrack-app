@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera } from 'lucide-react';
+import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,8 @@ import { cn } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
 import { updateUserPassword } from '@/services/userService';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Location, createLocation, getAllLocations, updateLocation } from '@/services/locationService';
 
 const initialNewEmployeeData: Omit<Employee, 'id'> = {
     name: '',
@@ -49,6 +51,9 @@ const initialNewEmployeeData: Omit<Employee, 'id'> = {
     employmentType: 'n/a',
     salaryType: 'Salary',
     avatarUrl: '',
+    locationId: '',
+    locationName: '',
+    managerName: '',
 };
 
 const countries = [
@@ -253,6 +258,7 @@ export default function HRDashboard() {
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [isCreateDialogOpen, setCreateIsDialogOpen] = useState(false);
   
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -260,14 +266,21 @@ export default function HRDashboard() {
   const [isEditingDetail, setIsEditingDetail] = useState(false);
 
   const [newEmployeeData, setNewEmployeeData] = useState<Omit<Employee, 'id'>>(initialNewEmployeeData);
+  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
+  const [newLocationName, setNewLocationName] = useState("");
+  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const [locationManager, setLocationManager] = useState('');
+  const [filterLocation, setFilterLocation] = useState('all');
 
   const { toast } = useToast();
   
   const fetchData = async () => {
       const emps = await getAllEmployees();
       const reqs = await getPendingChangeRequests();
+      const locs = await getAllLocations();
       setEmployees(emps);
       setChangeRequests(reqs);
+      setLocations(locs);
   };
 
   useEffect(() => {
@@ -410,7 +423,7 @@ export default function HRDashboard() {
   const canEdit = user?.role === 'admin' || user?.role === 'hr';
 
   const licenseTypes = ["A1", "A2", "A3", "B1", "B2", "B3", "B4", "C1", "C2", "D1", "D2", "D3", "E1", "E2"];
-  const employeeRoles: Employee['role'][] = ["Cajero", "Chofer", "Vendedor", "Recursos Humanos", "Contabilidad", "Marketing"];
+  const employeeRoles: Employee['role'][] = ["Cajero", "Chofer", "Vendedor", "Recursos Humanos", "Contabilidad", "Marketing", "management"];
   const employmentTypes: Employee['employmentType'][] = ["Full time", "Part time", "Practicant", "n/a"];
   const salaryTypes: Employee['salaryType'][] = ["Hourly", "Salary", "Profesional Services"];
 
@@ -429,6 +442,67 @@ export default function HRDashboard() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+  const handleLocationSelect = (locationId: string, isNew: boolean) => {
+      const location = locations.find(l => l.id === locationId);
+      if (!location) return;
+
+      if(isNew) {
+          setNewEmployeeData(prev => ({
+              ...prev,
+              locationId: location.id,
+              locationName: location.name,
+              managerName: location.managerName || 'N/A'
+          }));
+      } else if (selectedEmployee) {
+          setSelectedEmployee(prev => prev ? ({
+              ...prev,
+              locationId: location.id,
+              locationName: location.name,
+              managerName: location.managerName || 'N/A'
+          }) : prev);
+      }
+  }
+
+  const handleSaveLocation = async () => {
+    if (!newLocationName) {
+        toast({title: "Location name is required", variant: "destructive"});
+        return;
+    }
+    const manager = employees.find(e => e.id === locationManager);
+
+    const locationData = {
+        name: newLocationName,
+        managerId: manager?.id || '',
+        managerName: manager?.name || '',
+    }
+
+    if (editingLocation) {
+        await updateLocation(editingLocation.id, locationData);
+        toast({title: "Location Updated"});
+    } else {
+        await createLocation(locationData);
+        toast({title: "Location Created"});
+    }
+    
+    setNewLocationName("");
+    setLocationManager("");
+    setEditingLocation(null);
+    setIsLocationDialogOpen(false);
+    fetchData();
+  };
+  
+  const handleOpenLocationDialog = (location: Location | null) => {
+    setEditingLocation(location);
+    setNewLocationName(location?.name || "");
+    setLocationManager(location?.managerId || "");
+    setIsLocationDialogOpen(true);
+  };
+  
+  const managementEmployees = employees.filter(e => e.role === 'management');
+  
+  const filteredEmployees = filterLocation === 'all'
+    ? employees
+    : employees.filter(emp => emp.locationId === filterLocation);
 
   return (
     <div className="space-y-6">
@@ -473,202 +547,278 @@ export default function HRDashboard() {
               )}
           </CardContent>
       </Card>
-      <Card>
-        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <CardTitle>Employee Management</CardTitle>
-              <CardDescription>View and manage employee records.</CardDescription>
-            </div>
-             <Dialog open={isCreateDialogOpen} onOpenChange={setCreateIsDialogOpen}>
-              <DialogTrigger asChild>
-                  <Button><UserPlus className="mr-2 h-4 w-4" /> Add Employee</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                  <DialogHeader><DialogTitle>Add New Employee</DialogTitle></DialogHeader>
-                  <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
-                      <Label htmlFor="name-create">Name</Label>
-                      <Input id="name-create" value={newEmployeeData.name} onChange={e => setNewEmployeeData({...newEmployeeData, name: e.target.value})} />
-                      
-                      <Label htmlFor="email-create">Email</Label>
-                      <Input id="email-create" type="email" value={newEmployeeData.email} onChange={e => setNewEmployeeData({...newEmployeeData, email: e.target.value})} />
-                      
-                      <Label htmlFor="role-create">Role</Label>
-                      <Select value={newEmployeeData.role} onValueChange={(val: Employee['role']) => setNewEmployeeData({...newEmployeeData, role: val})}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            {employeeRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-
-                      <Label htmlFor="id-type-create">ID Type</Label>
-                      <Select value={newEmployeeData.idType} onValueChange={(val: Employee['idType']) => setNewEmployeeData({...newEmployeeData, idType: val})}>
-                        <SelectTrigger><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ID Nacional">ID Nacional</SelectItem>
-                          <SelectItem value="Pasaporte">Pasaporte</SelectItem>
-                          <SelectItem value="Cédula Extranjero">Cédula Extranjero</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      
-                      <Label htmlFor="id-number-create">ID Number</Label>
-                      <Input id="id-number-create" value={newEmployeeData.idNumber} onChange={e => setNewEmployeeData({...newEmployeeData, idNumber: e.target.value})} />
-                      
-                      <Label htmlFor="cellphone-create">Cellphone Number</Label>
-                      <Input id="cellphone-create" type="tel" value={newEmployeeData.cellphoneNumber} onChange={e => setNewEmployeeData({...newEmployeeData, cellphoneNumber: e.target.value})} />
-                      
-                      <Label htmlFor="nationality-create">Nationality</Label>
-                      <Select value={newEmployeeData.nationality} onValueChange={val => setNewEmployeeData({...newEmployeeData, nationality: val})}>
-                          <SelectTrigger><SelectValue placeholder="Select Nationality"/></SelectTrigger>
-                          <SelectContent>
-                              {countries.map(c => <SelectItem key={c.value} value={c.label}>{c.label}</SelectItem>)}
-                          </SelectContent>
-                      </Select>
-
-                      <Label htmlFor="birthdate-create">Birth Date</Label>
-                       <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newEmployeeData.birthDate && "text-muted-foreground")}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {newEmployeeData.birthDate ? format(newEmployeeData.birthDate.toDate(), "PPP") : <span>Pick a date</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar mode="single" selected={newEmployeeData.birthDate.toDate()} onSelect={date => handleDateChange(date, 'birthDate', true)} initialFocus />
-                        </PopoverContent>
-                      </Popover>
-
-                      <Label htmlFor="hiredate-create">Hire Date</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newEmployeeData.hireDate && "text-muted-foreground")}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {newEmployeeData.hireDate ? format(newEmployeeData.hireDate.toDate(), "PPP") : <span>Pick a date</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar mode="single" selected={newEmployeeData.hireDate.toDate()} onSelect={date => handleDateChange(date, 'hireDate', true)} initialFocus />
-                        </PopoverContent>
-                      </Popover>
-
-                      <Label htmlFor="employment-type-create">Employment Type</Label>
-                      <Select value={newEmployeeData.employmentType} onValueChange={(val: Employee['employmentType']) => setNewEmployeeData({...newEmployeeData, employmentType: val})}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            {employmentTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-
-                      <Label htmlFor="salary-type-create">Salary Type</Label>
-                      <Select value={newEmployeeData.salaryType} onValueChange={(val: Employee['salaryType']) => setNewEmployeeData({...newEmployeeData, salaryType: val})}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            {salaryTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-
-                       <Label htmlFor="salary-create">Salary (CRC)</Label>
-                      <Input id="salary-create" type="number" value={newEmployeeData.salary} onChange={e => setNewEmployeeData({...newEmployeeData, salary: parseFloat(e.target.value) || 0})} />
-
-                      <div className="flex items-center space-x-2">
-                        <Label htmlFor="license-create">Has License?</Label>
-                        <Switch id="license-create" checked={newEmployeeData.licensePermission} onCheckedChange={val => setNewEmployeeData({...newEmployeeData, licensePermission: val})} />
-                      </div>
-                      {newEmployeeData.licensePermission && (
-                        <div className="space-y-4 rounded-md border p-4">
-                           <Label>License Details</Label>
-                            {(newEmployeeData.licenses || []).map((license, index) => (
-                                <div key={index} className="space-y-2">
-                                    <div className="flex items-center gap-x-2">
-                                        <div className="flex-grow">
-                                            <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, true)}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="License Type" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {licenseTypes.map(type => (
-                                                <SelectItem key={type} value={type}>{type}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removeLicenseField(index, true)}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </div>
-                                    <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, true)} />
-                                    <Select value={license.country} onValueChange={value => handleLicenseChange(index, 'country', value, true)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Country" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {countries.map(country => (
-                                                <SelectItem key={country.value} value={country.label}>{country.label}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !license.expirationDate && "text-muted-foreground")}>
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {license.expirationDate ? format(license.expirationDate.toDate(), "PPP") : <span>Expiration Date</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar mode="single" selected={license.expirationDate?.toDate()} onSelect={date => handleLicenseDateChange(index, date, true)} initialFocus />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
-                            ))}
-                            {(newEmployeeData.licenses || []).length < 3 && (
-                                <Button variant="outline" size="sm" onClick={() => addLicenseField(true)}>Add License</Button>
-                            )}
-                        </div>
-                      )}
-                  </div>
-                  <DialogFooter>
-                      <Button onClick={handleCreateEmployee}>Add Employee</Button>
-                  </DialogFooter>
-              </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {employees.map((employee) => (
-                <TableRow key={employee.id} className="cursor-pointer" onClick={() => handleViewDetailsClick(employee)}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-3">
-                        <Avatar>
-                            <AvatarImage src={employee.avatarUrl || ''} alt={employee.name} />
-                            <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
-                        </Avatar>
-                        {employee.name}
+      
+      <Tabs defaultValue="employees" className="space-y-4">
+        <TabsList>
+            <TabsTrigger value="employees">Employees</TabsTrigger>
+            <TabsTrigger value="locations">Locations</TabsTrigger>
+        </TabsList>
+        <TabsContent value="employees">
+            <Card>
+                <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                    <CardTitle>Employee Management</CardTitle>
+                    <CardDescription>View and manage employee records.</CardDescription>
                     </div>
-                  </TableCell>
-                  <TableCell>{employee.email}</TableCell>
-                  <TableCell>{employee.role}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(employee.status)}`}>
-                        {employee.status}
-                    </span>
-                   </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                    <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
+                            <Filter className="h-4 w-4 text-muted-foreground" />
+                            <Select value={filterLocation} onValueChange={setFilterLocation}>
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Filter by Location" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Locations</SelectItem>
+                                    {locations.map(loc => (
+                                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Dialog open={isCreateDialogOpen} onOpenChange={setCreateIsDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button><UserPlus className="mr-2 h-4 w-4" /> Add Employee</Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-lg">
+                            <DialogHeader><DialogTitle>Add New Employee</DialogTitle></DialogHeader>
+                            <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
+                                <Label htmlFor="name-create">Name</Label>
+                                <Input id="name-create" value={newEmployeeData.name} onChange={e => setNewEmployeeData({...newEmployeeData, name: e.target.value})} />
+                                
+                                <Label htmlFor="email-create">Email</Label>
+                                <Input id="email-create" type="email" value={newEmployeeData.email} onChange={e => setNewEmployeeData({...newEmployeeData, email: e.target.value})} />
+                                
+                                <Label htmlFor="role-create">Role</Label>
+                                <Select value={newEmployeeData.role} onValueChange={(val: Employee['role']) => setNewEmployeeData({...newEmployeeData, role: val})}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {employeeRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+
+                                <Label htmlFor="id-type-create">ID Type</Label>
+                                <Select value={newEmployeeData.idType} onValueChange={(val: Employee['idType']) => setNewEmployeeData({...newEmployeeData, idType: val})}>
+                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectContent>
+                                    <SelectItem value="ID Nacional">ID Nacional</SelectItem>
+                                    <SelectItem value="Pasaporte">Pasaporte</SelectItem>
+                                    <SelectItem value="Cédula Extranjero">Cédula Extranjero</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                
+                                <Label htmlFor="id-number-create">ID Number</Label>
+                                <Input id="id-number-create" value={newEmployeeData.idNumber} onChange={e => setNewEmployeeData({...newEmployeeData, idNumber: e.target.value})} />
+                                
+                                <Label htmlFor="cellphone-create">Cellphone Number</Label>
+                                <Input id="cellphone-create" type="tel" value={newEmployeeData.cellphoneNumber} onChange={e => setNewEmployeeData({...newEmployeeData, cellphoneNumber: e.target.value})} />
+                                
+                                <Label htmlFor="nationality-create">Nationality</Label>
+                                <Select value={newEmployeeData.nationality} onValueChange={val => setNewEmployeeData({...newEmployeeData, nationality: val})}>
+                                    <SelectTrigger><SelectValue placeholder="Select Nationality"/></SelectTrigger>
+                                    <SelectContent>
+                                        {countries.map(c => <SelectItem key={c.value} value={c.label}>{c.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+
+                                <Label htmlFor="birthdate-create">Birth Date</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newEmployeeData.birthDate && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {newEmployeeData.birthDate ? format(newEmployeeData.birthDate.toDate(), "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar mode="single" selected={newEmployeeData.birthDate.toDate()} onSelect={date => handleDateChange(date, 'birthDate', true)} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
+
+                                <Label htmlFor="hiredate-create">Hire Date</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newEmployeeData.hireDate && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {newEmployeeData.hireDate ? format(newEmployeeData.hireDate.toDate(), "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar mode="single" selected={newEmployeeData.hireDate.toDate()} onSelect={date => handleDateChange(date, 'hireDate', true)} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
+
+                                <Label htmlFor="employment-type-create">Employment Type</Label>
+                                <Select value={newEmployeeData.employmentType} onValueChange={(val: Employee['employmentType']) => setNewEmployeeData({...newEmployeeData, employmentType: val})}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {employmentTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+
+                                <Label htmlFor="salary-type-create">Salary Type</Label>
+                                <Select value={newEmployeeData.salaryType} onValueChange={(val: Employee['salaryType']) => setNewEmployeeData({...newEmployeeData, salaryType: val})}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {salaryTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+
+                                <Label htmlFor="salary-create">Salary (CRC)</Label>
+                                <Input id="salary-create" type="number" value={newEmployeeData.salary} onChange={e => setNewEmployeeData({...newEmployeeData, salary: parseFloat(e.target.value) || 0})} />
+                                
+                                <Label htmlFor="location-create">Location</Label>
+                                <Select onValueChange={val => handleLocationSelect(val, true)}>
+                                    <SelectTrigger><SelectValue placeholder="Select Location"/></SelectTrigger>
+                                    <SelectContent>
+                                        {locations.map(loc => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <div>
+                                    <Label>Manager</Label>
+                                    <p className='text-sm text-muted-foreground'>{newEmployeeData.managerName || 'N/A'}</p>
+                                </div>
+
+
+                                <div className="flex items-center space-x-2">
+                                    <Label htmlFor="license-create">Has License?</Label>
+                                    <Switch id="license-create" checked={newEmployeeData.licensePermission} onCheckedChange={val => setNewEmployeeData({...newEmployeeData, licensePermission: val})} />
+                                </div>
+                                {newEmployeeData.licensePermission && (
+                                    <div className="space-y-4 rounded-md border p-4">
+                                    <Label>License Details</Label>
+                                        {(newEmployeeData.licenses || []).map((license, index) => (
+                                            <div key={index} className="space-y-2">
+                                                <div className="flex items-center gap-x-2">
+                                                    <div className="flex-grow">
+                                                        <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, true)}>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="License Type" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {licenseTypes.map(type => (
+                                                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removeLicenseField(index, true)}>
+                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                    </Button>
+                                                </div>
+                                                <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, true)} />
+                                                <Select value={license.country} onValueChange={value => handleLicenseChange(index, 'country', value, true)}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Country" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {countries.map(country => (
+                                                            <SelectItem key={country.value} value={country.label}>{country.label}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !license.expirationDate && "text-muted-foreground")}>
+                                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                                            {license.expirationDate ? format(license.expirationDate.toDate(), "PPP") : <span>Expiration Date</span>}
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0">
+                                                        <Calendar mode="single" selected={license.expirationDate?.toDate()} onSelect={date => handleLicenseDateChange(index, date, true)} initialFocus />
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
+                                        ))}
+                                        {(newEmployeeData.licenses || []).length < 3 && (
+                                            <Button variant="outline" size="sm" onClick={() => addLicenseField(true)}>Add License</Button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleCreateEmployee}>Add Employee</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Status</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {filteredEmployees.map((employee) => (
+                        <TableRow key={employee.id} className="cursor-pointer" onClick={() => handleViewDetailsClick(employee)}>
+                        <TableCell className="font-medium">
+                            <div className="flex items-center gap-3">
+                                <Avatar>
+                                    <AvatarImage src={employee.avatarUrl || ''} alt={employee.name} />
+                                    <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
+                                </Avatar>
+                                {employee.name}
+                            </div>
+                        </TableCell>
+                        <TableCell>{employee.email}</TableCell>
+                        <TableCell>{employee.role}</TableCell>
+                        <TableCell>{employee.locationName || 'N/A'}</TableCell>
+                        <TableCell>
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(employee.status)}`}>
+                                {employee.status}
+                            </span>
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="locations">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Locations</CardTitle>
+                        <CardDescription>Manage your company's store locations and managers.</CardDescription>
+                    </div>
+                    <Button onClick={() => handleOpenLocationDialog(null)}><Building className="mr-2 h-4 w-4"/>Add Location</Button>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Location Name</TableHead>
+                                <TableHead>Manager</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {locations.map(loc => (
+                                <TableRow key={loc.id}>
+                                    <TableCell>{loc.name}</TableCell>
+                                    <TableCell>{loc.managerName || 'Not Assigned'}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => handleOpenLocationDialog(loc)}>
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </TabsContent>
+      </Tabs>
+
       
       <Dialog open={isDetailViewOpen} onOpenChange={setIsDetailViewOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader className="flex-row items-center justify-between">
             <div className='flex items-center gap-4'>
                 <Avatar className="h-12 w-12">
@@ -780,6 +930,19 @@ export default function HRDashboard() {
                             <Input id="update-salary" type="number" value={selectedEmployee.salary || 0} onChange={(e) => setSelectedEmployee({...selectedEmployee, salary: parseFloat(e.target.value) || 0})} />
                         </div>
                         <div>
+                            <Label htmlFor="update-location">Location</Label>
+                            <Select value={selectedEmployee.locationId} onValueChange={val => handleLocationSelect(val, false)}>
+                                <SelectTrigger><SelectValue placeholder="Select Location"/></SelectTrigger>
+                                <SelectContent>
+                                    {locations.map(loc => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <div>
+                            <Label>Manager</Label>
+                            <p className='text-sm text-muted-foreground'>{selectedEmployee.managerName || 'N/A'}</p>
+                        </div>
+                        <div>
                             <Label htmlFor="update-status">Status</Label>
                             <Select value={selectedEmployee.status} onValueChange={(val: Employee['status']) => setSelectedEmployee({...selectedEmployee, status: val})}>
                                 <SelectTrigger><SelectValue/></SelectTrigger>
@@ -858,6 +1021,8 @@ export default function HRDashboard() {
                         <div className="grid grid-cols-2"><Label>Nationality</Label><p>{selectedEmployee.nationality}</p></div>
                         <div className="grid grid-cols-2"><Label>Birth Date</Label><p>{selectedEmployee.birthDate ? format(selectedEmployee.birthDate.toDate(), "PPP") : 'N/A'}</p></div>
                         <div className="grid grid-cols-2"><Label>Hire Date</Label><p>{selectedEmployee.hireDate ? format(selectedEmployee.hireDate.toDate(), "PPP") : 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Location</Label><p>{selectedEmployee.locationName || 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Manager</Label><p>{selectedEmployee.managerName || 'N/A'}</p></div>
                         <div className="grid grid-cols-2"><Label>Employment Type</Label><p>{selectedEmployee.employmentType}</p></div>
                         <div className="grid grid-cols-2"><Label>Salary Type</Label><p>{selectedEmployee.salaryType}</p></div>
                         <div className="grid grid-cols-2"><Label>Salary</Label><p>{new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(selectedEmployee.salary || 0)}</p></div>
@@ -889,6 +1054,36 @@ export default function HRDashboard() {
               <Button type="submit" onClick={handleSaveChanges}>Save Changes</Button>
             </DialogFooter>
           )}
+        </DialogContent>
+      </Dialog>
+      
+       <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>{editingLocation ? "Edit Location" : "Add New Location"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+                <div>
+                    <Label htmlFor="location-name">Location Name</Label>
+                    <Input id="location-name" value={newLocationName} onChange={e => setNewLocationName(e.target.value)} placeholder="e.g., Downtown Store"/>
+                </div>
+                <div>
+                    <Label htmlFor="location-manager">Assign Manager</Label>
+                    <Select value={locationManager} onValueChange={setLocationManager}>
+                        <SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger>
+                        <SelectContent>
+                             <SelectItem value="">None</SelectItem>
+                            {managementEmployees.map(emp => (
+                                <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleSaveLocation}>Save Location</Button>
+            </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
