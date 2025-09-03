@@ -5,6 +5,7 @@ import * as React from "react"
 import { Label } from "@/components/ui/label"
 import { TimeField } from "@/components/ui/time-field"
 import { Time } from "@internationalized/date"
+import type {TimeValue} from 'react-aria-components';
 
 interface TimePickerProps {
   date: Date | null;
@@ -14,12 +15,14 @@ interface TimePickerProps {
 export function TimePicker({ date, setDate }: TimePickerProps) {
   const timeValue = date ? new Time(date.getHours(), date.getMinutes()) : null;
 
-  const onTimeChange = (newTime: Time | null) => {
-    const newDate = date ? new Date(date) : new Date();
+  const onTimeChange = (newTime: TimeValue | null) => {
+    const newDate = date ? new Date(date.getTime()) : new Date();
+    
     if (newTime) {
       newDate.setHours(newTime.hour, newTime.minute);
     }
-    setDate(newDate);
+    
+    setDate(newTime ? newDate : null);
   }
 
   return (
