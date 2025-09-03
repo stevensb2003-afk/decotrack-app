@@ -50,7 +50,7 @@ export default function SchedulingDashboard() {
   const [patternWeeks, setPatternWeeks] = useState<{ days: (string | null)[] }[]>([
     { days: Array(7).fill(null) }
   ]);
-  const [patternGracePolicyId, setPatternGracePolicyId] = useState<string | undefined>(undefined);
+  const [patternGracePolicyId, setPatternGracePolicyId] = useState<string | null | undefined>(undefined);
   const [patternToDelete, setPatternToDelete] = useState<RotationPattern | null>(null);
 
   const [newAssignment, setNewAssignment] = useState<{
@@ -897,7 +897,7 @@ export default function SchedulingDashboard() {
                     </div>
                      <div>
                         <Label htmlFor="grace-policy-select">Grace Policy</Label>
-                        <Select value={patternGracePolicyId} onValueChange={setPatternGracePolicyId}>
+                        <Select value={patternGracePolicyId || 'none'} onValueChange={setPatternGracePolicyId}>
                             <SelectTrigger><SelectValue placeholder="Select a grace policy (optional)" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">No Grace Policy</SelectItem>
