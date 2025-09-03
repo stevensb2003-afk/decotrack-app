@@ -20,6 +20,7 @@ import { Timestamp } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { Location, getAllLocations } from '@/services/locationService';
 
 
 export default function SchedulingDashboard() {
@@ -28,6 +29,7 @@ export default function SchedulingDashboard() {
   const [rotationPatterns, setRotationPatterns] = useState<RotationPattern[]>([]);
   const [assignments, setAssignments] = useState<EmployeeScheduleAssignment[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
 
   const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
   const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false);
@@ -56,6 +58,7 @@ export default function SchedulingDashboard() {
   const [newHoliday, setNewHoliday] = useState<{name: string, date: Date | undefined}>({name: '', date: undefined});
 
   const [filterEmployee, setFilterEmployee] = useState('all');
+  const [filterLocation, setFilterLocation] = useState('all');
 
   const { toast } = useToast();
 
@@ -65,11 +68,13 @@ export default function SchedulingDashboard() {
     const patternsData = await getRotationPatterns();
     const assignmentsData = await getEmployeeScheduleAssignments();
     const holidaysData = await getHolidays();
+    const locationsData = await getAllLocations();
     setEmployees(employeesData);
     setShifts(shiftsData);
     setRotationPatterns(patternsData);
     setAssignments(assignmentsData);
     setHolidays(holidaysData);
+    setLocations(locationsData);
   };
 
   useEffect(() => {
@@ -272,10 +277,15 @@ export default function SchedulingDashboard() {
       if (id === null) return 'Day Off';
       return shifts.find(s => s.id === id)?.name || 'Unknown';
   }
+  
+  const employeeMap = new Map(employees.map(e => [e.id, e]));
 
-  const filteredAssignments = filterEmployee === 'all' 
-    ? assignments 
-    : assignments.filter(a => a.employeeId === filterEmployee);
+  const filteredAssignments = assignments.filter(a => {
+      const employee = employeeMap.get(a.employeeId);
+      const employeeMatch = filterEmployee === 'all' || a.employeeId === filterEmployee;
+      const locationMatch = filterLocation === 'all' || (employee && employee.locationId === filterLocation);
+      return employeeMatch && locationMatch;
+  });
 
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -357,23 +367,35 @@ export default function SchedulingDashboard() {
             <CardContent>
                 <div className="flex items-center gap-2 mb-4">
                     <Filter className="h-4 w-4 text-muted-foreground" />
-                    <Select value={filterEmployee} onValueChange={setFilterEmployee}>
+                    <Select value={filterLocation} onValueChange={setFilterLocation}>
+                        <SelectTrigger className="w-[240px]">
+                            <SelectValue placeholder="Filter by Location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Locations</SelectItem>
+                            {locations.map(loc => (
+                                <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                     <Select value={filterEmployee} onValueChange={setFilterEmployee}>
                         <SelectTrigger className="w-[240px]">
                             <SelectValue placeholder="Filter by Employee" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Employees</SelectItem>
-                            {employees.map(emp => (
+                            {employees.filter(emp => filterLocation === 'all' || emp.locationId === filterLocation).map(emp => (
                                 <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
-                    {filterEmployee !== 'all' && <Button variant="ghost" onClick={() => setFilterEmployee('all')}>Clear</Button>}
+                    {(filterEmployee !== 'all' || filterLocation !== 'all') && <Button variant="ghost" onClick={() => {setFilterEmployee('all'); setFilterLocation('all');}}>Clear</Button>}
                 </div>
                 <Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Employee</TableHead>
+                            <TableHead>Location</TableHead>
                             <TableHead>Rotation Pattern</TableHead>
                             <TableHead>Start Date</TableHead>
                             <TableHead>End Date</TableHead>
@@ -381,19 +403,23 @@ export default function SchedulingDashboard() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredAssignments.map(a => (
-                            <TableRow key={a.id}>
-                                <TableCell>{a.employeeName}</TableCell>
-                                <TableCell>{a.rotationPatternName}</TableCell>
-                                <TableCell>{format(a.startDate.toDate(), "PPP")}</TableCell>
-                                <TableCell>{format(a.endDate.toDate(), "PPP")}</TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteAssignment(a.id)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                        {filteredAssignments.map(a => {
+                            const employee = employeeMap.get(a.employeeId);
+                            return (
+                                <TableRow key={a.id}>
+                                    <TableCell>{a.employeeName}</TableCell>
+                                    <TableCell>{employee?.locationName || 'N/A'}</TableCell>
+                                    <TableCell>{a.rotationPatternName}</TableCell>
+                                    <TableCell>{format(a.startDate.toDate(), "PPP")}</TableCell>
+                                    <TableCell>{format(a.endDate.toDate(), "PPP")}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteAssignment(a.id)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            )
+                        })}
                     </TableBody>
                 </Table>
                 {filteredAssignments.length === 0 && <p className="text-muted-foreground text-sm py-4 text-center">No assignments found.</p>}
@@ -657,3 +683,5 @@ export default function SchedulingDashboard() {
 
     
 }
+
+    
