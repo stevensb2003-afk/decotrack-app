@@ -13,7 +13,7 @@ export type Employee = {
     id: string;
     name: string;
     email: string;
-    role: 'Cajero' | 'Chofer' | 'Vendedor' | 'Recursos Humanos' | 'Contabilidad' | 'Marketing' | 'management' | 'admin' | 'employee';
+    role: 'Cajero' | 'Chofer' | 'Vendedor' | 'Recursos Humanos' | 'Contabilidad' | 'Marketing' | 'Manager' | 'admin' | 'employee';
     idType: 'ID Nacional' | 'Pasaporte' | 'Cédula Extranjero';
     idNumber: string;
     cellphoneNumber: string;

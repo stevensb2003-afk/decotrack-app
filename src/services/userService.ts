@@ -4,7 +4,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where, deleteDoc, Timestamp } from 'firebase/firestore';
 import { createEmployee, Employee } from './employeeService';
 
-export type Role = 'employee' | 'hr' | 'management' | 'admin';
+export type Role = 'employee' | 'hr' | 'Manager' | 'admin';
 
 export type SystemUser = {
   id: string;

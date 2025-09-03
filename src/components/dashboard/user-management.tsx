@@ -149,7 +149,7 @@ export default function UserManagement() {
                           <SelectContent>
                               <SelectItem value="employee">Employee</SelectItem>
                               <SelectItem value="hr">HR</SelectItem>
-                              <SelectItem value="management">Management</SelectItem>
+                              <SelectItem value="Manager">Manager</SelectItem>
                               <SelectItem value="admin">Admin</SelectItem>
                           </SelectContent>
                       </Select>
@@ -222,7 +222,7 @@ export default function UserManagement() {
               <SelectContent>
                 <SelectItem value="employee">Employee</SelectItem>
                 <SelectItem value="hr">HR</SelectItem>
-                <SelectItem value="management">Management</SelectItem>
+                <SelectItem value="Manager">Manager</SelectItem>
                 <SelectItem value="admin" disabled>Admin</SelectItem>
               </SelectContent>
             </Select>

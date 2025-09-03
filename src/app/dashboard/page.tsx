@@ -19,7 +19,7 @@ export default function DashboardPage() {
         return <EmployeeDashboard />;
       case 'hr':
         return <HRDashboard />;
-      case 'management':
+      case 'Manager':
         return <ManagementDashboard />;
       case 'admin':
         return <AdminDashboard currentView={adminView} />;
