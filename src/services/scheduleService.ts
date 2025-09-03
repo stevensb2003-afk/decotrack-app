@@ -1,7 +1,6 @@
 
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp, writeBatch, getDoc, deleteDoc } from 'firebase/firestore';
-import { Employee } from './employeeService';
 
 // --- Data Models ---
 
@@ -14,8 +13,10 @@ export type Shift = {
 
 export type RotationPattern = {
   id: string;
-  name:string;
-  shiftSequence: string[]; // Array of shift IDs
+  name: string;
+  weeks: {
+      days: (string | null)[]; // Array of 7 shift IDs or null for "Day Off"
+  }[];
 };
 
 export type EmployeeScheduleAssignment = {
@@ -92,6 +93,17 @@ export const getRotationPatterns = async (): Promise<RotationPattern[]> => {
   const snapshot = await getDocs(rotationPatternsCollection);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RotationPattern));
 };
+
+export const updateRotationPattern = async (patternId: string, patternData: Omit<RotationPattern, 'id'>) => {
+    const patternDoc = doc(db, 'rotationPatterns', patternId);
+    return await updateDoc(patternDoc, patternData);
+};
+
+export const deleteRotationPattern = async (patternId: string) => {
+    const patternDoc = doc(db, 'rotationPatterns', patternId);
+    return await deleteDoc(patternDoc);
+};
+
 
 // --- Schedule Assignment Management ---
 export const createEmployeeScheduleAssignment = async (assignmentData: Omit<EmployeeScheduleAssignment, 'id'>) => {

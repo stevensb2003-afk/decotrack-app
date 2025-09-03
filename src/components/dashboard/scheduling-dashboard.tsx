@@ -10,14 +10,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Shift, createShift, getShifts, RotationPattern, createRotationPattern, getRotationPatterns, EmployeeScheduleAssignment, createEmployeeScheduleAssignment, getEmployeeScheduleAssignments, deleteEmployeeScheduleAssignment, updateShift } from '@/services/scheduleService';
-import { format } from 'date-fns';
+import { Shift, createShift, getShifts, RotationPattern, createRotationPattern, getRotationPatterns, EmployeeScheduleAssignment, createEmployeeScheduleAssignment, getEmployeeScheduleAssignments, deleteEmployeeScheduleAssignment, updateShift, updateRotationPattern, deleteRotationPattern } from '@/services/scheduleService';
+import { format, parse } from 'date-fns';
 import { Employee, getAllEmployees } from '@/services/employeeService';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar as CalendarComponent } from '../ui/calendar';
 import { Timestamp } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 
 
 export default function SchedulingDashboard() {
@@ -33,9 +34,15 @@ export default function SchedulingDashboard() {
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [newShift, setNewShift] = useState({ name: '', startTime: '09:00', endTime: '17:00'});
 
-  const [newPatternName, setNewPatternName] = useState('');
-  const [selectedShiftsForPattern, setSelectedShiftsForPattern] = useState<string[]>([]);
-  
+  // State for pattern creation/editing
+  const [editingPattern, setEditingPattern] = useState<RotationPattern | null>(null);
+  const [patternName, setPatternName] = useState('');
+  const [patternWeeks, setPatternWeeks] = useState<{ days: (string | null)[] }[]>([
+    { days: Array(7).fill(null) }
+  ]);
+  const [patternToDelete, setPatternToDelete] = useState<RotationPattern | null>(null);
+
+
   const [newAssignment, setNewAssignment] = useState<{
     employeeId: string;
     rotationPatternId: string;
@@ -83,12 +90,10 @@ export default function SchedulingDashboard() {
         toast({title: "Shift details are required", variant: "destructive"});
         return;
     }
-    const [startHours, startMinutes] = newShift.startTime.split(':').map(Number);
-    const [endHours, endMinutes] = newShift.endTime.split(':').map(Number);
-    const startDate = new Date();
-    startDate.setHours(startHours, startMinutes, 0, 0);
-    const endDate = new Date();
-    endDate.setHours(endHours, endMinutes, 0, 0);
+
+    const parseTime = (timeStr: string) => parse(timeStr, 'HH:mm', new Date());
+    const startDate = parseTime(newShift.startTime);
+    const endDate = parseTime(newShift.endTime);
 
     if(editingShift) {
         await updateShift(editingShift.id, {
@@ -111,18 +116,63 @@ export default function SchedulingDashboard() {
     fetchData();
   }
 
-  const handleCreatePattern = async () => {
-      if(!newPatternName || selectedShiftsForPattern.length === 0) {
-          toast({ title: "Missing Fields", description: "Pattern name and at least one shift are required.", variant: "destructive" });
-          return;
-      }
-      await createRotationPattern({ name: newPatternName, shiftSequence: selectedShiftsForPattern });
-      toast({ title: "Rotation Pattern Created", description: "The new pattern has been saved." });
-      setIsPatternDialogOpen(false);
-      setNewPatternName('');
-      setSelectedShiftsForPattern([]);
-      fetchData();
+  // --- Pattern Functions ---
+  const handleOpenCreatePatternDialog = () => {
+    setEditingPattern(null);
+    setPatternName('');
+    setPatternWeeks([{ days: Array(7).fill(null) }]);
+    setIsPatternDialogOpen(true);
   }
+
+  const handleOpenEditPatternDialog = (pattern: RotationPattern) => {
+    setEditingPattern(pattern);
+    setPatternName(pattern.name);
+    setPatternWeeks(pattern.weeks);
+    setIsPatternDialogOpen(true);
+  };
+
+  const handleSavePattern = async () => {
+    if (!patternName || patternWeeks.every(w => w.days.every(d => d === null))) {
+        toast({ title: "Missing fields", description: "Pattern name and at least one shift assignment are required.", variant: "destructive" });
+        return;
+    }
+
+    const patternData = { name: patternName, weeks: patternWeeks };
+    if (editingPattern) {
+        await updateRotationPattern(editingPattern.id, patternData);
+        toast({ title: "Pattern Updated", description: "The rotation pattern has been successfully updated." });
+    } else {
+        await createRotationPattern(patternData);
+        toast({ title: "Pattern Created", description: "The new rotation pattern has been saved." });
+    }
+    fetchData();
+    setIsPatternDialogOpen(false);
+  };
+
+  const handleDeletePattern = async () => {
+    if (!patternToDelete) return;
+    await deleteRotationPattern(patternToDelete.id);
+    toast({ title: "Pattern Deleted", description: `The "${patternToDelete.name}" pattern has been deleted.` });
+    setPatternToDelete(null);
+    fetchData();
+  };
+
+  const handleDayShiftChange = (weekIndex: number, dayIndex: number, shiftId: string) => {
+    const newWeeks = [...patternWeeks];
+    newWeeks[weekIndex].days[dayIndex] = shiftId === 'day-off' ? null : shiftId;
+    setPatternWeeks(newWeeks);
+  };
+
+  const addWeekToPattern = () => {
+    setPatternWeeks([...patternWeeks, { days: Array(7).fill(null) }]);
+  };
+
+  const removeWeekFromPattern = (weekIndex: number) => {
+      const newWeeks = [...patternWeeks];
+      newWeeks.splice(weekIndex, 1);
+      setPatternWeeks(newWeeks);
+  };
+
 
   const handleCreateAssignment = async () => {
     const { employeeId, rotationPatternId, startDate, endDate } = newAssignment;
@@ -160,20 +210,16 @@ export default function SchedulingDashboard() {
       fetchData();
   }
 
-  const handleShiftSelectionForPattern = (shiftId: string) => {
-    setSelectedShiftsForPattern(prev => {
-        const newSelection = [...prev, shiftId];
-        return newSelection;
-    });
-  };
-
-  const getShiftNameById = (id: string) => {
-      return shifts.find(s => s.id === id)?.name || 'Unknown Shift';
+  const getShiftNameById = (id: string | null) => {
+      if (id === null) return 'Day Off';
+      return shifts.find(s => s.id === id)?.name || 'Unknown';
   }
 
   const filteredAssignments = filterEmployee === 'all' 
     ? assignments 
     : assignments.filter(a => a.employeeId === filterEmployee);
+
+  const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   return (
     <Tabs defaultValue="assignments" className="space-y-4">
@@ -348,58 +394,62 @@ export default function SchedulingDashboard() {
       </TabsContent>
 
        <TabsContent value="patterns">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Rotation Patterns</CardTitle>
-              <CardDescription>Create and manage sequences of shifts for scheduling.</CardDescription>
-            </div>
-             <Dialog open={isPatternDialogOpen} onOpenChange={setIsPatternDialogOpen}>
-                <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4"/>Add Pattern</Button></DialogTrigger>
-                <DialogContent>
-                    <DialogHeader><DialogTitle>Create New Rotation Pattern</DialogTitle></DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div>
-                            <Label htmlFor="pattern-name">Pattern Name</Label>
-                            <Input id="pattern-name" value={newPatternName} onChange={e => setNewPatternName(e.target.value)} placeholder="e.g., Weekly Rotation"/>
-                        </div>
-                        <div>
-                            <Label>Shift Sequence (Add in order)</Label>
-                            <div className="space-y-2 rounded-md border p-2 min-h-20">
-                                {selectedShiftsForPattern.map((shiftId, index) => (
-                                    <div key={`${shiftId}-${index}`} className="flex items-center justify-between bg-muted p-1 rounded-sm">
-                                        <span>{index + 1}. {getShiftNameById(shiftId)}</span>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                    <CardTitle>Rotation Patterns</CardTitle>
+                    <CardDescription>Create and manage sequences of shifts for scheduling.</CardDescription>
+                    </div>
+                    <Button onClick={handleOpenCreatePatternDialog}><PlusCircle className="mr-2 h-4 w-4"/>Add Pattern</Button>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                     {rotationPatterns.map(p => (
+                        <Card key={p.id}>
+                            <CardHeader className="flex-row items-center justify-between">
+                                <CardTitle className="text-lg">{p.name}</CardTitle>
+                                <div className="flex items-center gap-2">
+                                     <Button variant="ghost" size="icon" onClick={() => handleOpenEditPatternDialog(p)}>
+                                        <Pencil className="h-4 w-4"/>
+                                    </Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" onClick={() => setPatternToDelete(p)}>
+                                                <Trash2 className="h-4 w-4 text-destructive"/>
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>This will permanently delete the "{patternToDelete?.name}" pattern. This action cannot be undone.</AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel onClick={() => setPatternToDelete(null)}>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={handleDeletePattern}>Delete</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {p.weeks.map((week, weekIndex) => (
+                                    <div key={weekIndex} className="mb-4">
+                                        <p className="font-semibold mb-2">Week {weekIndex + 1}</p>
+                                        <div className="grid grid-cols-7 gap-2">
+                                            {weekDays.map((day, dayIndex) => (
+                                                <div key={dayIndex} className="p-2 rounded-md border text-center bg-muted/50">
+                                                    <p className="text-xs font-bold">{day}</p>
+                                                    <p className="text-sm">{getShiftNameById(week.days[dayIndex])}</p>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 ))}
-                            </div>
-                             <div className="flex flex-wrap gap-2 mt-2">
-                                {shifts.map(shift => (
-                                    <Button key={shift.id} variant="outline" size="sm" onClick={() => handleShiftSelectionForPattern(shift.id)}>
-                                        Add "{getShiftNameById(shift.id)}"
-                                    </Button>
-                                ))}
-                            </div>
-                             {selectedShiftsForPattern.length > 0 && 
-                                <Button variant="destructive" size="sm" onClick={() => setSelectedShiftsForPattern([])} className="mt-2">Clear Sequence</Button>
-                            }
-                        </div>
-                    </div>
-                    <DialogFooter><Button onClick={handleCreatePattern}>Create Pattern</Button></DialogFooter>
-                </DialogContent>
-            </Dialog>
-          </CardHeader>
-          <CardContent>
-             {rotationPatterns.map(p => (
-                <div key={p.id} className="flex flex-col p-2 border-b">
-                    <span className="font-medium">{p.name}</span>
-                    <span className="text-sm text-muted-foreground">
-                        {p.shiftSequence.map(id => getShiftNameById(id)).join(' -> ')}
-                    </span>
-                </div>
-            ))}
-            {rotationPatterns.length === 0 && <p className="text-muted-foreground text-sm py-4 text-center">No rotation patterns created yet.</p>}
-          </CardContent>
-        </Card>
+                            </CardContent>
+                        </Card>
+                    ))}
+                    {rotationPatterns.length === 0 && <p className="text-muted-foreground text-sm py-4 text-center">No rotation patterns created yet.</p>}
+                </CardContent>
+            </Card>
       </TabsContent>
 
        <Dialog open={isShiftDialogOpen} onOpenChange={setIsShiftDialogOpen}>
@@ -425,6 +475,52 @@ export default function SchedulingDashboard() {
             </DialogContent>
         </Dialog>
       
+        <Dialog open={isPatternDialogOpen} onOpenChange={setIsPatternDialogOpen}>
+            <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>{editingPattern ? "Edit Rotation Pattern" : "Create New Rotation Pattern"}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                    <div>
+                        <Label htmlFor="pattern-name">Pattern Name</Label>
+                        <Input id="pattern-name" value={patternName} onChange={(e) => setPatternName(e.target.value)} placeholder="e.g., 2-Week Standard Rotation" />
+                    </div>
+                    {patternWeeks.map((week, weekIndex) => (
+                        <div key={weekIndex} className="p-4 border rounded-lg space-y-3">
+                             <div className="flex justify-between items-center">
+                                <Label className="font-semibold text-lg">Week {weekIndex + 1}</Label>
+                                {patternWeeks.length > 1 && (
+                                    <Button variant="ghost" size="icon" onClick={() => removeWeekFromPattern(weekIndex)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                                {weekDays.map((day, dayIndex) => (
+                                    <div key={dayIndex} className="space-y-1">
+                                        <Label htmlFor={`week-${weekIndex}-day-${dayIndex}`}>{day}</Label>
+                                        <Select value={week.days[dayIndex] || 'day-off'} onValueChange={(shiftId) => handleDayShiftChange(weekIndex, dayIndex, shiftId)}>
+                                            <SelectTrigger><SelectValue/></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="day-off">Day Off</SelectItem>
+                                                {shifts.map(s => (
+                                                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                    <Button variant="outline" onClick={addWeekToPattern}>Add Week</Button>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsPatternDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleSavePattern}>Save Pattern</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </Tabs>
   );
 }
