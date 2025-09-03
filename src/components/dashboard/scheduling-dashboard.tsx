@@ -32,7 +32,10 @@ export default function SchedulingDashboard() {
   const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  const [newShift, setNewShift] = useState({ name: '', startTime: defaultStartTime, endTime: defaultEndTime });
+  const [newShiftName, setNewShiftName] = useState('');
+  const [startTime, setStartTime] = useState<Date>(defaultStartTime);
+  const [endTime, setEndTime] = useState<Date>(defaultEndTime);
+
   const [newPattern, setNewPattern] = useState({ name: '', shiftIds: [] as string[] });
   
   const { toast } = useToast();
@@ -53,13 +56,16 @@ export default function SchedulingDashboard() {
   }, []);
   
   const handleCreateShift = async () => {
-    if(!newShift.name) {
+    if(!newShiftName) {
         toast({title: "Shift name is required", variant: "destructive"});
         return;
     }
-    await createShift(newShift);
+    await createShift({ name: newShiftName, startTime, endTime });
     toast({ title: "Shift Created", description: "The new shift has been saved." });
     setIsShiftDialogOpen(false);
+    setNewShiftName('');
+    setStartTime(defaultStartTime);
+    setEndTime(defaultEndTime);
     fetchData();
   }
 
@@ -71,6 +77,7 @@ export default function SchedulingDashboard() {
     await createRotationPattern({ name: newPattern.name, shiftSequence: newPattern.shiftIds });
     toast({ title: "Rotation Pattern Created", description: "The new pattern has been saved." });
     setIsPatternDialogOpen(false);
+    setNewPattern({ name: '', shiftIds: [] });
     fetchData();
   }
   
@@ -118,16 +125,16 @@ export default function SchedulingDashboard() {
                     <div className="space-y-4 py-4">
                         <div>
                             <Label htmlFor="shift-name">Shift Name</Label>
-                            <Input id="shift-name" value={newShift.name} onChange={e => setNewShift({...newShift, name: e.target.value})} placeholder="e.g., Morning Shift"/>
+                            <Input id="shift-name" value={newShiftName} onChange={e => setNewShiftName(e.target.value)} placeholder="e.g., Morning Shift"/>
                         </div>
                         <div className="flex gap-4">
                             <div>
                                 <Label>Start Time</Label>
-                                <TimePicker date={newShift.startTime} setDate={(date) => date && setNewShift({...newShift, startTime: date})} />
+                                <TimePicker date={startTime} setDate={setStartTime} />
                             </div>
                             <div>
                                 <Label>End Time</Label>
-                                <TimePicker date={newShift.endTime} setDate={(date) => date && setNewShift({...newShift, endTime: date})} />
+                                <TimePicker date={endTime} setDate={setEndTime} />
                             </div>
                         </div>
                     </div>
