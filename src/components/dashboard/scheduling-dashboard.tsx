@@ -127,7 +127,7 @@ export default function SchedulingDashboard() {
   const handleOpenEditPatternDialog = (pattern: RotationPattern) => {
     setEditingPattern(pattern);
     setPatternName(pattern.name);
-    setPatternWeeks(pattern.weeks);
+    setPatternWeeks(pattern.weeks || [{ days: Array(7).fill(null) }]);
     setIsPatternDialogOpen(true);
   };
 
@@ -431,7 +431,7 @@ export default function SchedulingDashboard() {
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                {p.weeks.map((week, weekIndex) => (
+                                {p.weeks && p.weeks.map((week, weekIndex) => (
                                     <div key={weekIndex} className="mb-4">
                                         <p className="font-semibold mb-2">Week {weekIndex + 1}</p>
                                         <div className="grid grid-cols-7 gap-2">
@@ -523,4 +523,5 @@ export default function SchedulingDashboard() {
         </Dialog>
     </Tabs>
   );
-}
+
+    
