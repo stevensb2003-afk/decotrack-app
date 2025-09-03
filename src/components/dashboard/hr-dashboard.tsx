@@ -271,6 +271,7 @@ export default function HRDashboard() {
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [locationManager, setLocationManager] = useState('');
   const [filterLocation, setFilterLocation] = useState('all');
+  const [filterEmployee, setFilterEmployee] = useState('all');
 
   const { toast } = useToast();
   
@@ -500,9 +501,11 @@ export default function HRDashboard() {
   
   const managementEmployees = employees.filter(e => e.role === 'Manager');
   
-  const filteredEmployees = filterLocation === 'all'
-    ? employees
-    : employees.filter(emp => emp.locationId === filterLocation);
+  const filteredEmployees = employees.filter(emp => {
+      const locationMatch = filterLocation === 'all' || emp.locationId === filterLocation;
+      const employeeMatch = filterEmployee === 'all' || emp.id === filterEmployee;
+      return locationMatch && employeeMatch;
+  });
 
   return (
     <div className="space-y-6">
@@ -560,11 +563,11 @@ export default function HRDashboard() {
                     <CardTitle>Employee Management</CardTitle>
                     <CardDescription>View and manage employee records.</CardDescription>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col md:flex-row gap-2">
                         <div className="flex items-center gap-2">
                             <Filter className="h-4 w-4 text-muted-foreground" />
                             <Select value={filterLocation} onValueChange={setFilterLocation}>
-                                <SelectTrigger className="w-[180px]">
+                                <SelectTrigger className="w-full md:w-[180px]">
                                     <SelectValue placeholder="Filter by Location" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -574,6 +577,18 @@ export default function HRDashboard() {
                                     ))}
                                 </SelectContent>
                             </Select>
+                            <Select value={filterEmployee} onValueChange={setFilterEmployee}>
+                                <SelectTrigger className="w-full md:w-[180px]">
+                                    <SelectValue placeholder="Filter by Employee" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Employees</SelectItem>
+                                    {employees.map(emp => (
+                                        <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                             {(filterEmployee !== 'all' || filterLocation !== 'all') && <Button variant="ghost" onClick={() => {setFilterEmployee('all'); setFilterLocation('all');}}>Clear</Button>}
                         </div>
                         <Dialog open={isCreateDialogOpen} onOpenChange={setCreateIsDialogOpen}>
                         <DialogTrigger asChild>
@@ -738,7 +753,7 @@ export default function HRDashboard() {
                                 <Button onClick={handleCreateEmployee}>Add Employee</Button>
                             </DialogFooter>
                         </DialogContent>
-                    </Dialog>
+                        </Dialog>
                     </div>
                 </CardHeader>
                 <CardContent>
