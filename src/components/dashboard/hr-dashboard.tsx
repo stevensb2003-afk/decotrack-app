@@ -1087,7 +1087,7 @@ export default function HRDashboard() {
                     <Select value={locationManager} onValueChange={setLocationManager}>
                         <SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger>
                         <SelectContent>
-                             <SelectItem value="">None</SelectItem>
+                             <SelectItem value="none">None</SelectItem>
                             {managementEmployees.map(emp => (
                                 <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
                             ))}
@@ -1104,3 +1104,4 @@ export default function HRDashboard() {
     </div>
   );
 }
+
