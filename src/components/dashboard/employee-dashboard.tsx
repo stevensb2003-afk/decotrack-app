@@ -25,22 +25,22 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, differenceInDays, getDaysInMonth, startOfWeek, addDays, eachDayOfInterval, addMonths } from "date-fns";
+import { format, differenceInDays, getDaysInMonth, startOfWeek, addDays, eachDayOfInterval, addMonths, getDay, isWithinInterval } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { createTimeOffRequest, getEmployeeTimeOffRequests, TimeOffRequest, TimeOffReason, VacationBank, getVacationBank, updateVacationBank } from "@/services/timeOffRequestService";
 import { Badge } from "../ui/badge";
-import { getScheduleForEmployee, Schedule, getShifts, Shift } from "@/services/scheduleService";
+import { getEmployeeScheduleAssignments, Shift, getShifts, EmployeeScheduleAssignment, RotationPattern, getRotationPatterns } from "@/services/scheduleService";
 
 const timeOffReasons: TimeOffReason[] = [
     'Vacaciones',
     'Incapacidad por enfermedad',
     'Licencia de maternidad',
     'Licencia de paternidad',
-    'Licencia por adoción',
-    'Permiso para cita médica',
-    'Licencia por duelo',
-    'Licencia por Matrimonio',
+,'Licencia por adoción'
+    ,'Permiso para cita médica'
+    ,'Licencia por duelo'
+    ,'Licencia por Matrimonio'
 ];
 
 export default function EmployeeDashboard() {
@@ -62,8 +62,12 @@ export default function EmployeeDashboard() {
   }>({ reason: '', startDate: undefined, endDate: undefined });
   const [vacationBank, setVacationBank] = useState<VacationBank | null>(null);
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
-  const [schedule, setSchedule] = useState<Schedule[]>([]);
+  
+  // Schedule state
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [rotationPatterns, setRotationPatterns] = useState<RotationPattern[]>([]);
+  const [assignment, setAssignment] = useState<EmployeeScheduleAssignment | null>(null);
+
 
   const fetchEmployeeData = async () => {
     if (user?.email) {
@@ -106,8 +110,15 @@ export default function EmployeeDashboard() {
                 setVacationBank(bank);
             }
         }
-         const shiftData = await getShifts();
-         setShifts(shiftData);
+         // Fetch all scheduling data
+         const allShifts = await getShifts();
+         const allPatterns = await getRotationPatterns();
+         const allAssignments = await getEmployeeScheduleAssignments();
+         setShifts(allShifts);
+         setRotationPatterns(allPatterns);
+         
+         const employeeAssignment = allAssignments.find(a => a.employeeId === employeeData.id && isWithinInterval(new Date(), { start: a.startDate.toDate(), end: a.endDate.toDate() }));
+         setAssignment(employeeAssignment || null);
       }
       setIsLoading(false);
     }
@@ -230,22 +241,38 @@ export default function EmployeeDashboard() {
         default: return 'outline';
     }
   }
-
+  
   const weekDays = eachDayOfInterval({
     start: startOfWeek(new Date(), { weekStartsOn: 1 }),
     end: addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), 6),
   });
 
   const getShiftForDate = (date: Date) => {
-    const scheduledShift = schedule.find(s => format(s.date.toDate(), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd'));
-    if(!scheduledShift) return { name: 'Day Off', time: ''};
-    const shiftInfo = shifts.find(s => s.id === scheduledShift.shiftId);
-    if(!shiftInfo) return { name: 'Unknown Shift', time: ''};
+    if (!assignment) return { name: 'Not Assigned', time: ''};
+
+    const pattern = rotationPatterns.find(p => p.id === assignment.rotationPatternId);
+    if (!pattern || !pattern.weeks || pattern.weeks.length === 0) return { name: 'Invalid Pattern', time: ''};
+
+    const startDate = assignment.startDate.toDate();
+    const daysSinceStart = differenceInDays(date, startDate);
+    const weekIndex = Math.floor(daysSinceStart / 7) % pattern.weeks.length;
+    
+    // getDay returns 0 for Sunday, we want 6
+    const dayIndex = (getDay(date) + 6) % 7; 
+
+    const shiftId = pattern.weeks[weekIndex]?.days[dayIndex];
+
+    if (!shiftId) return { name: 'Day Off', time: '' };
+
+    const shiftInfo = shifts.find(s => s.id === shiftId);
+    if (!shiftInfo) return { name: 'Unknown Shift', time: '' };
+
     return {
         name: shiftInfo.name,
         time: `${format(shiftInfo.startTime, 'p')} - ${format(shiftInfo.endTime, 'p')}`
     };
   }
+
 
   if(isLoading) {
     return <div>Loading dashboard...</div>
@@ -452,4 +479,5 @@ export default function EmployeeDashboard() {
   );
 }
 
+    
     
