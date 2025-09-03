@@ -1,3 +1,4 @@
+
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp, writeBatch, getDoc, deleteDoc } from 'firebase/firestore';
 import { Employee } from './employeeService';
@@ -70,6 +71,15 @@ export const getShifts = async (): Promise<Shift[]> => {
           endTime: (data.endTime as Timestamp).toDate(),
       }
   });
+};
+
+export const updateShift = async (shiftId: string, shiftData: Omit<Shift, 'id'>) => {
+    const shiftDoc = doc(db, 'shifts', shiftId);
+    return await updateDoc(shiftDoc, {
+        ...shiftData,
+        startTime: Timestamp.fromDate(shiftData.startTime),
+        endTime: Timestamp.fromDate(shiftData.endTime),
+    });
 };
 
 // --- Rotation Pattern Management ---

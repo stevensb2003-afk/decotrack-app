@@ -5,12 +5,12 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, BrainCircuit, Repeat, PlusCircle, Trash2, CalendarDays, List, Filter } from 'lucide-react';
+import { Calendar, BrainCircuit, Repeat, PlusCircle, Trash2, CalendarDays, List, Filter, Pencil } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Shift, createShift, getShifts, RotationPattern, createRotationPattern, getRotationPatterns, EmployeeScheduleAssignment, createEmployeeScheduleAssignment, getEmployeeScheduleAssignments, deleteEmployeeScheduleAssignment } from '@/services/scheduleService';
+import { Shift, createShift, getShifts, RotationPattern, createRotationPattern, getRotationPatterns, EmployeeScheduleAssignment, createEmployeeScheduleAssignment, getEmployeeScheduleAssignments, deleteEmployeeScheduleAssignment, updateShift } from '@/services/scheduleService';
 import { format } from 'date-fns';
 import { Employee, getAllEmployees } from '@/services/employeeService';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
@@ -30,6 +30,7 @@ export default function SchedulingDashboard() {
   const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false);
   const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
   
+  const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [newShift, setNewShift] = useState({ name: '', startTime: '09:00', endTime: '17:00'});
 
   const [newPatternName, setNewPatternName] = useState('');
@@ -61,7 +62,23 @@ export default function SchedulingDashboard() {
     fetchData();
   }, []);
   
-  const handleCreateShift = async () => {
+  const handleOpenEditShiftDialog = (shift: Shift) => {
+    setEditingShift(shift);
+    setNewShift({
+        name: shift.name,
+        startTime: format(shift.startTime, 'HH:mm'),
+        endTime: format(shift.endTime, 'HH:mm')
+    });
+    setIsShiftDialogOpen(true);
+  }
+
+  const handleOpenCreateShiftDialog = () => {
+    setEditingShift(null);
+    setNewShift({ name: '', startTime: '09:00', endTime: '17:00' });
+    setIsShiftDialogOpen(true);
+  }
+  
+  const handleSaveShift = async () => {
     if(!newShift.name || !newShift.startTime || !newShift.endTime) {
         toast({title: "Shift details are required", variant: "destructive"});
         return;
@@ -73,14 +90,24 @@ export default function SchedulingDashboard() {
     const endDate = new Date();
     endDate.setHours(endHours, endMinutes, 0, 0);
 
-    await createShift({ 
-        name: newShift.name, 
-        startTime: startDate, 
-        endTime: endDate
-    });
-    toast({ title: "Shift Created", description: "The new shift has been saved." });
+    if(editingShift) {
+        await updateShift(editingShift.id, {
+            name: newShift.name,
+            startTime: startDate,
+            endTime: endDate
+        });
+        toast({ title: "Shift Updated", description: "The shift has been updated." });
+    } else {
+        await createShift({ 
+            name: newShift.name, 
+            startTime: startDate, 
+            endTime: endDate
+        });
+        toast({ title: "Shift Created", description: "The new shift has been saved." });
+    }
     setIsShiftDialogOpen(false);
     setNewShift({ name: '', startTime: '09:00', endTime: '17:00'});
+    setEditingShift(null);
     fetchData();
   }
 
@@ -288,36 +315,33 @@ export default function SchedulingDashboard() {
               <CardTitle>Shifts</CardTitle>
               <CardDescription>Manage the different work shifts for your company.</CardDescription>
             </div>
-            <Dialog open={isShiftDialogOpen} onOpenChange={setIsShiftDialogOpen}>
-                <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4"/>Add Shift</Button></DialogTrigger>
-                <DialogContent>
-                    <DialogHeader><DialogTitle>Create New Shift</DialogTitle></DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div>
-                            <Label htmlFor="shift-name">Shift Name</Label>
-                            <Input id="shift-name" value={newShift.name} onChange={e => setNewShift({...newShift, name: e.target.value})} placeholder="e.g., Morning Shift"/>
-                        </div>
-                        <div className="flex gap-4">
-                           <div className="w-full">
-                               <Label>Start Time</Label>
-                               <Input type="time" value={newShift.startTime} onChange={e => setNewShift({...newShift, startTime: e.target.value})} />
-                           </div>
-                           <div className="w-full">
-                               <Label>End Time</Label>
-                               <Input type="time" value={newShift.endTime} onChange={e => setNewShift({...newShift, endTime: e.target.value})} />
-                           </div>
-                        </div>
-                    </div>
-                    <DialogFooter><Button onClick={handleCreateShift}>Create Shift</Button></DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <Button onClick={handleOpenCreateShiftDialog}><PlusCircle className="mr-2 h-4 w-4"/>Add Shift</Button>
           </CardHeader>
           <CardContent>
-             {shifts.map(s => (
-                <div key={s.id} className="flex items-center justify-between p-2 border-b">
-                    <span>{s.name} ({format(s.startTime, 'p')} - {format(s.endTime, 'p')})</span>
-                </div>
-            ))}
+             <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Shift Name</TableHead>
+                        <TableHead>Start Time</TableHead>
+                        <TableHead>End Time</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {shifts.map(s => (
+                        <TableRow key={s.id}>
+                            <TableCell>{s.name}</TableCell>
+                            <TableCell>{format(s.startTime, 'p')}</TableCell>
+                            <TableCell>{format(s.endTime, 'p')}</TableCell>
+                            <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenEditShiftDialog(s)}>
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
             {shifts.length === 0 && <p className="text-muted-foreground text-sm py-4 text-center">No shifts created yet.</p>}
           </CardContent>
         </Card>
@@ -377,9 +401,30 @@ export default function SchedulingDashboard() {
           </CardContent>
         </Card>
       </TabsContent>
+
+       <Dialog open={isShiftDialogOpen} onOpenChange={setIsShiftDialogOpen}>
+            <DialogContent>
+                <DialogHeader><DialogTitle>{editingShift ? "Edit Shift" : "Create New Shift"}</DialogTitle></DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div>
+                        <Label htmlFor="shift-name">Shift Name</Label>
+                        <Input id="shift-name" value={newShift.name} onChange={e => setNewShift({...newShift, name: e.target.value})} placeholder="e.g., Morning Shift"/>
+                    </div>
+                    <div className="flex gap-4">
+                        <div className="w-full">
+                            <Label>Start Time</Label>
+                            <Input type="time" value={newShift.startTime} onChange={e => setNewShift({...newShift, startTime: e.target.value})} />
+                        </div>
+                        <div className="w-full">
+                            <Label>End Time</Label>
+                            <Input type="time" value={newShift.endTime} onChange={e => setNewShift({...newShift, endTime: e.target.value})} />
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter><Button onClick={handleSaveShift}>Save Shift</Button></DialogFooter>
+            </DialogContent>
+        </Dialog>
       
     </Tabs>
   );
 }
-
-    
