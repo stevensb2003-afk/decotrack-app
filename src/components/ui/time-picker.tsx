@@ -8,21 +8,17 @@ import { Time } from "@internationalized/date"
 import type {TimeValue} from 'react-aria-components';
 
 interface TimePickerProps {
-  date: Date | null;
+  date: Date;
   setDate: (date: Date | null) => void;
 }
 
 export function TimePicker({ date, setDate }: TimePickerProps) {
   const timeValue = date ? new Time(date.getHours(), date.getMinutes()) : null;
 
-  const onTimeChange = (newTime: TimeValue | null) => {
-    const newDate = date ? new Date(date.getTime()) : new Date();
-    
-    if (newTime) {
-      newDate.setHours(newTime.hour, newTime.minute);
-    }
-    
-    setDate(newTime ? newDate : null);
+  const onTimeChange = (newTime: TimeValue) => {
+    const newDate = new Date(date.getTime());
+    newDate.setHours(newTime.hour, newTime.minute);
+    setDate(newDate);
   }
 
   return (
