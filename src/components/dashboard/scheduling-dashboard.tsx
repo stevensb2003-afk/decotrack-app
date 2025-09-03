@@ -167,7 +167,12 @@ export default function SchedulingDashboard() {
         return;
     }
 
-    const patternData = { name: patternName, weeks: patternWeeks, gracePolicyId: patternGracePolicyId };
+    const patternData = { 
+        name: patternName, 
+        weeks: patternWeeks, 
+        gracePolicyId: patternGracePolicyId === 'none' ? null : patternGracePolicyId 
+    };
+
     if (editingPattern) {
         await updateRotationPattern(editingPattern.id, patternData);
         toast({ title: "Pattern Updated", description: "The rotation pattern has been successfully updated." });
@@ -382,19 +387,18 @@ export default function SchedulingDashboard() {
         })
         .map(req => {
             const employee = employeeMap.get(req.employeeId);
-            return { name: employee?.name || 'Unknown', reason: req.reason };
+            return { name: employee?.name || 'Unknown', reason: req.reason, employeeId: req.employeeId };
         });
         
-      const onLeaveEmployeeIds = new Set(employeesOnLeave.map(l => {
-          const employee = employees.find(e => e.name === l.name);
-          return employee?.id;
-      }));
+      const onLeaveEmployeeIds = new Set(employeesOnLeave.map(l => l.employeeId));
 
       const scheduledEmployees = assignments
           .filter(assignment => {
+              if (onLeaveEmployeeIds.has(assignment.employeeId)) {
+                  return false;
+              }
               const employee = employeeMap.get(assignment.employeeId);
               if (!employee) return false;
-              if (onLeaveEmployeeIds.has(employee.id)) return false;
               
               const employeeMatch = filterEmployee === 'all' || assignment.employeeId === filterEmployee;
               const locationMatch = filterLocation === 'all' || employee.locationId === filterLocation;
@@ -1010,3 +1014,5 @@ export default function SchedulingDashboard() {
 
     
 }
+
+    
