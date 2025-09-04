@@ -6,12 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, UserCheck, UserX } from "lucide-react";
 import { getAllEmployees, Employee } from '@/services/employeeService';
-import { getDailyAttendanceSummary, DailyAttendanceSummary } from '@/services/attendanceService';
-import { AttendanceRecord } from '@/services/attendanceService';
-import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+import { getDailyAttendanceSummary, DailyAttendanceSummary, updateAttendanceDetail } from '@/services/attendanceService';
+import { collection, onSnapshot, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
+import { differenceInMilliseconds } from 'date-fns';
 
 export default function ManagementDashboard() {
+    const { user } = useAuth();
+    const { toast } = useToast();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [summary, setSummary] = useState<DailyAttendanceSummary[]>([]);
     const [presentCount, setPresentCount] = useState(0);
@@ -20,22 +26,19 @@ export default function ManagementDashboard() {
         const emps = await getAllEmployees();
         setEmployees(emps);
         
-        const summaryData = await getDailyAttendanceSummary(10, emps);
+        const summaryData = await getDailyAttendanceSummary(10);
         setSummary(summaryData);
-        
-        const q = query(collection(db, 'attendance'), orderBy('timestamp', 'desc'));
-        const unsubscribe = onSnapshot(q, async () => {
-            const updatedEmps = await getAllEmployees();
-            const updatedSummary = await getDailyAttendanceSummary(10, updatedEmps);
-            setEmployees(updatedEmps);
-            setSummary(updatedSummary);
-        });
-
-        return () => unsubscribe();
     };
 
     useEffect(() => {
         fetchData();
+        
+        const q = query(collection(db, 'attendance'), orderBy('timestamp', 'desc'));
+        const unsubscribe = onSnapshot(q, async () => {
+            fetchData();
+        });
+
+        return () => unsubscribe();
     }, []);
 
     useEffect(() => {
@@ -45,15 +48,13 @@ export default function ManagementDashboard() {
 
             const attendanceQuery = query(
                 collection(db, 'attendance'),
-                where('timestamp', '>=', today),
-                orderBy('timestamp', 'asc') // Fetch in chronological order
+                where('timestamp', '>=', today)
             );
 
             const unsubscribe = onSnapshot(attendanceQuery, (snapshot) => {
                 const latestActions = new Map<string, 'Entry' | 'Exit'>();
-                // Process records in order to find the *last* action for each employee
                 snapshot.docs.forEach(doc => {
-                    const record = doc.data() as AttendanceRecord;
+                    const record = doc.data() as { employeeId: string; type: 'Entry' | 'Exit'; timestamp: Timestamp };
                     latestActions.set(record.employeeId, record.type);
                 });
 
@@ -70,8 +71,32 @@ export default function ManagementDashboard() {
         }
     }, [employees]);
 
+    const handleMealBreakToggle = async (summaryId: string, currentValue: boolean) => {
+        await updateAttendanceDetail(summaryId, { mealBreakTaken: !currentValue });
+        toast({ title: 'Meal Break Updated', description: 'The meal break status has been changed.' });
+        fetchData(); // Refresh data
+    };
+
+    const calculateTotalHours = (item: DailyAttendanceSummary) => {
+        if (!item.clockInTimestamp || !item.clockOutTimestamp) return 'N/A';
+        
+        let diff = differenceInMilliseconds(item.clockOutTimestamp.toDate(), item.clockInTimestamp.toDate());
+        
+        if (item.mealBreakTaken) {
+            diff -= 3600000; // Deduct 1 hour in milliseconds
+        }
+
+        if (diff < 0) diff = 0;
+        
+        const hours = Math.floor(diff / 3600000);
+        const minutes = Math.floor((diff % 3600000) / 60000);
+
+        return `${hours}h ${minutes}m`;
+    };
+
     const totalEmployees = employees.length;
     const absentEmployees = totalEmployees - presentCount;
+    const canEditMealBreak = user?.role === 'admin' || user?.role === 'hr';
 
     const kpiData = [
         { title: "Total Employees", value: totalEmployees.toString(), icon: Users, change: "All registered employees" },
@@ -101,26 +126,45 @@ export default function ManagementDashboard() {
           <CardDescription>A summary of employee clock-in and clock-out times.</CardDescription>
         </CardHeader>
         <CardContent>
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Clock In</TableHead>
-                    <TableHead>Clock Out</TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
-                {summary.map((daySummary, index) => (
-                    <TableRow key={index}>
-                        <TableCell className="font-medium">{daySummary.employeeName}</TableCell>
-                        <TableCell>{daySummary.date}</TableCell>
-                        <TableCell className="text-primary">{daySummary.clockIn || 'N/A'}</TableCell>
-                        <TableCell className="text-destructive">{daySummary.clockOut || 'N/A'}</TableCell>
+            <div className="overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Employee</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Clock In</TableHead>
+                        <TableHead>Clock Out</TableHead>
+                        <TableHead>Scheduled</TableHead>
+                        <TableHead>Meal Break</TableHead>
+                        <TableHead>Total Hours</TableHead>
                     </TableRow>
-                ))}
-                </TableBody>
-            </Table>
+                    </TableHeader>
+                    <TableBody>
+                    {summary.map((item) => (
+                        <TableRow key={item.id}>
+                            <TableCell className="font-medium">{item.employeeName}</TableCell>
+                            <TableCell>{item.date}</TableCell>
+                            <TableCell className="text-primary">{item.clockIn || 'N/A'}</TableCell>
+                            <TableCell className="text-destructive">{item.clockOut || 'N/A'}</TableCell>
+                            <TableCell>
+                                <Badge variant={item.wasScheduled ? 'default' : 'destructive'}>
+                                    {item.wasScheduled ? 'Yes' : 'No'}
+                                </Badge>
+                            </TableCell>
+                            <TableCell>
+                                <Switch
+                                    checked={item.mealBreakTaken}
+                                    onCheckedChange={() => handleMealBreakToggle(item.id, item.mealBreakTaken)}
+                                    disabled={!canEditMealBreak}
+                                    aria-label="Toggle Meal Break"
+                                />
+                            </TableCell>
+                             <TableCell className="font-mono">{calculateTotalHours(item)}</TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+            </div>
              {summary.length === 0 && (
                 <p className="text-sm text-center text-muted-foreground py-4">No attendance records found.</p>
             )}
