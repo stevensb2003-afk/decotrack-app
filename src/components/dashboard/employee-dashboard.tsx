@@ -25,12 +25,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, differenceInDays, getDaysInMonth, startOfWeek, addDays, eachDayOfInterval, addMonths, getDay, isWithinInterval, isSameDay } from "date-fns";
+import { format, differenceInDays, getDaysInMonth, startOfWeek, addDays, eachDayOfInterval, addMonths, getDay, isWithinInterval, isSameDay, differenceInMilliseconds } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { createTimeOffRequest, getEmployeeTimeOffRequests, TimeOffRequest, TimeOffReason, VacationBank, getVacationBank, updateVacationBank } from "@/services/timeOffRequestService";
 import { Badge } from "../ui/badge";
 import { getEmployeeScheduleAssignments, Shift, getShifts, EmployeeScheduleAssignment, RotationPattern, getRotationPatterns, Holiday, getHolidays } from "@/services/scheduleService";
+import { Switch } from "../ui/switch";
 
 const timeOffReasons: TimeOffReason[] = [
     'Vacaciones',
@@ -282,6 +283,23 @@ export default function EmployeeDashboard() {
     };
   }
 
+  const calculateTotalHours = (item: DailyAttendanceSummary) => {
+    if (!item.clockInTimestamp || !item.clockOutTimestamp) return 'N/A';
+    
+    let diff = differenceInMilliseconds(item.clockOutTimestamp.toDate(), item.clockInTimestamp.toDate());
+    
+    if (item.mealBreakTaken) {
+        diff -= 3600000; // Deduct 1 hour in milliseconds
+    }
+
+    if (diff < 0) diff = 0;
+    
+    const hours = Math.floor(diff / 3600000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
+
+    return `${hours}h ${minutes}m`;
+  };
+
 
   if(isLoading) {
     return <div>Loading dashboard...</div>
@@ -465,18 +483,34 @@ export default function EmployeeDashboard() {
           <CardContent>
           <Table>
               <TableHeader>
-              <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Clock In</TableHead>
-                  <TableHead>Clock Out</TableHead>
-              </TableRow>
+                <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Clock In</TableHead>
+                    <TableHead>Clock Out</TableHead>
+                    <TableHead>Scheduled</TableHead>
+                    <TableHead>Meal Break</TableHead>
+                    <TableHead>Total Hours</TableHead>
+                </TableRow>
               </TableHeader>
               <TableBody>
-              {dailySummary.map((summaryItem, index) => (
-                  <TableRow key={index}>
+              {dailySummary.map((summaryItem) => (
+                  <TableRow key={summaryItem.id}>
                     <TableCell>{summaryItem.date}</TableCell>
                     <TableCell className="text-primary">{summaryItem.clockIn || 'N/A'}</TableCell>
                     <TableCell className="text-destructive">{summaryItem.clockOut || 'N/A'}</TableCell>
+                    <TableCell>
+                        <Badge variant={summaryItem.wasScheduled ? 'default' : 'destructive'}>
+                            {summaryItem.wasScheduled ? 'Yes' : 'No'}
+                        </Badge>
+                    </TableCell>
+                    <TableCell>
+                        <Switch
+                            checked={summaryItem.mealBreakTaken}
+                            disabled={true}
+                            aria-label="Meal Break Taken"
+                        />
+                    </TableCell>
+                    <TableCell className="font-mono">{calculateTotalHours(summaryItem)}</TableCell>
                   </TableRow>
               ))}
               </TableBody>
