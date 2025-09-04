@@ -42,11 +42,16 @@ export const getEmployeeAttendance = async (employeeId: string, recordLimit: num
   const q = query(
     attendanceCollection, 
     where("employeeId", "==", employeeId),
-    orderBy("timestamp", "desc"),
+    // orderBy("timestamp", "desc"), // This requires a composite index. We will sort on the client.
     limit(recordLimit)
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+  const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+  
+  // Sort records manually to avoid needing a composite index
+  records.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+  
+  return records;
 };
 
 export const updateAttendanceDetail = async (detailId: string, data: Partial<Omit<AttendanceDetail, 'employeeId' | 'date'>>) => {
