@@ -3,8 +3,8 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowRight, ArrowLeft, Hourglass, CalendarPlus, Banknote, AlertTriangle, CalendarDays, PartyPopper } from "lucide-react";
-import { useState, useEffect } from "react";
+import { ArrowRight, ArrowLeft, Hourglass, CalendarPlus, Banknote, AlertTriangle, CalendarDays, PartyPopper, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { AttendanceRecord, markAttendance, getEmployeeAttendance, DailyAttendanceSummary, getDailyAttendanceSummary } from "@/services/attendanceService";
@@ -25,13 +25,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, differenceInDays, getDaysInMonth, startOfWeek, addDays, eachDayOfInterval, addMonths, getDay, isWithinInterval, isSameDay, differenceInMilliseconds } from "date-fns";
+import { format, differenceInDays, getDaysInMonth, startOfWeek, addDays, eachDayOfInterval, addMonths, getDay, isWithinInterval, isSameDay, differenceInMilliseconds, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { createTimeOffRequest, getEmployeeTimeOffRequests, TimeOffRequest, TimeOffReason, VacationBank, getVacationBank, updateVacationBank } from "@/services/timeOffRequestService";
 import { Badge } from "../ui/badge";
 import { getEmployeeScheduleAssignments, Shift, getShifts, EmployeeScheduleAssignment, RotationPattern, getRotationPatterns, Holiday, getHolidays } from "@/services/scheduleService";
 import { Switch } from "../ui/switch";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
+
 
 const timeOffReasons: TimeOffReason[] = [
     'Vacaciones',
@@ -69,6 +71,8 @@ export default function EmployeeDashboard() {
   const [assignment, setAssignment] = useState<EmployeeScheduleAssignment | null>(null);
   const [dailySummary, setDailySummary] = useState<DailyAttendanceSummary[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
 
 
   const fetchEmployeeData = async () => {
@@ -79,17 +83,14 @@ export default function EmployeeDashboard() {
         setEmployee(employeeData);
         const attendanceRecords = await getEmployeeAttendance(employeeData.id, 5);
         
-        // Set last action for clock in/out buttons
         if (attendanceRecords.length > 0) {
             const latestRecord = attendanceRecords.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis())[0];
             setLastAction(latestRecord.type);
         }
 
-        // Get daily summary for recent activity
         const summary = await getDailyAttendanceSummary(5, [employeeData]);
         setDailySummary(summary);
         
-        // Calculate time worked today
         const todayRecords = attendanceRecords.filter(r => r.timestamp.toDate().toDateString() === new Date().toDateString());
         if(todayRecords.length > 0) {
             const latestEntry = todayRecords.find(r => r.type === 'Entry');
@@ -118,7 +119,6 @@ export default function EmployeeDashboard() {
         if (bank) {
             const hireDate = employeeData.hireDate.toDate();
             
-            // Simplified accrual logic
             const today = new Date();
             let accruedDays = 0;
             let lastAccrual = hireDate;
@@ -144,7 +144,6 @@ export default function EmployeeDashboard() {
                 setVacationBank(bank);
             }
         }
-         // Fetch all scheduling data
          const allShifts = await getShifts();
          const allPatterns = await getRotationPatterns();
          const allAssignments = await getEmployeeScheduleAssignments();
@@ -206,7 +205,6 @@ export default function EmployeeDashboard() {
 
     let attachmentUrl = undefined;
     if(newRequest.attachment) {
-        // In a real app, upload this to Firebase Storage and get URL
         attachmentUrl = `https://fake-storage.com/${newRequest.attachment.name}`;
          toast({title: "File Upload", description: "File upload is a mock. No real file was saved."});
     }
@@ -252,21 +250,23 @@ export default function EmployeeDashboard() {
   });
 
   const getShiftForDate = (date: Date) => {
+    if (!employee) return { name: 'Not Assigned', time: '', isHoliday: false };
+    
     const holiday = holidays.find(h => isSameDay(h.date.toDate(), date));
     if (holiday) {
         return { name: holiday.name, time: 'Holiday', isHoliday: true };
     }
     
-    if (!assignment) return { name: 'Not Assigned', time: '', isHoliday: false };
+    const currentAssignment = assignment || (employee ? (shifts.length > 0 ? getEmployeeScheduleAssignments().find(a => a.employeeId === employee.id && isWithinInterval(date, { start: a.startDate.toDate(), end: a.endDate.toDate() })) : null) : null);
+    if (!currentAssignment) return { name: 'Not Assigned', time: '', isHoliday: false };
 
-    const pattern = rotationPatterns.find(p => p.id === assignment.rotationPatternId);
+    const pattern = rotationPatterns.find(p => p.id === currentAssignment.rotationPatternId);
     if (!pattern || !pattern.weeks || pattern.weeks.length === 0) return { name: 'Invalid Pattern', time: '', isHoliday: false };
 
-    const startDate = assignment.startDate.toDate();
+    const startDate = currentAssignment.startDate.toDate();
     const daysSinceStart = differenceInDays(date, startDate);
     const weekIndex = Math.floor(daysSinceStart / 7) % pattern.weeks.length;
     
-    // getDay returns 0 for Sunday, we want 6
     const dayIndex = (getDay(date) + 6) % 7; 
 
     const shiftId = pattern.weeks[weekIndex]?.days[dayIndex];
@@ -289,7 +289,7 @@ export default function EmployeeDashboard() {
     let diff = differenceInMilliseconds(item.clockOutTimestamp.toDate(), item.clockInTimestamp.toDate());
     
     if (item.mealBreakTaken) {
-        diff -= 3600000; // Deduct 1 hour in milliseconds
+        diff -= 3600000;
     }
 
     if (diff < 0) diff = 0;
@@ -299,6 +299,45 @@ export default function EmployeeDashboard() {
 
     return `${hours}h ${minutes}m`;
   };
+
+  // --- Calendar View Logic ---
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+    const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    const startingDayIndex = (getDay(monthStart) + 6) % 7; // 0 for Monday
+
+    const getDailyScheduleForEmployee = (day: Date) => {
+        if (!employee) return { type: 'none' as const };
+
+        const holiday = holidays.find(h => isSameDay(h.date.toDate(), day));
+        if (holiday) {
+            return { type: 'holiday' as const, name: holiday.name };
+        }
+        
+        const approvedLeave = timeOffRequests.find(req => 
+            req.status === 'approved' && isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() })
+        );
+
+        if (approvedLeave) {
+             return { type: 'leave' as const, reason: approvedLeave.reason };
+        }
+
+        const shiftInfo = getShiftForDate(day);
+        if (shiftInfo.name !== 'Day Off' && shiftInfo.name !== 'Not Assigned' && shiftInfo.name !== 'Invalid Pattern' && shiftInfo.name !== 'Unknown Shift' && !shiftInfo.isHoliday) {
+            return { type: 'work' as const, shift: `${shiftInfo.name}: ${shiftInfo.time}` };
+        }
+
+        return { type: 'none' as const };
+    }
+
+    const getLeaveBackgroundColor = (reason: TimeOffReason) => {
+        if (reason === 'Vacaciones') {
+            return 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
+        }
+        return 'bg-red-200 dark:bg-red-800/50 text-red-800 dark:text-red-200';
+    }
+  
+    const calendarWeekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 
   if(isLoading) {
@@ -352,9 +391,80 @@ export default function EmployeeDashboard() {
         </div>
       </div>
       <Card>
-        <CardHeader>
-            <CardTitle>My Schedule</CardTitle>
-            <CardDescription>Your work schedule for the current week.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle>My Schedule</CardTitle>
+                <CardDescription>Your work schedule for the current week.</CardDescription>
+            </div>
+             <Dialog open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline" size="icon"><CalendarDays className="h-4 w-4"/></Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl">
+                   <DialogHeader>
+                       <DialogTitle>My Monthly Schedule</DialogTitle>
+                   </DialogHeader>
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-4">
+                            <Button variant="outline" size="icon" onClick={() => setCurrentDate(subMonths(currentDate, 1))}><ChevronLeft/></Button>
+                            <h2 className="text-2xl font-bold">{format(currentDate, 'MMMM yyyy')}</h2>
+                            <Button variant="outline" size="icon" onClick={() => setCurrentDate(addMonths(currentDate, 1))}><ChevronRight/></Button>
+                        </div>
+                        <Button onClick={() => setCurrentDate(new Date())}>Today</Button>
+                    </div>
+                    <TooltipProvider>
+                    <div className="grid grid-cols-7 border-t border-l">
+                        {calendarWeekDays.map(day => (
+                            <div key={day} className="p-2 border-b border-r text-center font-bold text-sm bg-muted/50">{day}</div>
+                        ))}
+                        {Array.from({ length: startingDayIndex }).map((_, i) => (
+                            <div key={`empty-${i}`} className="border-b border-r" />
+                        ))}
+                        {daysInMonth.map(day => {
+                            const scheduleInfo = getDailyScheduleForEmployee(day);
+                            const isToday = isSameDay(day, new Date());
+                            return (
+                                <div key={day.toString()} className={cn("p-2 border-b border-r min-h-[100px] h-full", isToday && "bg-blue-950")}>
+                                    <div className={cn("text-right text-sm", isToday && "font-bold text-primary")}>{format(day, 'd')}</div>
+                                    <div className="space-y-1 mt-1 text-xs">
+                                        {scheduleInfo.type === 'holiday' && (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                     <div className="flex justify-center items-center h-full">
+                                                        <PartyPopper className="h-8 w-8 text-red-700 dark:text-red-500"/>
+                                                    </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent><p>{scheduleInfo.name}</p></TooltipContent>
+                                            </Tooltip>
+                                        )}
+                                        {scheduleInfo.type === 'leave' && (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <p className={cn("truncate p-1 rounded-md cursor-default", getLeaveBackgroundColor(scheduleInfo.reason))}>
+                                                        On Leave
+                                                    </p>
+                                                </TooltipTrigger>
+                                                <TooltipContent><p>{scheduleInfo.reason}</p></TooltipContent>
+                                            </Tooltip>
+                                        )}
+                                        {scheduleInfo.type === 'work' && (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <p className="truncate p-1 rounded-md bg-green-200 dark:bg-green-800/50 text-green-800 dark:text-green-200 cursor-default">
+                                                        Scheduled
+                                                    </p>
+                                                </TooltipTrigger>
+                                                <TooltipContent><p>{scheduleInfo.shift}</p></TooltipContent>
+                                            </Tooltip>
+                                        )}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                  </TooltipProvider>
+                </DialogContent>
+            </Dialog>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-7 gap-2">
             {weekDays.map(day => {
@@ -523,3 +633,5 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
+    
