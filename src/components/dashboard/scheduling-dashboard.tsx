@@ -377,28 +377,27 @@ export default function SchedulingDashboard() {
             return { type: 'holiday' as const, name: holiday.name };
         }
     
-        const onLeaveEmployeeIds = new Set(
-            timeOffRequests
-                .filter(req => isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() }))
-                .map(req => req.employeeId)
-        );
+        const onLeaveEmployeeIds = new Set<string>();
+        const employeesOnLeave: { name: string; reason: TimeOffReason; employeeId: string }[] = [];
 
-        const employeesOnLeave = Array.from(onLeaveEmployeeIds)
-            .map(id => {
-                const employee = employeeMap.get(id);
-                if (!employee) return null;
-                const request = timeOffRequests.find(r => r.employeeId === id && isWithinInterval(day, { start: r.startDate.toDate(), end: r.endDate.toDate() }));
-                if (!request) return null;
-                
-                const employeeMatch = filterEmployee === 'all' || id === filterEmployee;
-                const locationMatch = filterLocation === 'all' || employee.locationId === filterLocation;
+        timeOffRequests.forEach(req => {
+            if (isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() })) {
+                onLeaveEmployeeIds.add(req.employeeId);
+                const employee = employeeMap.get(req.employeeId);
+                if (employee) {
+                    const employeeMatch = filterEmployee === 'all' || req.employeeId === filterEmployee;
+                    const locationMatch = filterLocation === 'all' || employee.locationId === filterLocation;
 
-                if (employeeMatch && locationMatch) {
-                    return { name: employee.name, reason: request.reason, employeeId: id };
+                    if(employeeMatch && locationMatch) {
+                        employeesOnLeave.push({
+                            name: employee.name,
+                            reason: req.reason,
+                            employeeId: req.employeeId
+                        });
+                    }
                 }
-                return null;
-            })
-            .filter((e): e is { name: string; reason: TimeOffReason; employeeId: string } => e !== null);
+            }
+        });
           
         const scheduledEmployees = assignments
             .filter(assignment => {
@@ -453,7 +452,7 @@ export default function SchedulingDashboard() {
         <TabsTrigger value="calendar"><CalendarDays className="mr-2 h-4 w-4"/>Calendar View</TabsTrigger>
         <TabsTrigger value="holidays"><PartyPopper className="mr-2 h-4 w-4"/>Holidays</TabsTrigger>
         <TabsTrigger value="shifts"><Repeat className="mr-2 h-4 w-4"/>Shifts</TabsTrigger>
-        <TabsTrigger value="patterns"><BrainCircuit className="mr-2 h-4 w-4"/>Rotation Patterns</TabsTrigger>
+        <TabsTrigger value="patterns"><BrainCircuit className="mr-2 h-4 w-4" />Rotation Patterns</TabsTrigger>
         <TabsTrigger value="grace"><Timer className="mr-2 h-4 w-4"/>Grace Policies</TabsTrigger>
       </TabsList>
       
@@ -650,7 +649,7 @@ export default function SchedulingDashboard() {
                                         {scheduleInfo.type === 'workday' && (
                                             <>
                                                 {scheduleInfo.onLeave.map(leave => (
-                                                    <Tooltip key={leave.name}>
+                                                    <Tooltip key={`${leave.employeeId}-${leave.reason}`}>
                                                         <TooltipTrigger asChild>
                                                             <p className={cn("truncate p-1 rounded-md cursor-default", getLeaveBackgroundColor(leave.reason))}>
                                                                 {leave.name}
@@ -1022,6 +1021,8 @@ export default function SchedulingDashboard() {
 
     
 }
+
+    
 
     
 
