@@ -68,7 +68,7 @@ export default function EmployeeDashboard() {
   // Schedule state
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [rotationPatterns, setRotationPatterns] = useState<RotationPattern[]>([]);
-  const [assignment, setAssignment] = useState<EmployeeScheduleAssignment | null>(null);
+  const [assignments, setAssignments] = useState<EmployeeScheduleAssignment[]>([]);
   const [dailySummary, setDailySummary] = useState<DailyAttendanceSummary[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -150,10 +150,8 @@ export default function EmployeeDashboard() {
          const allHolidays = await getHolidays();
          setShifts(allShifts);
          setRotationPatterns(allPatterns);
+         setAssignments(allAssignments);
          setHolidays(allHolidays);
-         
-         const employeeAssignment = allAssignments.find(a => a.employeeId === employeeData.id && isWithinInterval(new Date(), { start: a.startDate.toDate(), end: a.endDate.toDate() }));
-         setAssignment(employeeAssignment || null);
       }
       setIsLoading(false);
     }
@@ -251,19 +249,22 @@ export default function EmployeeDashboard() {
 
   const getShiftForDate = (date: Date) => {
     if (!employee) return { name: 'Not Assigned', time: '', isHoliday: false };
-    
+
     const holiday = holidays.find(h => isSameDay(h.date.toDate(), date));
     if (holiday) {
         return { name: holiday.name, time: 'Holiday', isHoliday: true };
     }
-    
-    const currentAssignment = assignment || (employee ? (shifts.length > 0 ? getEmployeeScheduleAssignments().find(a => a.employeeId === employee.id && isWithinInterval(date, { start: a.startDate.toDate(), end: a.endDate.toDate() })) : null) : null);
-    if (!currentAssignment) return { name: 'Not Assigned', time: '', isHoliday: false };
 
-    const pattern = rotationPatterns.find(p => p.id === currentAssignment.rotationPatternId);
+    const assignmentForDate = assignments.find(a => 
+        a.employeeId === employee.id && isWithinInterval(date, { start: a.startDate.toDate(), end: a.endDate.toDate() })
+    );
+
+    if (!assignmentForDate) return { name: 'Not Assigned', time: '', isHoliday: false };
+
+    const pattern = rotationPatterns.find(p => p.id === assignmentForDate.rotationPatternId);
     if (!pattern || !pattern.weeks || pattern.weeks.length === 0) return { name: 'Invalid Pattern', time: '', isHoliday: false };
 
-    const startDate = currentAssignment.startDate.toDate();
+    const startDate = assignmentForDate.startDate.toDate();
     const daysSinceStart = differenceInDays(date, startDate);
     const weekIndex = Math.floor(daysSinceStart / 7) % pattern.weeks.length;
     
@@ -315,16 +316,36 @@ export default function EmployeeDashboard() {
         }
         
         const approvedLeave = timeOffRequests.find(req => 
-            req.status === 'approved' && isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() })
+            req.employeeId === employee.id &&
+            req.status === 'approved' && 
+            isWithinInterval(day, { start: req.startDate.toDate(), end: req.endDate.toDate() })
         );
 
         if (approvedLeave) {
              return { type: 'leave' as const, reason: approvedLeave.reason };
         }
 
-        const shiftInfo = getShiftForDate(day);
-        if (shiftInfo.name !== 'Day Off' && shiftInfo.name !== 'Not Assigned' && shiftInfo.name !== 'Invalid Pattern' && shiftInfo.name !== 'Unknown Shift' && !shiftInfo.isHoliday) {
-            return { type: 'work' as const, shift: `${shiftInfo.name}: ${shiftInfo.time}` };
+        const assignmentForDate = assignments.find(a => 
+            a.employeeId === employee.id && isWithinInterval(day, { start: a.startDate.toDate(), end: a.endDate.toDate() })
+        );
+
+        if (!assignmentForDate) {
+            return { type: 'none' as const };
+        }
+
+        const pattern = rotationPatterns.find(p => p.id === assignmentForDate.rotationPatternId);
+        if (!pattern || !pattern.weeks || pattern.weeks.length === 0) return { type: 'none' as const };
+        
+        const daysSinceStart = differenceInDays(day, assignmentForDate.startDate.toDate());
+        const weekIndex = Math.floor(daysSinceStart / 7) % pattern.weeks.length;
+        const dayIndex = (getDay(day) + 6) % 7;
+        const shiftId = pattern.weeks[weekIndex]?.days[dayIndex];
+
+        if (shiftId) {
+            const shiftInfo = shifts.find(s => s.id === shiftId);
+            if (shiftInfo) {
+                return { type: 'work' as const, shift: `${shiftInfo.name}: ${format(shiftInfo.startTime, 'p')} - ${format(shiftInfo.endTime, 'p')}` };
+            }
         }
 
         return { type: 'none' as const };
@@ -633,5 +654,7 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
+    
 
     
