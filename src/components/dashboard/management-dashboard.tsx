@@ -55,7 +55,9 @@ export default function ManagementDashboard() {
                 const latestActions = new Map<string, 'Entry' | 'Exit'>();
                 snapshot.docs.forEach(doc => {
                     const record = doc.data() as { employeeId: string; type: 'Entry' | 'Exit'; timestamp: Timestamp };
-                    latestActions.set(record.employeeId, record.type);
+                    if (!latestActions.has(record.employeeId)) {
+                        latestActions.set(record.employeeId, record.type);
+                    }
                 });
 
                 let presentToday = 0;
@@ -72,9 +74,29 @@ export default function ManagementDashboard() {
     }, [employees]);
 
     const handleMealBreakToggle = async (summaryId: string, currentValue: boolean) => {
-        await updateAttendanceDetail(summaryId, { mealBreakTaken: !currentValue });
-        toast({ title: 'Meal Break Updated', description: 'The meal break status has been changed.' });
-        fetchData(); // Refresh data
+        // Optimistic UI update
+        setSummary(currentSummary =>
+            currentSummary.map(item =>
+                item.id === summaryId
+                    ? { ...item, mealBreakTaken: !currentValue }
+                    : item
+            )
+        );
+
+        try {
+            await updateAttendanceDetail(summaryId, { mealBreakTaken: !currentValue });
+            toast({ title: 'Meal Break Updated', description: 'The meal break status has been changed.' });
+        } catch (error) {
+            // Revert UI if update fails
+             setSummary(currentSummary =>
+                currentSummary.map(item =>
+                    item.id === summaryId
+                        ? { ...item, mealBreakTaken: currentValue } // Revert to original value
+                        : item
+                )
+            );
+            toast({ title: 'Update Failed', description: 'Could not update meal break status.', variant: 'destructive' });
+        }
     };
 
     const calculateTotalHours = (item: DailyAttendanceSummary) => {
