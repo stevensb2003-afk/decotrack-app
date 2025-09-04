@@ -383,19 +383,22 @@ export default function SchedulingDashboard() {
                 .map(req => req.employeeId)
         );
 
-        const employeesOnLeave = timeOffRequests
-          .filter(req => {
-              if (!onLeaveEmployeeIds.has(req.employeeId)) return false;
-              const employee = employeeMap.get(req.employeeId);
-              if (!employee) return false;
-              const employeeMatch = filterEmployee === 'all' || req.employeeId === filterEmployee;
-              const locationMatch = filterLocation === 'all' || (employee.locationId === filterLocation);
-              return employeeMatch && locationMatch;
-          })
-          .map(req => {
-              const employee = employeeMap.get(req.employeeId);
-              return { name: employee?.name || 'Unknown', reason: req.reason, employeeId: req.employeeId };
-          });
+        const employeesOnLeave = Array.from(onLeaveEmployeeIds)
+            .map(id => {
+                const employee = employeeMap.get(id);
+                if (!employee) return null;
+                const request = timeOffRequests.find(r => r.employeeId === id && isWithinInterval(day, { start: r.startDate.toDate(), end: r.endDate.toDate() }));
+                if (!request) return null;
+                
+                const employeeMatch = filterEmployee === 'all' || id === filterEmployee;
+                const locationMatch = filterLocation === 'all' || employee.locationId === filterLocation;
+
+                if (employeeMatch && locationMatch) {
+                    return { name: employee.name, reason: request.reason, employeeId: id };
+                }
+                return null;
+            })
+            .filter((e): e is { name: string; reason: TimeOffReason; employeeId: string } => e !== null);
           
         const scheduledEmployees = assignments
             .filter(assignment => {
@@ -631,7 +634,7 @@ export default function SchedulingDashboard() {
                             const scheduleInfo = getDailySchedule(day);
                             const isToday = isSameDay(day, new Date());
                             return (
-                                <div key={day.toString()} className={cn("p-2 border-b border-r min-h-[120px] h-full", isToday && "bg-blue-200 dark:bg-blue-900/50")}>
+                                <div key={day.toString()} className={cn("p-2 border-b border-r min-h-[120px] h-full", isToday && "bg-blue-950")}>
                                     <div className={cn("text-right text-sm", isToday && "font-bold text-primary")}>{format(day, 'd')}</div>
                                     <div className="space-y-1 mt-1 text-xs">
                                         {scheduleInfo.type === 'holiday' && (
