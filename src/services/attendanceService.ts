@@ -1,6 +1,6 @@
 
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, doc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, doc, setDoc, getDoc, limit } from 'firebase/firestore';
 import { Employee, getAllEmployees } from './employeeService';
 import { format, differenceInMilliseconds, isSameDay, differenceInDays } from 'date-fns';
 import { EmployeeScheduleAssignment, getEmployeeScheduleAssignments, getHolidays, getRotationPatterns, Holiday, RotationPattern } from './scheduleService';
@@ -73,8 +73,8 @@ const wasEmployeeScheduled = (employeeId: string, date: Date, assignments: Emplo
     return !!shiftId;
 };
 
-export const getDailyAttendanceSummary = async (daysLimit: number = 10): Promise<DailyAttendanceSummary[]> => {
-    const employees = await getAllEmployees();
+export const getDailyAttendanceSummary = async (daysLimit: number = 10, employeesData?: Employee[]): Promise<DailyAttendanceSummary[]> => {
+    const employees = employeesData || await getAllEmployees();
     const assignments = await getEmployeeScheduleAssignments();
     const patterns = await getRotationPatterns();
     const holidays = await getHolidays();
@@ -141,7 +141,17 @@ export const getDailyAttendanceSummary = async (daysLimit: number = 10): Promise
         };
     });
 
-    const summary = await Promise.all(summaryPromises);
+    let summary = await Promise.all(summaryPromises);
+
+    // This handles multiple entries/exits in a day by taking the first and last
+    const uniqueSummaryMap = new Map<string, DailyAttendanceSummary>();
+     summary.forEach(item => {
+        if (!uniqueSummaryMap.has(item.id)) {
+            uniqueSummaryMap.set(item.id, item);
+        }
+    });
+    summary = Array.from(uniqueSummaryMap.values());
+
 
     summary.sort((a, b) => {
         if (b.date !== a.date) {
@@ -150,5 +160,5 @@ export const getDailyAttendanceSummary = async (daysLimit: number = 10): Promise
         return a.employeeName.localeCompare(b.employeeName);
     });
 
-    return summary.slice(0, daysLimit);
+    return summary;
 };
