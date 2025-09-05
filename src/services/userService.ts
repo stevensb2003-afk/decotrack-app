@@ -46,12 +46,17 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
         const newUser = {
             firstName: "Admin",
             lastName: "User",
-            fullName: "Admin User",
             email: adminEmail,
             password: "admin123", // Set a default password
             role: "admin" as Role,
         };
-        const docRef = await addDoc(usersCollection, newUser);
+        const docRef = await addDoc(usersCollection, {
+            firstName: newUser.firstName,
+            lastName: newUser.lastName,
+            email: newUser.email,
+            password: newUser.password,
+            role: newUser.role,
+        });
         
         await createEmployee({
             firstName: newUser.firstName,
@@ -72,7 +77,7 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
             salaryType: 'Salary',
         });
 
-        return { ...newUser, id: docRef.id };
+        return { ...newUser, fullName: 'Admin User', id: docRef.id };
     }
     return null;
 };
