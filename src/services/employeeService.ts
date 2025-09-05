@@ -1,3 +1,4 @@
+
 import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, doc, query, where } from 'firebase/firestore';
 import { Timestamp } from 'firebase/firestore';
@@ -32,7 +33,7 @@ export type Employee = {
     locationName?: string;
     managerName?: string;
     contractSigned?: boolean;
-    isInsured?: boolean;
+    CCSS?: boolean;
 };
 
 const employeesCollection = collection(db, 'employees');

@@ -56,7 +56,7 @@ const initialNewEmployeeData: Omit<Employee, 'id'> = {
     locationName: '',
     managerName: '',
     contractSigned: false,
-    isInsured: false,
+    CCSS: false,
 };
 
 const countries = [
@@ -517,7 +517,7 @@ export default function HRDashboard() {
       return locationMatch && employeeMatch;
   });
 
-  const handleContractStatusChange = async (employeeId: string, field: 'contractSigned' | 'isInsured', value: boolean) => {
+  const handleContractStatusChange = async (employeeId: string, field: 'contractSigned' | 'CCSS', value: boolean) => {
       await updateEmployee(employeeId, { [field]: value });
       setEmployees(prev => prev.map(emp => emp.id === employeeId ? { ...emp, [field]: value } : emp));
       toast({title: "Status Updated", description: "Employee contract status has been updated."});
@@ -906,7 +906,7 @@ export default function HRDashboard() {
                             <TableRow>
                                 <TableHead>Employee</TableHead>
                                 <TableHead>Contract Signed</TableHead>
-                                <TableHead>Insured</TableHead>
+                                <TableHead>CCSS</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -921,8 +921,8 @@ export default function HRDashboard() {
                                     </TableCell>
                                     <TableCell>
                                         <Switch
-                                            checked={emp.isInsured}
-                                            onCheckedChange={(value) => handleContractStatusChange(emp.id, 'isInsured', value)}
+                                            checked={emp.CCSS}
+                                            onCheckedChange={(value) => handleContractStatusChange(emp.id, 'CCSS', value)}
                                         />
                                     </TableCell>
                                 </TableRow>
