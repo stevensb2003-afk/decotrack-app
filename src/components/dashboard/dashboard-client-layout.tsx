@@ -25,7 +25,7 @@ export default function DashboardClientLayout({ children }: { children: React.Re
     }
     
     return (
-        <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+        <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!} libraries={['places']}>
             {children}
         </APIProvider>
     );

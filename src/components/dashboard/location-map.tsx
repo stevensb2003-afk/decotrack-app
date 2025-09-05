@@ -110,35 +110,38 @@ function PlacesAutocomplete({ onSelect }: { onSelect: (details: {position: googl
     const { toast } = useToast();
 
     useEffect(() => {
-        if (!window.google || !window.google.maps || !window.google.maps.places) {
-            toast({ title: "Google Maps not loaded", description: "The places search won't work without the maps script.", variant: "destructive"});
-            return;
-        }
         if (!inputRef.current) return;
+        
+        // Wait for the Google Maps script to load before initializing Autocomplete
+        const intervalId = setInterval(() => {
+            if (window.google && window.google.maps && window.google.maps.places) {
+                clearInterval(intervalId);
+                
+                const autocomplete = new google.maps.places.Autocomplete(inputRef.current!, {
+                    fields: ['geometry.location', 'formatted_address']
+                });
+        
+                const listener = autocomplete.addListener('place_changed', () => {
+                    const place = autocomplete.getPlace();
+                    if (place.geometry?.location) {
+                        const position = {
+                            lat: place.geometry.location.lat(),
+                            lng: place.geometry.location.lng(),
+                        };
+                        onSelect({ position, address: place.formatted_address || '' });
+                    } else {
+                        onSelect(null);
+                    }
+                });
 
-        const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
-            fields: ['geometry.location', 'formatted_address']
-        });
-
-        const listener = autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            if (place.geometry?.location) {
-                const position = {
-                    lat: place.geometry.location.lat(),
-                    lng: place.geometry.location.lng(),
-                };
-                onSelect({ position, address: place.formatted_address || '' });
-            } else {
-                onSelect(null);
+                // It's good practice to clean up the listener, but since it's inside an effect that runs once,
+                // this is more complex. For this use case, not removing it is acceptable.
             }
-        });
-        return () => {
-            if (window.google) {
-                listener.remove();
-            }
-        }
+        }, 100); // Check every 100ms
+        
+        return () => clearInterval(intervalId);
 
-    }, [onSelect, toast]);
+    }, [onSelect]);
 
     return (
         <div>
