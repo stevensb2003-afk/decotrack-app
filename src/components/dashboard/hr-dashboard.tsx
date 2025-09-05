@@ -276,6 +276,10 @@ export default function HRDashboard() {
 
   const { toast } = useToast();
   
+  const idAttachmentRef = useRef<HTMLInputElement>(null);
+  const licenseAttachmentRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+
   const fetchData = async () => {
       const emps = await getAllEmployees();
       const reqs = await getPendingChangeRequests();
@@ -649,11 +653,22 @@ export default function HRDashboard() {
                                     </SelectContent>
                                 </Select>
                                 
-                                <Label htmlFor="id-number-create">ID Number</Label>
-                                <Input id="id-number-create" value={newEmployeeData.idNumber} onChange={e => setNewEmployeeData({...newEmployeeData, idNumber: e.target.value})} />
-
-                                <Label htmlFor="id-attachment-create">ID Attachment</Label>
-                                <Input id="id-attachment-create" type="file" onChange={e => handleAttachmentChange(e, true, 'idAttachmentUrl')} />
+                                <div>
+                                    <Label htmlFor="id-number-create">ID Number</Label>
+                                    <div className="flex items-center gap-2">
+                                        <Input id="id-number-create" value={newEmployeeData.idNumber} onChange={e => setNewEmployeeData({...newEmployeeData, idNumber: e.target.value})} className="flex-grow"/>
+                                        <input type="file" ref={idAttachmentRef} onChange={(e) => handleAttachmentChange(e, true, 'idAttachmentUrl')} className="hidden" />
+                                        <Button variant="outline" size="icon" onClick={() => {
+                                            if (newEmployeeData.idAttachmentUrl) {
+                                                window.open(newEmployeeData.idAttachmentUrl, '_blank');
+                                            } else {
+                                                idAttachmentRef.current?.click();
+                                            }
+                                        }}>
+                                            {newEmployeeData.idAttachmentUrl ? <FileText className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                                        </Button>
+                                    </div>
+                                </div>
                                 
                                 <Label htmlFor="cellphone-create">Cellphone Number</Label>
                                 <Input id="cellphone-create" type="tel" value={newEmployeeData.cellphoneNumber} onChange={e => setNewEmployeeData({...newEmployeeData, cellphoneNumber: e.target.value})} />
@@ -750,7 +765,19 @@ export default function HRDashboard() {
                                                         <Trash2 className="h-4 w-4 text-destructive" />
                                                     </Button>
                                                 </div>
-                                                <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, true)} />
+                                                <div className="flex items-center gap-2">
+                                                    <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, true)} className="flex-grow"/>
+                                                    <input type="file" ref={el => licenseAttachmentRefs.current[index] = el} onChange={e => handleAttachmentChange(e, true, 'licenseAttachmentUrl', index)} className="hidden" />
+                                                    <Button variant="outline" size="icon" onClick={() => {
+                                                        if (license.attachmentUrl) {
+                                                            window.open(license.attachmentUrl, '_blank');
+                                                        } else {
+                                                            licenseAttachmentRefs.current[index]?.click();
+                                                        }
+                                                    }}>
+                                                        {license.attachmentUrl ? <FileText className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                                                    </Button>
+                                                </div>
                                                 <Select value={license.country} onValueChange={value => handleLicenseChange(index, 'country', value, true)}>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Country" />
@@ -772,8 +799,6 @@ export default function HRDashboard() {
                                                         <Calendar mode="single" selected={license.expirationDate?.toDate()} onSelect={date => handleLicenseDateChange(index, date, true)} initialFocus />
                                                     </PopoverContent>
                                                 </Popover>
-                                                <Label htmlFor={`license-attachment-create-${index}`}>License Attachment</Label>
-                                                <Input id={`license-attachment-create-${index}`} type="file" onChange={e => handleAttachmentChange(e, true, 'licenseAttachmentUrl', index)} />
                                             </div>
                                         ))}
                                         {(newEmployeeData.licenses || []).length < 3 && (
@@ -913,12 +938,19 @@ export default function HRDashboard() {
                         </div>
                         <div>
                             <Label htmlFor="update-idNumber">ID Number</Label>
-                            <Input id="update-idNumber" value={selectedEmployee.idNumber || ''} onChange={(e) => setSelectedEmployee({...selectedEmployee, idNumber: e.target.value})} />
-                        </div>
-                        <div>
-                            <Label htmlFor="update-id-attachment">ID Attachment</Label>
-                            <Input id="update-id-attachment" type="file" onChange={e => handleAttachmentChange(e, false, 'idAttachmentUrl')} />
-                            {selectedEmployee.idAttachmentUrl && <a href={selectedEmployee.idAttachmentUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">View current</a>}
+                             <div className="flex items-center gap-2">
+                                <Input id="update-idNumber" value={selectedEmployee.idNumber || ''} onChange={(e) => setSelectedEmployee({...selectedEmployee, idNumber: e.target.value})} className="flex-grow"/>
+                                <input type="file" ref={idAttachmentRef} onChange={(e) => handleAttachmentChange(e, false, 'idAttachmentUrl')} className="hidden" />
+                                <Button variant="outline" size="icon" onClick={() => {
+                                    if (selectedEmployee.idAttachmentUrl) {
+                                        window.open(selectedEmployee.idAttachmentUrl, '_blank');
+                                    } else {
+                                        idAttachmentRef.current?.click();
+                                    }
+                                }}>
+                                    {selectedEmployee.idAttachmentUrl ? <FileText className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                                </Button>
+                            </div>
                         </div>
                         <div>
                             <Label htmlFor="update-cellphone">Cellphone</Label>
@@ -1034,7 +1066,19 @@ export default function HRDashboard() {
                                                 <Trash2 className="h-4 w-4 text-destructive" />
                                             </Button>
                                         </div>
-                                        <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, false)} />
+                                         <div className="flex items-center gap-2">
+                                            <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, false)} />
+                                            <input type="file" ref={el => licenseAttachmentRefs.current[index] = el} onChange={e => handleAttachmentChange(e, false, 'licenseAttachmentUrl', index)} className="hidden" />
+                                            <Button variant="outline" size="icon" onClick={() => {
+                                                if (license.attachmentUrl) {
+                                                    window.open(license.attachmentUrl, '_blank');
+                                                } else {
+                                                    licenseAttachmentRefs.current[index]?.click();
+                                                }
+                                            }}>
+                                                {license.attachmentUrl ? <FileText className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                                            </Button>
+                                        </div>
                                         <Select value={license.country} onValueChange={value => handleLicenseChange(index, 'country', value, false)}>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Country" />
@@ -1056,9 +1100,6 @@ export default function HRDashboard() {
                                                 <Calendar mode="single" selected={license.expirationDate?.toDate()} onSelect={date => handleLicenseDateChange(index, date, false)} initialFocus />
                                             </PopoverContent>
                                         </Popover>
-                                        <Label htmlFor={`license-attachment-update-${index}`}>License Attachment</Label>
-                                        <Input id={`license-attachment-update-${index}`} type="file" onChange={e => handleAttachmentChange(e, false, 'licenseAttachmentUrl', index)} />
-                                        {license.attachmentUrl && <a href={license.attachmentUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">View current</a>}
                                     </div>
                                 ))}
                                 {(selectedEmployee.licenses || []).length < 3 && (
@@ -1153,5 +1194,6 @@ export default function HRDashboard() {
     </div>
   );
 }
+
 
 
