@@ -15,6 +15,17 @@ export type ScheduledChange = {
 
 const scheduledChangesCollection = collection(db, 'scheduledChanges');
 
+export const createScheduledChange = async (employeeId: string, change: {fieldName: keyof Employee, newValue: any}, effectiveDate: Date) => {
+  const changeData: Omit<ScheduledChange, 'id'> = {
+    employeeId,
+    fieldName: change.fieldName,
+    newValue: change.newValue,
+    effectiveDate: Timestamp.fromDate(effectiveDate),
+    status: 'pending',
+  };
+  return await addDoc(scheduledChangesCollection, changeData);
+};
+
 export const createScheduledChanges = async (employeeId: string, changes: {fieldName: keyof Employee, newValue: any}[], effectiveDate: Date) => {
   const batch = writeBatch(db);
   const batchId = doc(collection(db, 'scheduledChanges')).id; // Generate a unique ID for the batch

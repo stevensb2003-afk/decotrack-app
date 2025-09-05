@@ -21,7 +21,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Employee, License, getAllEmployees, createEmployee, updateEmployee, getEmployeeSnapshot } from '@/services/employeeService';
-import { ScheduledChange, createScheduledChanges, getScheduledChangesForEmployee, applyScheduledChanges } from '@/services/scheduledChangeService';
+import { ScheduledChange, createScheduledChanges, getScheduledChangesForEmployee, applyScheduledChanges, createScheduledChange } from '@/services/scheduledChangeService';
+import { ChangeRequest, getPendingChangeRequests, updateChangeRequestStatus } from '@/services/changeRequestService';
 import { Switch } from '../ui/switch';
 import { useAuth } from '@/hooks/use-auth';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -216,7 +217,7 @@ const countries = [
     { value: "SN", label: "Senegal" },
     { value: "RS", label: "Serbia" },
     { value: "SC", label: "Seychelles" },
-    { value: "SL", label: "Sierra Leone" },
+    { value_name: "SL", label: "Sierra Leone" },
     { value: "SG", label: "Singapore" },
     { value: "SK", label: "Slovakia" },
     { value: "SI", label: "Slovenia" },
@@ -282,6 +283,7 @@ export default function HRDashboard() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [benefits, setBenefits] = useState<Benefit[]>([]);
   const [scheduledChanges, setScheduledChanges] = useState<ScheduledChange[]>([]);
+  const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
 
   const [isCreateDialogOpen, setCreateIsDialogOpen] = useState(false);
   
@@ -308,6 +310,8 @@ export default function HRDashboard() {
   
   const [effectiveDates, setEffectiveDates] = useState<Date[]>([]);
 
+  const [requestToApprove, setRequestToApprove] = useState<ChangeRequest | null>(null);
+  const [approvalEffectiveDate, setApprovalEffectiveDate] = useState<Date | undefined>(new Date());
 
   const { toast } = useToast();
 
@@ -315,9 +319,11 @@ export default function HRDashboard() {
       const emps = await getAllEmployees();
       const locs = await getAllLocations();
       const bens = await getAllBenefits();
+      const reqs = await getPendingChangeRequests();
       setEmployees(emps);
       setLocations(locs);
       setBenefits(bens);
+      setChangeRequests(reqs);
   };
 
   useEffect(() => {
@@ -661,8 +667,33 @@ export default function HRDashboard() {
 
   const availableFieldsForScheduling = useMemo(() => {
     const usedFields = new Set(newScheduledChanges.map(c => c.fieldName));
-    return employeeFields.filter(f => !usedFields.has(f.value));
+    return employeeFields.filter(f => !usedFields.has(f.value) || !f.value);
   }, [newScheduledChanges]);
+
+  const handleApproveRequest = async () => {
+    if (!requestToApprove || !approvalEffectiveDate) return;
+    
+    // 1. Create a ScheduledChange
+    const changeToSchedule = {
+        fieldName: requestToApprove.fieldName as keyof Employee,
+        newValue: requestToApprove.newValue
+    };
+    await createScheduledChange(requestToApprove.employeeId, changeToSchedule, approvalEffectiveDate);
+    
+    // 2. Update the original request status
+    await updateChangeRequestStatus(requestToApprove.id, 'approved');
+
+    toast({title: "Request Approved & Scheduled", description: "The change has been scheduled for the effective date."});
+    setRequestToApprove(null);
+    setApprovalEffectiveDate(new Date());
+    fetchData(); // Refresh list
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    await updateChangeRequestStatus(requestId, 'rejected');
+    toast({title: "Request Rejected", variant: "destructive"});
+    fetchData();
+  };
 
 
   return (
@@ -685,6 +716,7 @@ export default function HRDashboard() {
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
             <TabsTrigger value="contracts">Contracts</TabsTrigger>
+            <TabsTrigger value="requests">Change Requests</TabsTrigger>
         </TabsList>
         <TabsContent value="employees">
             <Card>
@@ -841,7 +873,7 @@ export default function HRDashboard() {
                                     <TableCell>{emp.fullName}</TableCell>
                                     <TableCell>
                                         <Switch
-                                            checked={emp.CCSS}
+                                            checked={emp.contractSigned}
                                             onCheckedChange={(value) => handleContractStatusChange(emp.id, 'contractSigned', value)}
                                         />
                                     </TableCell>
@@ -895,6 +927,42 @@ export default function HRDashboard() {
                             ))}
                         </TableBody>
                     </Table>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="requests">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Employee Change Requests</CardTitle>
+                    <CardDescription>Approve or reject data change requests submitted by employees.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Employee</TableHead>
+                                <TableHead>Field</TableHead>
+                                <TableHead>Old Value</TableHead>
+                                <TableHead>New Value</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {changeRequests.map(req => (
+                                <TableRow key={req.id}>
+                                    <TableCell>{req.employeeName}</TableCell>
+                                    <TableCell>{req.fieldName}</TableCell>
+                                    <TableCell>{req.oldValue}</TableCell>
+                                    <TableCell>{req.newValue}</TableCell>
+                                    <TableCell className="text-right space-x-2">
+                                        <Button size="icon" variant="outline" className="h-8 w-8 text-green-600" onClick={() => setRequestToApprove(req)}><Check className="h-4 w-4" /></Button>
+                                        <Button size="icon" variant="outline" className="h-8 w-8 text-red-600" onClick={() => handleRejectRequest(req.id)}><X className="h-4 w-4" /></Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    {changeRequests.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">No pending change requests.</p>}
                 </CardContent>
             </Card>
         </TabsContent>
@@ -1087,7 +1155,7 @@ export default function HRDashboard() {
                         <div>
                             <Label htmlFor={`change-field-${index}`}>Field to Change</Label>
                             <Select 
-                                value={change.fieldName} 
+                                value={change.fieldName || undefined} 
                                 onValueChange={(val: keyof Employee) => handleScheduledChangeField(index, val)}
                             >
                                 <SelectTrigger><SelectValue placeholder="Select a field" /></SelectTrigger>
@@ -1116,8 +1184,39 @@ export default function HRDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+       <Dialog open={!!requestToApprove} onOpenChange={() => setRequestToApprove(null)}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Approve Change Request</DialogTitle>
+                    <DialogDescription>
+                        Select an effective date to schedule this change for {requestToApprove?.employeeName}.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                    <p><strong>Field:</strong> {requestToApprove?.fieldName}</p>
+                    <p><strong>New Value:</strong> {requestToApprove?.newValue}</p>
+                    <div>
+                         <Label htmlFor="effective-date-approval">Effective Date</Label>
+                         <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !approvalEffectiveDate && "text-muted-foreground")}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {approvalEffectiveDate ? format(approvalEffectiveDate, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar mode="single" selected={approvalEffectiveDate} onSelect={setApprovalEffectiveDate} initialFocus />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setRequestToApprove(null)}>Cancel</Button>
+                    <Button onClick={handleApproveRequest}>Approve and Schedule</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }
-
-    
