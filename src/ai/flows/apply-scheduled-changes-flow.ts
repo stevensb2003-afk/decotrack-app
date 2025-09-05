@@ -7,7 +7,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { collection, getDocs, query, where, Timestamp, doc, writeBatch, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, doc, writeBatch, orderBy, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Employee } from '@/services/employeeService';
 import { ScheduledChange } from '@/services/scheduledChangeService';
@@ -21,12 +21,11 @@ export const applyScheduledChangesFlow = ai.defineFlow(
     const now = Timestamp.now();
     
     // The query requires filtering by status and ordering by effectiveDate.
-    // To allow Firestore to use its automatic indexing, we can add a matching orderBy on the equality filter field.
+    // To work around composite index requirements, we query by date first and filter by status in code.
     const q = query(
       collection(db, 'scheduledChanges'),
-      where('status', '==', 'pending'),
-      orderBy('status'), // Added to help Firestore with indexing
-      where('effectiveDate', '<=', now)
+      where('effectiveDate', '<=', now),
+      orderBy('effectiveDate')
     );
 
     const snapshot = await getDocs(q);
@@ -34,7 +33,14 @@ export const applyScheduledChangesFlow = ai.defineFlow(
       return { appliedChangesCount: 0 };
     }
 
-    const changesToApply = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledChange));
+    const changesToApply = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as ScheduledChange))
+      .filter(change => change.status === 'pending');
+      
+    if (changesToApply.length === 0) {
+        return { appliedChangesCount: 0 };
+    }
+
     const batch = writeBatch(db);
 
     for (const change of changesToApply) {
