@@ -1011,11 +1011,11 @@ export default function HRDashboard() {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label htmlFor="update-firstName">First Name</Label>
-                                <Input id="update-firstName" value={selectedEmployee.firstName} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, firstName: e.target.value} : null)} />
+                                <Input id="update-firstName" value={selectedEmployee.firstName || ''} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, firstName: e.target.value} : null)} />
                             </div>
                              <div>
                                 <Label htmlFor="update-lastName">Last Name</Label>
-                                <Input id="update-lastName" value={selectedEmployee.lastName} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, lastName: e.target.value} : null)} />
+                                <Input id="update-lastName" value={selectedEmployee.lastName || ''} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, lastName: e.target.value} : null)} />
                             </div>
                         </div>
                         <div>
@@ -1108,7 +1108,7 @@ export default function HRDashboard() {
                         </div>
                         <div>
                             <Label htmlFor="update-location">Location</Label>
-                            <Select value={selectedEmployee.locationId} onValueChange={val => handleLocationSelect(val, false)}>
+                            <Select value={selectedEmployee.locationId || ''} onValueChange={val => handleLocationSelect(val, false)}>
                                 <SelectTrigger><SelectValue placeholder="Select Location"/></SelectTrigger>
                                 <SelectContent>
                                     {locations.map(loc => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}
