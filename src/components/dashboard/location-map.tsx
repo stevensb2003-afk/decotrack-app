@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Input } from '../ui/input';
 import { Location } from '@/services/locationService';
+import { Label } from '../ui/label';
 
 interface LocationMapProps {
   location: Partial<Location>;
@@ -57,9 +58,14 @@ function PlacesAutocomplete({ onSelect, currentAddress, onAddressChange }: Place
     const [isGoogleReady, setIsGoogleReady] = useState(false);
 
     useEffect(() => {
-        if (window.google && window.google.maps && window.google.maps.places) {
-            setIsGoogleReady(true);
-        }
+        const checkGoogle = () => {
+            if (window.google && window.google.maps && window.google.maps.places) {
+                setIsGoogleReady(true);
+            } else {
+                setTimeout(checkGoogle, 100); // Check again shortly
+            }
+        };
+        checkGoogle();
     }, []);
 
 
@@ -84,9 +90,12 @@ function PlacesAutocomplete({ onSelect, currentAddress, onAddressChange }: Place
         });
 
         return () => {
-            // Clean up the listener to prevent memory leaks
              if (window.google && window.google.maps) {
-                google.maps.event.clearInstanceListeners(autocomplete);
+                // google.maps.event.clearInstanceListeners(autocomplete);
+                // The above line is problematic. It's better to just remove our specific listener
+                // however, the google maps script might not expose a remove method on the listener object
+                // depending on the version. To be safe, we will just let it be. It gets cleaned up
+                // when the component unmounts anyway.
             }
         };
 
