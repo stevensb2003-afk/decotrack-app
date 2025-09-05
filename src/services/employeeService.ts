@@ -7,6 +7,7 @@ export type License = {
     number: string;
     country: string;
     expirationDate: Timestamp;
+    attachmentUrl?: string;
 };
 
 export type Employee = {
@@ -16,6 +17,7 @@ export type Employee = {
     role: 'Cajero' | 'Chofer' | 'Vendedor' | 'Recursos Humanos' | 'Contabilidad' | 'Marketing' | 'Manager' | 'admin' | 'employee';
     idType: 'ID Nacional' | 'Pasaporte' | 'Cédula Extranjero' | 'DIMEX';
     idNumber: string;
+    idAttachmentUrl?: string;
     cellphoneNumber: string;
     licensePermission: boolean;
     licenses: License[];

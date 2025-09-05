@@ -2,11 +2,11 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter } from 'lucide-react';
+import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter, Upload, FileText } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,7 @@ const initialNewEmployeeData: Omit<Employee, 'id'> = {
     role: 'employee',
     idType: 'ID Nacional',
     idNumber: '',
+    idAttachmentUrl: '',
     cellphoneNumber: '',
     licensePermission: false,
     licenses: [],
@@ -370,6 +371,32 @@ export default function HRDashboard() {
       }
   }
 
+  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>, isNew: boolean, field: 'idAttachmentUrl' | 'licenseAttachmentUrl', licenseIndex?: number) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Mock upload
+      const mockUrl = `https://fake-storage.com/${file.name}`;
+      if (isNew) {
+        if (field === 'idAttachmentUrl') {
+          setNewEmployeeData({ ...newEmployeeData, idAttachmentUrl: mockUrl });
+        } else if (field === 'licenseAttachmentUrl' && licenseIndex !== undefined) {
+          const newLicenses = [...(newEmployeeData.licenses || [])];
+          newLicenses[licenseIndex] = { ...newLicenses[licenseIndex], attachmentUrl: mockUrl };
+          setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
+        }
+      } else if (selectedEmployee) {
+        if (field === 'idAttachmentUrl') {
+          setSelectedEmployee({ ...selectedEmployee, idAttachmentUrl: mockUrl });
+        } else if (field === 'licenseAttachmentUrl' && licenseIndex !== undefined) {
+          const newLicenses = [...(selectedEmployee.licenses || [])];
+          newLicenses[licenseIndex] = { ...newLicenses[licenseIndex], attachmentUrl: mockUrl };
+          setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
+        }
+      }
+      toast({ title: "Attachment Uploaded", description: "This is a mock upload. The file was not saved." });
+    }
+  };
+
   const handleLicenseChange = (index: number, field: keyof License, value: string, isNew: boolean) => {
     if (isNew) {
         const newLicenses = [...(newEmployeeData.licenses || [])];
@@ -624,6 +651,9 @@ export default function HRDashboard() {
                                 
                                 <Label htmlFor="id-number-create">ID Number</Label>
                                 <Input id="id-number-create" value={newEmployeeData.idNumber} onChange={e => setNewEmployeeData({...newEmployeeData, idNumber: e.target.value})} />
+
+                                <Label htmlFor="id-attachment-create">ID Attachment</Label>
+                                <Input id="id-attachment-create" type="file" onChange={e => handleAttachmentChange(e, true, 'idAttachmentUrl')} />
                                 
                                 <Label htmlFor="cellphone-create">Cellphone Number</Label>
                                 <Input id="cellphone-create" type="tel" value={newEmployeeData.cellphoneNumber} onChange={e => setNewEmployeeData({...newEmployeeData, cellphoneNumber: e.target.value})} />
@@ -702,7 +732,7 @@ export default function HRDashboard() {
                                     <div className="space-y-4 rounded-md border p-4">
                                     <Label>License Details</Label>
                                         {(newEmployeeData.licenses || []).map((license, index) => (
-                                            <div key={index} className="space-y-2">
+                                            <div key={index} className="space-y-2 border-t pt-2">
                                                 <div className="flex items-center gap-x-2">
                                                     <div className="flex-grow">
                                                         <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, true)}>
@@ -742,6 +772,8 @@ export default function HRDashboard() {
                                                         <Calendar mode="single" selected={license.expirationDate?.toDate()} onSelect={date => handleLicenseDateChange(index, date, true)} initialFocus />
                                                     </PopoverContent>
                                                 </Popover>
+                                                <Label htmlFor={`license-attachment-create-${index}`}>License Attachment</Label>
+                                                <Input id={`license-attachment-create-${index}`} type="file" onChange={e => handleAttachmentChange(e, true, 'licenseAttachmentUrl', index)} />
                                             </div>
                                         ))}
                                         {(newEmployeeData.licenses || []).length < 3 && (
@@ -884,6 +916,11 @@ export default function HRDashboard() {
                             <Input id="update-idNumber" value={selectedEmployee.idNumber || ''} onChange={(e) => setSelectedEmployee({...selectedEmployee, idNumber: e.target.value})} />
                         </div>
                         <div>
+                            <Label htmlFor="update-id-attachment">ID Attachment</Label>
+                            <Input id="update-id-attachment" type="file" onChange={e => handleAttachmentChange(e, false, 'idAttachmentUrl')} />
+                            {selectedEmployee.idAttachmentUrl && <a href={selectedEmployee.idAttachmentUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">View current</a>}
+                        </div>
+                        <div>
                             <Label htmlFor="update-cellphone">Cellphone</Label>
                             <Input id="update-cellphone" value={selectedEmployee.cellphoneNumber || ''} onChange={(e) => setSelectedEmployee({...selectedEmployee, cellphoneNumber: e.target.value})} />
                         </div>
@@ -979,7 +1016,7 @@ export default function HRDashboard() {
                             <div className="space-y-4 rounded-md border p-4">
                                 <Label>License Details</Label>
                                 {(selectedEmployee.licenses || []).map((license, index) => (
-                                    <div key={index} className="space-y-2">
+                                    <div key={index} className="space-y-2 border-t pt-2">
                                        <div className="flex items-center gap-x-2">
                                             <div className="flex-grow">
                                                 <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, false)}>
@@ -1019,6 +1056,9 @@ export default function HRDashboard() {
                                                 <Calendar mode="single" selected={license.expirationDate?.toDate()} onSelect={date => handleLicenseDateChange(index, date, false)} initialFocus />
                                             </PopoverContent>
                                         </Popover>
+                                        <Label htmlFor={`license-attachment-update-${index}`}>License Attachment</Label>
+                                        <Input id={`license-attachment-update-${index}`} type="file" onChange={e => handleAttachmentChange(e, false, 'licenseAttachmentUrl', index)} />
+                                        {license.attachmentUrl && <a href={license.attachmentUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">View current</a>}
                                     </div>
                                 ))}
                                 {(selectedEmployee.licenses || []).length < 3 && (
@@ -1034,6 +1074,12 @@ export default function HRDashboard() {
                         <div className="grid grid-cols-2"><Label>Role</Label><p>{selectedEmployee.role}</p></div>
                         <div className="grid grid-cols-2"><Label>ID Type</Label><p>{selectedEmployee.idType}</p></div>
                         <div className="grid grid-cols-2"><Label>ID Number</Label><p>{selectedEmployee.idNumber}</p></div>
+                        <div className="grid grid-cols-2"><Label>ID Attachment</Label>
+                            {selectedEmployee.idAttachmentUrl ? 
+                                <a href={selectedEmployee.idAttachmentUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline flex items-center gap-1"><FileText className="h-4 w-4"/> View</a> 
+                                : <p>N/A</p>
+                            }
+                        </div>
                         <div className="grid grid-cols-2"><Label>Cellphone</Label><p>{selectedEmployee.cellphoneNumber}</p></div>
                         <div className="grid grid-cols-2"><Label>Nationality</Label><p>{selectedEmployee.nationality}</p></div>
                         <div className="grid grid-cols-2"><Label>Birth Date</Label><p>{selectedEmployee.birthDate ? format(selectedEmployee.birthDate.toDate(), "PPP") : 'N/A'}</p></div>
@@ -1055,6 +1101,7 @@ export default function HRDashboard() {
                                             <p><strong>Number:</strong> {license.number}</p>
                                             <p><strong>Country:</strong> {license.country}</p>
                                             <p><strong>Expiration:</strong> {license.expirationDate ? format(license.expirationDate.toDate(), "PPP") : 'N/A'}</p>
+                                            <p><strong>Attachment:</strong> {license.attachmentUrl ? <a href={license.attachmentUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline flex items-center gap-1"><FileText className="h-4 w-4"/> View</a> : 'N/A'}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -1106,4 +1153,5 @@ export default function HRDashboard() {
     </div>
   );
 }
+
 
