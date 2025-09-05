@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -90,12 +89,8 @@ function PlacesAutocomplete({ onSelect, currentAddress, onAddressChange }: Place
         });
 
         return () => {
-             if (window.google && window.google.maps) {
-                // google.maps.event.clearInstanceListeners(autocomplete);
-                // The above line is problematic. It's better to just remove our specific listener
-                // however, the google maps script might not expose a remove method on the listener object
-                // depending on the version. To be safe, we will just let it be. It gets cleaned up
-                // when the component unmounts anyway.
+            if (window.google) {
+                google.maps.event.clearInstanceListeners(autocomplete);
             }
         };
 
