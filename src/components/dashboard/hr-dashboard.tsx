@@ -278,6 +278,14 @@ const employeeFields: { value: keyof Employee; label: string; inputType: 'text' 
     { value: 'birthDate', label: 'Birth Date', inputType: 'date' },
 ];
 
+const DetailItem = ({ label, value }: { label: string, value: React.ReactNode }) => (
+    <div className="space-y-1">
+        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+        <p className="text-base">{value || 'N/A'}</p>
+    </div>
+);
+
+
 export default function HRDashboard() {
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -1046,7 +1054,7 @@ export default function HRDashboard() {
       </Tabs>
       
       <Dialog open={isDetailViewOpen} onOpenChange={setIsDetailViewOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader className="flex-row items-center justify-between pr-10">
             <div className='flex items-center gap-4'>
                 <Avatar className="h-12 w-12">
@@ -1078,26 +1086,32 @@ export default function HRDashboard() {
                     <TabsTrigger value="changes">Scheduled Changes</TabsTrigger>
                 </TabsList>
                 <TabsContent value="details">
-                     <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-6">
-                        <div className="grid grid-cols-2"><Label>Full Name</Label><p>{employeeSnapshot.fullName}</p></div>
-                        <div className="grid grid-cols-2"><Label>Email</Label><p>{employeeSnapshot.email}</p></div>
-                        <div className="grid grid-cols-2"><Label>Role</Label><p>{employeeSnapshot.role}</p></div>
-                        <div className="grid grid-cols-2"><Label>ID Type</Label><p>{employeeSnapshot.idType}</p></div>
-                        <div className="grid grid-cols-2"><Label>ID Number</Label><p>{employeeSnapshot.idNumber || 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Cellphone</Label><p>{employeeSnapshot.cellphoneNumber || 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Nationality</Label><p>{employeeSnapshot.nationality || 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Birth Date</Label><p>{employeeSnapshot.birthDate ? format(employeeSnapshot.birthDate.toDate(), "PPP") : 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Hire Date</Label><p>{employeeSnapshot.hireDate ? format(employeeSnapshot.hireDate.toDate(), "PPP") : 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Seniority</Label><p>{calculateSeniority(employeeSnapshot.hireDate)}</p></div>
-                        <div className="grid grid-cols-2"><Label>Location</Label><p>{employeeSnapshot.locationName || 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Manager</Label><p>{employeeSnapshot.managerName || 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Employment Type</Label><p>{employeeSnapshot.employmentType}</p></div>
-                        <div className="grid grid-cols-2"><Label>Salary Type</Label><p>{employeeSnapshot.salaryType}</p></div>
-                        <div className="grid grid-cols-2"><Label>Salary</Label><p>{new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(employeeSnapshot.salary || 0)}</p></div>
-                        <div className="grid grid-cols-2"><Label>Status</Label><p>{employeeSnapshot.status}</p></div>
-                         {employeeSnapshot.licensePermission && employeeSnapshot.licenses && employeeSnapshot.licenses.length > 0 && (
-                            <div className="col-span-2">
-                                <Label>Driver's Licenses</Label>
+                    <div className="space-y-6 py-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6">
+                            <DetailItem label="Full Name" value={employeeSnapshot.fullName} />
+                            <DetailItem label="Email" value={employeeSnapshot.email} />
+                            <DetailItem label="Role" value={employeeSnapshot.role} />
+                            <DetailItem label="Status" value={employeeSnapshot.status} />
+
+                            <DetailItem label="ID Type" value={employeeSnapshot.idType} />
+                            <DetailItem label="ID Number" value={employeeSnapshot.idNumber} />
+                            <DetailItem label="Cellphone" value={employeeSnapshot.cellphoneNumber} />
+                            <DetailItem label="Nationality" value={employeeSnapshot.nationality} />
+
+                            <DetailItem label="Birth Date" value={employeeSnapshot.birthDate ? format(employeeSnapshot.birthDate.toDate(), "PPP") : 'N/A'} />
+                            <DetailItem label="Hire Date" value={employeeSnapshot.hireDate ? format(employeeSnapshot.hireDate.toDate(), "PPP") : 'N/A'} />
+                            <DetailItem label="Seniority" value={calculateSeniority(employeeSnapshot.hireDate)} />
+                            <DetailItem label="Manager" value={employeeSnapshot.managerName} />
+                            
+                            <DetailItem label="Location" value={employeeSnapshot.locationName} />
+                            <DetailItem label="Employment Type" value={employeeSnapshot.employmentType} />
+                            <DetailItem label="Salary Type" value={employeeSnapshot.salaryType} />
+                            <DetailItem label="Salary" value={new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(employeeSnapshot.salary || 0)} />
+                        </div>
+                        
+                        {employeeSnapshot.licensePermission && employeeSnapshot.licenses && employeeSnapshot.licenses.length > 0 && (
+                            <div className="space-y-2 pt-4">
+                                <h4 className="text-base font-semibold text-muted-foreground">Driver's Licenses</h4>
                                 <Table className="mt-2">
                                     <TableHeader>
                                         <TableRow>
@@ -1333,4 +1347,3 @@ export default function HRDashboard() {
     </div>
   );
 }
-
