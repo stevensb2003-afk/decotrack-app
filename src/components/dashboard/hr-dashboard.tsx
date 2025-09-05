@@ -27,7 +27,7 @@ import { Switch } from '../ui/switch';
 import { useAuth } from '@/hooks/use-auth';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
-import { format, differenceInYears, differenceInMonths, parseISO, isSameDay } from 'date-fns';
+import { format, differenceInYears, differenceInMonths, parseISO, isSameDay, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
 import { updateUserPassword } from '@/services/userService';
@@ -523,7 +523,18 @@ export default function HRDashboard() {
         toast({ title: "Missing fields", description: "All change fields and an effective date are required.", variant: "destructive" });
         return;
     }
+
+    const today = startOfDay(new Date());
+    if (startOfDay(newChangeEffectiveDate) < today) {
+        toast({ title: "Invalid Date", description: "Effective date cannot be in the past.", variant: "destructive" });
+        return;
+    }
+
     const validChanges = newScheduledChanges.filter(c => c.fieldName);
+    if(validChanges.length === 0) {
+        toast({ title: "No Changes", description: "Please add at least one field to change.", variant: "destructive" });
+        return;
+    }
 
     await createScheduledChanges(selectedEmployee.id, validChanges, newChangeEffectiveDate);
 
@@ -1224,7 +1235,7 @@ export default function HRDashboard() {
                             >
                                 <SelectTrigger><SelectValue placeholder="Select a field" /></SelectTrigger>
                                 <SelectContent>
-                                    {availableFieldsForScheduling.filter(f => f.value).map(field => <SelectItem key={field.value} value={field.value}>{field.label}</SelectItem>)}
+                                    {availableFieldsForScheduling.map(field => field.value && <SelectItem key={field.value} value={field.value}>{field.label}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
