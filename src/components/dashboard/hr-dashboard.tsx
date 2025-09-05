@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter } from 'lucide-react';
+import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter, FileText, Gift } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,8 @@ import { updateUserPassword } from '@/services/userService';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Location, createLocation, getAllLocations, updateLocation } from '@/services/locationService';
+import { Benefit, createBenefit, getAllBenefits, updateBenefit, deleteBenefit } from '@/services/benefitService';
+import { Textarea } from '../ui/textarea';
 
 const initialNewEmployeeData: Omit<Employee, 'id'> = {
     name: '',
@@ -53,6 +55,8 @@ const initialNewEmployeeData: Omit<Employee, 'id'> = {
     locationId: '',
     locationName: '',
     managerName: '',
+    contractSigned: false,
+    isInsured: false,
 };
 
 const countries = [
@@ -258,6 +262,7 @@ export default function HRDashboard() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [benefits, setBenefits] = useState<Benefit[]>([]);
   const [isCreateDialogOpen, setCreateIsDialogOpen] = useState(false);
   
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -272,15 +277,22 @@ export default function HRDashboard() {
   const [filterLocation, setFilterLocation] = useState('all');
   const [filterEmployee, setFilterEmployee] = useState('all');
 
+  const [isBenefitDialogOpen, setIsBenefitDialogOpen] = useState(false);
+  const [editingBenefit, setEditingBenefit] = useState<Benefit | null>(null);
+  const [newBenefitData, setNewBenefitData] = useState<Omit<Benefit, 'id' | 'locationName'>>({ name: '', description: '', locationId: ''});
+
+
   const { toast } = useToast();
 
   const fetchData = async () => {
       const emps = await getAllEmployees();
       const reqs = await getPendingChangeRequests();
       const locs = await getAllLocations();
+      const bens = await getAllBenefits();
       setEmployees(emps);
       setChangeRequests(reqs);
       setLocations(locs);
+      setBenefits(bens);
   };
 
   useEffect(() => {
@@ -505,6 +517,55 @@ export default function HRDashboard() {
       return locationMatch && employeeMatch;
   });
 
+  const handleContractStatusChange = async (employeeId: string, field: 'contractSigned' | 'isInsured', value: boolean) => {
+      await updateEmployee(employeeId, { [field]: value });
+      setEmployees(prev => prev.map(emp => emp.id === employeeId ? { ...emp, [field]: value } : emp));
+      toast({title: "Status Updated", description: "Employee contract status has been updated."});
+  };
+
+  const handleOpenBenefitDialog = (benefit: Benefit | null) => {
+    if (benefit) {
+        setEditingBenefit(benefit);
+        setNewBenefitData({
+            name: benefit.name,
+            description: benefit.description,
+            locationId: benefit.locationId
+        });
+    } else {
+        setEditingBenefit(null);
+        setNewBenefitData({ name: '', description: '', locationId: '' });
+    }
+    setIsBenefitDialogOpen(true);
+  };
+
+  const handleSaveBenefit = async () => {
+    if (!newBenefitData.name || !newBenefitData.locationId) {
+        toast({title: "Name and location are required", variant: "destructive"});
+        return;
+    }
+    const location = locations.find(l => l.id === newBenefitData.locationId);
+    if (!location) return;
+
+    const benefitPayload = { ...newBenefitData, locationName: location.name };
+
+    if (editingBenefit) {
+        await updateBenefit(editingBenefit.id, benefitPayload);
+        toast({title: "Benefit Updated"});
+    } else {
+        await createBenefit(benefitPayload);
+        toast({title: "Benefit Created"});
+    }
+    fetchData();
+    setIsBenefitDialogOpen(false);
+  };
+
+  const handleDeleteBenefit = async (benefitId: string) => {
+    await deleteBenefit(benefitId);
+    toast({title: "Benefit Deleted"});
+    fetchData();
+  };
+
+
   return (
     <div className="space-y-6">
       <Card>
@@ -553,6 +614,7 @@ export default function HRDashboard() {
         <TabsList>
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
+            <TabsTrigger value="contracts">Contracts</TabsTrigger>
         </TabsList>
         <TabsContent value="employees">
             <Card>
@@ -823,6 +885,82 @@ export default function HRDashboard() {
                                     <TableCell className="text-right">
                                         <Button variant="ghost" size="icon" onClick={() => handleOpenLocationDialog(loc)}>
                                             <Pencil className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="contracts" className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Contract Status</CardTitle>
+                    <CardDescription>Manage employee contract and insurance status.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Employee</TableHead>
+                                <TableHead>Contract Signed</TableHead>
+                                <TableHead>Insured</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {employees.map(emp => (
+                                <TableRow key={emp.id}>
+                                    <TableCell>{emp.name}</TableCell>
+                                    <TableCell>
+                                        <Switch
+                                            checked={emp.contractSigned}
+                                            onCheckedChange={(value) => handleContractStatusChange(emp.id, 'contractSigned', value)}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Switch
+                                            checked={emp.isInsured}
+                                            onCheckedChange={(value) => handleContractStatusChange(emp.id, 'isInsured', value)}
+                                        />
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+            <Card>
+                 <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Benefits Management</CardTitle>
+                        <CardDescription>Create and manage general benefits for employees by location.</CardDescription>
+                    </div>
+                    <Button onClick={() => handleOpenBenefitDialog(null)}><Gift className="mr-2 h-4 w-4" /> Add Benefit</Button>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Benefit Name</TableHead>
+                                <TableHead>Description</TableHead>
+                                <TableHead>Location</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {benefits.map(ben => (
+                                <TableRow key={ben.id}>
+                                    <TableCell>{ben.name}</TableCell>
+                                    <TableCell>{ben.description}</TableCell>
+                                    <TableCell>{ben.locationName}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => handleOpenBenefitDialog(ben)}>
+                                            <Pencil className="h-4 w-4"/>
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteBenefit(ben.id)}>
+                                            <Trash2 className="h-4 w-4 text-destructive"/>
                                         </Button>
                                     </TableCell>
                                 </TableRow>
@@ -1104,6 +1242,37 @@ export default function HRDashboard() {
             <DialogFooter>
                 <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>Cancel</Button>
                 <Button onClick={handleSaveLocation}>Save Location</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBenefitDialogOpen} onOpenChange={setIsBenefitDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>{editingBenefit ? 'Edit Benefit' : 'Create New Benefit'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+                <div>
+                    <Label htmlFor="benefit-name">Benefit Name</Label>
+                    <Input id="benefit-name" value={newBenefitData.name} onChange={e => setNewBenefitData({...newBenefitData, name: e.target.value})} />
+                </div>
+                 <div>
+                    <Label htmlFor="benefit-desc">Description</Label>
+                    <Textarea id="benefit-desc" value={newBenefitData.description} onChange={e => setNewBenefitData({...newBenefitData, description: e.target.value})} />
+                </div>
+                <div>
+                    <Label htmlFor="benefit-location">Location</Label>
+                    <Select value={newBenefitData.locationId} onValueChange={val => setNewBenefitData({...newBenefitData, locationId: val})}>
+                        <SelectTrigger><SelectValue placeholder="Select a location" /></SelectTrigger>
+                        <SelectContent>
+                            {locations.map(loc => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsBenefitDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleSaveBenefit}>Save Benefit</Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>

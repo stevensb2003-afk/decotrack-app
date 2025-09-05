@@ -31,6 +31,8 @@ export type Employee = {
     locationId?: string;
     locationName?: string;
     managerName?: string;
+    contractSigned?: boolean;
+    isInsured?: boolean;
 };
 
 const employeesCollection = collection(db, 'employees');
