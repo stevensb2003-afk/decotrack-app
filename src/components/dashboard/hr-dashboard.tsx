@@ -1045,32 +1045,26 @@ export default function HRDashboard() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {scheduledChanges.map(change => (
+                                {scheduledChanges.filter(c => c.status === 'pending').map(change => (
                                     <TableRow key={change.id}>
                                         <TableCell>{format(change.effectiveDate.toDate(), "PPP")}</TableCell>
                                         <TableCell>{change.fieldName}</TableCell>
                                         <TableCell>{getChangeValueLabel(change)}</TableCell>
                                         <TableCell>
-                                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                                 change.status === 'applied' ? 'bg-blue-100 text-blue-800' : 
-                                                 change.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                                 'bg-gray-100 text-gray-800'
-                                             }`}>
+                                             <span className={`px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800`}>
                                                 {change.status}
                                             </span>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            {change.status === 'pending' && (
-                                                <Button variant="ghost" size="icon" onClick={() => handleCancelScheduledChange(change.id)}>
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            )}
+                                            <Button variant="ghost" size="icon" onClick={() => handleCancelScheduledChange(change.id)}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
-                         {scheduledChanges.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">No scheduled changes for this employee.</p>}
+                         {scheduledChanges.filter(c => c.status === 'pending').length === 0 && <p className="text-center text-sm text-muted-foreground py-4">No scheduled changes for this employee.</p>}
                     </div>
                 </TabsContent>
             </Tabs>
@@ -1181,7 +1175,6 @@ export default function HRDashboard() {
                             >
                                 <SelectTrigger><SelectValue placeholder="Select a field" /></SelectTrigger>
                                 <SelectContent>
-                                    {change.fieldName && <SelectItem value={change.fieldName} disabled>{employeeFields.find(f => f.value === change.fieldName)?.label}</SelectItem>}
                                     {availableFieldsForScheduling.filter(f => f.value).map(field => <SelectItem key={field.value} value={field.value}>{field.label}</SelectItem>)}
                                 </SelectContent>
                             </Select>
