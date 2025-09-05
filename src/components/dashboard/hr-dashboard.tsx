@@ -38,7 +38,7 @@ import { Benefit, createBenefit, getAllBenefits, updateBenefit, deleteBenefit, B
 import { Textarea } from '../ui/textarea';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '../ui/dropdown-menu';
 import { APIProvider } from '@vis.gl/react-google-maps';
-import LocationMap from './location-map';
+import LocationMap from '@/components/dashboard/location-map';
 
 const initialNewEmployeeData: Omit<Employee, 'id' | 'fullName'> = {
     firstName: '',
@@ -1143,7 +1143,7 @@ export default function HRDashboard() {
             <DialogHeader>
                 <DialogTitle>{editingLocation ? "Edit Location" : "Add New Location"}</DialogTitle>
             </DialogHeader>
-             <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+            <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
                 <div className="space-y-4 py-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
