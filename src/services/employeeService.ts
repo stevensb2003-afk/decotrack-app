@@ -8,7 +8,6 @@ export type License = {
     number: string;
     country: string;
     expirationDate: Timestamp;
-    attachmentUrl?: string;
 };
 
 export type Employee = {
@@ -18,7 +17,6 @@ export type Employee = {
     role: 'Cajero' | 'Chofer' | 'Vendedor' | 'Recursos Humanos' | 'Contabilidad' | 'Marketing' | 'Manager' | 'admin' | 'employee';
     idType: 'ID Nacional' | 'Pasaporte' | 'Cédula Extranjero' | 'DIMEX';
     idNumber: string;
-    idAttachmentUrl?: string;
     cellphoneNumber: string;
     licensePermission: boolean;
     licenses: License[];
@@ -36,13 +34,6 @@ export type Employee = {
 };
 
 const employeesCollection = collection(db, 'employees');
-
-export const uploadFile = async (file: File, path: string): Promise<string> => {
-    const storageRef = ref(storage, path);
-    const snapshot = await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
-};
 
 export const getAllEmployees = async (): Promise<Employee[]> => {
     const snapshot = await getDocs(employeesCollection);
