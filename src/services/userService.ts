@@ -43,7 +43,7 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
         console.log("No admin found. Creating default admin...");
         const newUser = {
             firstName: "Admin",
-            lastName: "User",
+            lastName: "",
             email: adminEmail,
             password: "admin123", // Set a default password
             role: "admin" as Role,
