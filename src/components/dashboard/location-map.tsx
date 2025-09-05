@@ -13,27 +13,11 @@ interface LocationMapProps {
 
 export default function LocationMap({ location, onLocationChange }: LocationMapProps) {
 
-  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onLocationChange({
-        ...location,
-        address: e.target.value
-    });
-  };
-
   return (
     <div className="space-y-4">
       <PlacesAutocomplete
-        onSelect={(details) => {
-          if (details) {
-            onLocationChange({
-                address: details.address,
-                latitude: details.position.lat,
-                longitude: details.position.lng
-            });
-          }
-        }}
-        currentAddress={location.address}
-        onAddressChange={handleAddressChange}
+        onLocationSelect={onLocationChange}
+        initialLocation={location}
       />
       <div>
         <p className="text-sm font-medium mt-2">Coordinates:</p>
@@ -46,15 +30,19 @@ export default function LocationMap({ location, onLocationChange }: LocationMapP
 }
 
 interface PlacesAutocompleteProps {
-    onSelect: (details: {position: google.maps.LatLngLiteral, address: string} | null) => void;
-    currentAddress?: string;
-    onAddressChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onLocationSelect: (details: Partial<Location>) => void;
+    initialLocation: Partial<Location>;
 }
 
 
-function PlacesAutocomplete({ onSelect, currentAddress, onAddressChange }: PlacesAutocompleteProps) {
+function PlacesAutocomplete({ onLocationSelect, initialLocation }: PlacesAutocompleteProps) {
     const inputRef = useRef<HTMLInputElement>(null);
+    const [inputValue, setInputValue] = useState(initialLocation.address || '');
     const [isGoogleReady, setIsGoogleReady] = useState(false);
+
+    useEffect(() => {
+        setInputValue(initialLocation.address || '');
+    }, [initialLocation.address]);
 
     useEffect(() => {
         const checkGoogle = () => {
@@ -78,23 +66,38 @@ function PlacesAutocomplete({ onSelect, currentAddress, onAddressChange }: Place
         const listener = autocomplete.addListener('place_changed', () => {
             const place = autocomplete.getPlace();
             if (place.geometry?.location) {
-                const position = {
-                    lat: place.geometry.location.lat(),
-                    lng: place.geometry.location.lng(),
+                const newLocation: Partial<Location> = {
+                    address: place.formatted_address || '',
+                    latitude: place.geometry.location.lat(),
+                    longitude: place.geometry.location.lng(),
                 };
-                onSelect({ position, address: place.formatted_address || '' });
-            } else {
-                onSelect(null);
+                setInputValue(newLocation.address!);
+                onLocationSelect(newLocation);
             }
         });
 
         return () => {
             if (window.google) {
-                google.maps.event.clearInstanceListeners(autocomplete);
+                // Using a try-catch block as clearInstanceListeners can sometimes throw errors
+                // if the component unmounts unexpectedly.
+                try {
+                    google.maps.event.clearInstanceListeners(autocomplete);
+                } catch (e) {
+                    console.error("Error clearing autocomplete listeners", e);
+                }
             }
         };
 
-    }, [isGoogleReady, onSelect]);
+    }, [isGoogleReady, onLocationSelect]);
+    
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setInputValue(e.target.value);
+        // Also update parent but only with address, coords become stale
+        onLocationSelect({
+            ...initialLocation,
+            address: e.target.value,
+        });
+    }
 
     return (
         <div>
@@ -103,8 +106,8 @@ function PlacesAutocomplete({ onSelect, currentAddress, onAddressChange }: Place
                 ref={inputRef}
                 id="location-search"
                 placeholder="Search for an address..."
-                value={currentAddress || ''}
-                onChange={onAddressChange}
+                value={inputValue}
+                onChange={handleInputChange}
                 disabled={!isGoogleReady}
             />
             {!isGoogleReady && <p className="text-xs text-muted-foreground mt-1">Loading Google Maps...</p>}
