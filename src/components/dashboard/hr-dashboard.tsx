@@ -35,8 +35,9 @@ import { Location, createLocation, getAllLocations, updateLocation } from '@/ser
 import { Benefit, createBenefit, getAllBenefits, updateBenefit, deleteBenefit, BenefitApplicability } from '@/services/benefitService';
 import { Textarea } from '../ui/textarea';
 
-const initialNewEmployeeData: Omit<Employee, 'id'> = {
-    name: '',
+const initialNewEmployeeData: Omit<Employee, 'id' | 'fullName'> = {
+    firstName: '',
+    lastName: '',
     email: '',
     role: 'employee',
     idType: 'ID Nacional',
@@ -269,7 +270,7 @@ export default function HRDashboard() {
   const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
   const [isEditingDetail, setIsEditingDetail] = useState(false);
 
-  const [newEmployeeData, setNewEmployeeData] = useState<Omit<Employee, 'id'>>(initialNewEmployeeData);
+  const [newEmployeeData, setNewEmployeeData] = useState<Omit<Employee, 'id' | 'fullName'>>(initialNewEmployeeData);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
   const [newLocationName, setNewLocationName] = useState("");
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
@@ -320,7 +321,7 @@ export default function HRDashboard() {
 
     toast({
         title: "Record Updated",
-        description: `Record for ${selectedEmployee.name} has been updated.`,
+        description: `Record for ${selectedEmployee.fullName} has been updated.`,
     });
     setIsEditingDetail(false);
     setIsDetailViewOpen(false);
@@ -328,8 +329,8 @@ export default function HRDashboard() {
   };
 
   const handleCreateEmployee = async () => {
-    if (!newEmployeeData.name || !newEmployeeData.email || !newEmployeeData.role) {
-      toast({ title: "Missing Fields", description: "Name, email and role are required.", variant: "destructive" });
+    if (!newEmployeeData.firstName || !newEmployeeData.email || !newEmployeeData.role) {
+      toast({ title: "Missing Fields", description: "First name, email and role are required.", variant: "destructive" });
       return;
     }
     
@@ -337,7 +338,7 @@ export default function HRDashboard() {
 
     toast({
         title: "Employee Created",
-        description: `${newEmployeeData.name} has been added to the employee list.`,
+        description: `${newEmployeeData.firstName} ${newEmployeeData.lastName} has been added to the employee list.`,
     });
     setCreateIsDialogOpen(false);
     setNewEmployeeData(initialNewEmployeeData);
@@ -352,7 +353,7 @@ export default function HRDashboard() {
         if(request.fieldName.toLowerCase() === 'password') {
             await updateUserPassword(request.employeeId, request.newValue);
         } else {
-            const fieldToUpdate = request.fieldName.toLowerCase() as keyof Employee;
+            const fieldToUpdate = request.fieldName as keyof Employee;
             let valueToUpdate: string | Timestamp = request.newValue;
 
             if (fieldToUpdate === 'birthDate') {
@@ -484,7 +485,7 @@ export default function HRDashboard() {
     const locationData = {
         name: newLocationName,
         managerId: manager?.id || '',
-        managerName: manager?.name || '',
+        managerName: manager?.fullName || '',
     }
 
     if (editingLocation) {
@@ -647,7 +648,7 @@ export default function HRDashboard() {
                                 <SelectContent>
                                     <SelectItem value="all">All Employees</SelectItem>
                                     {employees.map(emp => (
-                                        <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                                        <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -660,8 +661,16 @@ export default function HRDashboard() {
                         <DialogContent className="sm:max-w-lg">
                             <DialogHeader><DialogTitle>Add New Employee</DialogTitle></DialogHeader>
                             <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
-                                <Label htmlFor="name-create">Name</Label>
-                                <Input id="name-create" value={newEmployeeData.name} onChange={e => setNewEmployeeData({...newEmployeeData, name: e.target.value})} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <Label htmlFor="firstName-create">First Name</Label>
+                                        <Input id="firstName-create" value={newEmployeeData.firstName} onChange={e => setNewEmployeeData({...newEmployeeData, firstName: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="lastName-create">Last Name</Label>
+                                        <Input id="lastName-create" value={newEmployeeData.lastName} onChange={e => setNewEmployeeData({...newEmployeeData, lastName: e.target.value})} />
+                                    </div>
+                                </div>
                                 
                                 <Label htmlFor="email-create">Email</Label>
                                 <Input id="email-create" type="email" value={newEmployeeData.email} onChange={e => setNewEmployeeData({...newEmployeeData, email: e.target.value})} />
@@ -841,10 +850,10 @@ export default function HRDashboard() {
                         <TableCell className="font-medium">
                             <div className="flex items-center gap-3">
                                 <Avatar>
-                                    <AvatarImage src={employee.avatarUrl || ''} alt={employee.name} />
-                                    <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
+                                    <AvatarImage src={employee.avatarUrl || ''} alt={employee.fullName} />
+                                    <AvatarFallback>{getInitials(employee.fullName)}</AvatarFallback>
                                 </Avatar>
-                                {employee.name}
+                                {employee.fullName}
                             </div>
                         </TableCell>
                         <TableCell>{employee.email}</TableCell>
@@ -915,7 +924,7 @@ export default function HRDashboard() {
                         <TableBody>
                             {employees.map(emp => (
                                 <TableRow key={emp.id}>
-                                    <TableCell>{emp.name}</TableCell>
+                                    <TableCell>{emp.fullName}</TableCell>
                                     <TableCell>
                                         <Switch
                                             checked={emp.contractSigned}
@@ -983,10 +992,10 @@ export default function HRDashboard() {
           <DialogHeader className="flex-row items-center justify-between">
             <div className='flex items-center gap-4'>
                 <Avatar className="h-12 w-12">
-                    <AvatarImage src={selectedEmployee?.avatarUrl || ''} alt={selectedEmployee?.name} />
-                    <AvatarFallback>{getInitials(selectedEmployee?.name)}</AvatarFallback>
+                    <AvatarImage src={selectedEmployee?.avatarUrl || ''} alt={selectedEmployee?.fullName} />
+                    <AvatarFallback>{getInitials(selectedEmployee?.fullName)}</AvatarFallback>
                 </Avatar>
-                <DialogTitle>Details for {selectedEmployee?.name}</DialogTitle>
+                <DialogTitle>Details for {selectedEmployee?.fullName}</DialogTitle>
             </div>
             {canEdit && (
                 <Button variant="ghost" size="icon" onClick={() => setIsEditingDetail(!isEditingDetail)}>
@@ -999,9 +1008,15 @@ export default function HRDashboard() {
                 
                 {isEditingDetail ? (
                     <>
-                        <div>
-                            <Label htmlFor="update-name">Name</Label>
-                            <Input id="update-name" value={selectedEmployee.name} onChange={(e) => setSelectedEmployee({...selectedEmployee, name: e.target.value})} />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label htmlFor="update-firstName">First Name</Label>
+                                <Input id="update-firstName" value={selectedEmployee.firstName} onChange={(e) => setSelectedEmployee({...selectedEmployee, firstName: e.target.value})} />
+                            </div>
+                             <div>
+                                <Label htmlFor="update-lastName">Last Name</Label>
+                                <Input id="update-lastName" value={selectedEmployee.lastName} onChange={(e) => setSelectedEmployee({...selectedEmployee, lastName: e.target.value})} />
+                            </div>
                         </div>
                         <div>
                             <Label htmlFor="update-role">Role</Label>
@@ -1176,7 +1191,7 @@ export default function HRDashboard() {
                     </>
                 ) : (
                     <>
-                        <div className="grid grid-cols-2"><Label>Name</Label><p>{selectedEmployee.name}</p></div>
+                        <div className="grid grid-cols-2"><Label>Full Name</Label><p>{selectedEmployee.fullName}</p></div>
                         <div className="grid grid-cols-2"><Label>Email</Label><p>{selectedEmployee.email}</p></div>
                         <div className="grid grid-cols-2"><Label>Role</Label><p>{selectedEmployee.role}</p></div>
                         <div className="grid grid-cols-2"><Label>ID Type</Label><p>{selectedEmployee.idType}</p></div>
@@ -1238,7 +1253,7 @@ export default function HRDashboard() {
                         <SelectContent>
                              <SelectItem value="none">None</SelectItem>
                             {managementEmployees.map(emp => (
-                                <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                                <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>

@@ -2,7 +2,7 @@
 import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, doc, query, where } from 'firebase/firestore';
 import { Timestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 export type License = {
     type: string;
@@ -13,7 +13,9 @@ export type License = {
 
 export type Employee = {
     id: string;
-    name: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
     email: string;
     role: 'Cajero' | 'Chofer' | 'Vendedor' | 'Recursos Humanos' | 'Contabilidad' | 'Marketing' | 'Manager' | 'admin' | 'employee';
     idType: 'ID Nacional' | 'Pasaporte' | 'Cédula Extranjero' | 'DIMEX';
@@ -53,18 +55,32 @@ export const getEmployeeByEmail = async (email: string): Promise<Employee | null
     return { id: docData.id, ...docData.data() } as Employee;
 };
 
-export const createEmployee = async (employeeData: Omit<Employee, 'id'>) => {
+export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'fullName'> & {name?: string}) => {
     // Ensure licenses is always an array
     const dataToCreate = {
         ...employeeData,
+        firstName: employeeData.firstName || employeeData.name || '',
+        lastName: employeeData.lastName || '',
+        fullName: `${employeeData.firstName || employeeData.name || ''} ${employeeData.lastName || ''}`.trim(),
         licenses: employeeData.licenses || [],
         avatarUrl: '',
     };
+    delete (dataToCreate as any).name;
     const docRef = await addDoc(employeesCollection, dataToCreate);
     return docRef.id;
 };
 
 export const updateEmployee = async (employeeId: string, data: Partial<Omit<Employee, 'id'>>) => {
     const employeeDoc = doc(db, 'employees', employeeId);
-    await updateDoc(employeeDoc, data);
+    
+    const updateData = {...data};
+    if (data.firstName || data.lastName) {
+        const currentDoc = await getDoc(employeeDoc);
+        const currentData = currentDoc.data() as Employee;
+        const firstName = data.firstName ?? currentData.firstName;
+        const lastName = data.lastName ?? currentData.lastName;
+        updateData.fullName = `${firstName} ${lastName}`.trim();
+    }
+
+    await updateDoc(employeeDoc, updateData);
 };

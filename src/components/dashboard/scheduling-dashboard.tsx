@@ -247,14 +247,14 @@ export default function SchedulingDashboard() {
 
     await createEmployeeScheduleAssignment({
         employeeId,
-        employeeName: employee.name,
+        employeeName: employee.fullName,
         rotationPatternId,
         rotationPatternName: pattern.name,
         startDate: Timestamp.fromDate(startDate),
         endDate: Timestamp.fromDate(endDate),
     });
     
-    toast({ title: "Assignment Created", description: `${employee.name} has been assigned the ${pattern.name} pattern.` });
+    toast({ title: "Assignment Created", description: `${employee.fullName} has been assigned the ${pattern.name} pattern.` });
     setIsAssignmentDialogOpen(false);
     setNewAssignment({ employeeId: '', rotationPatternId: '', startDate: undefined, endDate: undefined });
     fetchData();
@@ -390,7 +390,7 @@ export default function SchedulingDashboard() {
 
                     if(employeeMatch && locationMatch) {
                         employeesOnLeave.push({
-                            name: employee.name,
+                            name: employee.fullName,
                             reason: req.reason,
                             employeeId: req.employeeId
                         });
@@ -473,7 +473,7 @@ export default function SchedulingDashboard() {
                                 <Select value={newAssignment.employeeId} onValueChange={val => setNewAssignment(prev => ({...prev, employeeId: val}))}>
                                     <SelectTrigger><SelectValue placeholder="Select an employee" /></SelectTrigger>
                                     <SelectContent>
-                                        {employees.map(emp => <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>)}
+                                        {employees.map(emp => <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -542,7 +542,7 @@ export default function SchedulingDashboard() {
                         <SelectContent>
                             <SelectItem value="all">All Employees</SelectItem>
                             {employees.filter(emp => filterLocation === 'all' || emp.locationId === filterLocation).map(emp => (
-                                <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                                <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -612,7 +612,7 @@ export default function SchedulingDashboard() {
                         <SelectContent>
                             <SelectItem value="all">All Employees</SelectItem>
                             {employees.filter(emp => filterLocation === 'all' || emp.locationId === filterLocation).map(emp => (
-                                <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                                <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -1018,12 +1018,4 @@ export default function SchedulingDashboard() {
         </Dialog>
     </Tabs>
   );
-
-    
 }
-
-    
-
-    
-
-    

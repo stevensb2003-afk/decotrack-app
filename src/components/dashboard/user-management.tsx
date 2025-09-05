@@ -52,7 +52,7 @@ export default function UserManagement() {
   const [selectedUserForPassword, setSelectedUserForPassword] = useState<SystemUser | null>(null);
   const [userToDelete, setUserToDelete] = useState<SystemUser | null>(null);
   const [securityCodeInput, setSecurityCodeInput] = useState("");
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: '' as Role | ''});
+  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: '' as Role | ''});
   const { toast } = useToast();
 
   const fetchUsers = async () => {
@@ -72,21 +72,21 @@ export default function UserManagement() {
   };
   
   const handleCreateUser = async () => {
-    if(!newUser.email || !newUser.name || !newUser.password || !newUser.role) {
+    if(!newUser.email || !newUser.firstName || !newUser.password || !newUser.role) {
         toast({ title: "Error", description: "Please fill all fields.", variant: "destructive" });
         return;
     }
 
     const newUserEntry = {
         ...newUser,
-    } as Omit<SystemUser, 'id'>;
+    } as Omit<SystemUser, 'id' | 'fullName'>;
     
     await createUser(newUserEntry);
 
     toast({ title: "User Created", description: "New user has been created successfully." });
 
     setIsCreating(false);
-    setNewUser({ name: '', email: '', password: '', role: ''});
+    setNewUser({ firstName: '', lastName: '', email: '', password: '', role: ''});
     fetchUsers();
   };
 
@@ -137,8 +137,16 @@ export default function UserManagement() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
-                      <Label htmlFor="name-create">Name</Label>
-                      <Input id="name-create" value={newUser.name} onChange={(e) => setNewUser({...newUser, name: e.target.value})} placeholder="John Doe" />
+                      <div className='grid grid-cols-2 gap-4'>
+                          <div>
+                            <Label htmlFor="firstName-create">First Name</Label>
+                            <Input id="firstName-create" value={newUser.firstName} onChange={(e) => setNewUser({...newUser, firstName: e.target.value})} placeholder="John" />
+                          </div>
+                           <div>
+                            <Label htmlFor="lastName-create">Last Name</Label>
+                            <Input id="lastName-create" value={newUser.lastName} onChange={(e) => setNewUser({...newUser, lastName: e.target.value})} placeholder="Doe" />
+                          </div>
+                      </div>
                       <Label htmlFor="email-create">Email</Label>
                       <Input id="email-create" type="email" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} placeholder="name@example.com" />
                       <Label htmlFor="password-create">Password</Label>
@@ -174,7 +182,7 @@ export default function UserManagement() {
             <TableBody>
               {users.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell className="font-medium">{user.fullName}</TableCell>
                   <TableCell>{user.email}</TableCell>
                    <TableCell className="font-mono">****</TableCell>
                   <TableCell className="capitalize">{user.role}</TableCell>
@@ -260,11 +268,11 @@ export default function UserManagement() {
           <DialogHeader>
             <DialogTitle>User Credentials</DialogTitle>
             <DialogDescription>
-              These are the credentials for {selectedUserForPassword?.name}.
+              These are the credentials for {selectedUserForPassword?.fullName}.
             </DialogDescription>
           </DialogHeader>
             <Alert>
-              <AlertTitle>{selectedUserForPassword?.name}</AlertTitle>
+              <AlertTitle>{selectedUserForPassword?.fullName}</AlertTitle>
               <AlertDescription>
                 <p className="mt-2"><strong>Email:</strong> {selectedUserForPassword?.email}</p>
                 <p><strong>Password:</strong> {selectedUserForPassword?.password}</p>

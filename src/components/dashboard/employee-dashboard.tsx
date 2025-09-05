@@ -209,7 +209,7 @@ export default function EmployeeDashboard() {
 
     const requestPayload: Omit<TimeOffRequest, 'id' | 'requestedAt' | 'status'> = {
         employeeId: employee.id,
-        employeeName: employee.name,
+        employeeName: employee.fullName,
         reason: newRequest.reason,
         startDate: Timestamp.fromDate(newRequest.startDate),
         endDate: Timestamp.fromDate(newRequest.endDate),
@@ -654,7 +654,3 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
-
-    
-
-    

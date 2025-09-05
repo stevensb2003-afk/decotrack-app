@@ -85,7 +85,7 @@ export default function TimeOffDashboard() {
                     <SelectContent>
                         <SelectItem value="all">All Employees</SelectItem>
                         {employees.map(emp => (
-                            <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                            <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>

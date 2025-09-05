@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -19,7 +20,7 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const [employeeData, setEmployeeData] = useState<Employee | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', role: '' });
+  const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', role: '' });
   const [pendingRequest, setPendingRequest] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [newPassword, setNewPassword] = useState('');
@@ -34,7 +35,7 @@ export default function ProfilePage() {
             const employee = await getEmployeeByEmail(user.email);
             if (employee) {
                 setEmployeeData(employee);
-                setFormData({ name: employee.name, email: employee.email, role: employee.role });
+                setFormData({ firstName: employee.firstName, lastName: employee.lastName, email: employee.email, role: employee.role });
                 setAvatarUrl(`https://i.pravatar.cc/150?u=${employee.email}`);
                 const hasPending = await getPendingRequestForEmployee(employee.id);
                 setPendingRequest(hasPending);
@@ -55,8 +56,11 @@ export default function ProfilePage() {
 
     const changes: { fieldName: string, oldValue: string, newValue: string }[] = [];
 
-    if (formData.name !== employeeData.name) {
-      changes.push({ fieldName: 'Name', oldValue: employeeData.name, newValue: formData.name });
+    if (formData.firstName !== employeeData.firstName) {
+      changes.push({ fieldName: 'firstName', oldValue: employeeData.firstName, newValue: formData.firstName });
+    }
+    if (formData.lastName !== employeeData.lastName) {
+      changes.push({ fieldName: 'lastName', oldValue: employeeData.lastName, newValue: formData.lastName });
     }
     if (formData.email !== employeeData.email) {
       changes.push({ fieldName: 'Email', oldValue: employeeData.email, newValue: formData.email });
@@ -70,7 +74,7 @@ export default function ProfilePage() {
     for (const change of changes) {
         await createChangeRequest({
             employeeId: employeeData.id,
-            employeeName: employeeData.name,
+            employeeName: employeeData.fullName,
             fieldName: change.fieldName,
             oldValue: change.oldValue,
             newValue: change.newValue,
@@ -139,7 +143,7 @@ export default function ProfilePage() {
                  <div className="relative group">
                     <Avatar className="h-20 w-20 cursor-pointer" onClick={handleAvatarClick}>
                         <AvatarImage data-ai-hint="profile avatar" src={avatarUrl} />
-                        <AvatarFallback>{getInitials(employeeData.name)}</AvatarFallback>
+                        <AvatarFallback>{getInitials(employeeData.fullName)}</AvatarFallback>
                     </Avatar>
                     <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={handleAvatarClick}>
                         <Camera className="text-white h-8 w-8" />
@@ -147,7 +151,7 @@ export default function ProfilePage() {
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
                 </div>
                 <div>
-                    <CardTitle className="text-3xl">{employeeData.name}</CardTitle>
+                    <CardTitle className="text-3xl">{employeeData.fullName}</CardTitle>
                     <CardDescription className="text-lg">{employeeData.role}</CardDescription>
                 </div>
             </div>
@@ -213,10 +217,16 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={formData.name} onChange={handleInputChange} disabled={!isEditing} />
-            </div>
+             <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input id="firstName" value={formData.firstName} onChange={handleInputChange} disabled={!isEditing} />
+                </div>
+                <div>
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input id="lastName" value={formData.lastName} onChange={handleInputChange} disabled={!isEditing} />
+                </div>
+             </div>
             <div>
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" value={formData.email} onChange={handleInputChange} disabled={!isEditing} />

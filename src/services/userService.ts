@@ -8,7 +8,9 @@ export type Role = 'employee' | 'hr' | 'Manager' | 'admin';
 
 export type SystemUser = {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
   email: string;
   role: Role;
   password?: string; // Should be handled securely, this is for demo
@@ -33,7 +35,9 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
     if (adminSnapshot.empty) {
         console.log("No admin found. Creating default admin...");
         const newUser = {
-            name: "Admin User",
+            firstName: "Admin",
+            lastName: "User",
+            fullName: "Admin User",
             email: adminEmail,
             password: "admin123", // Set a default password
             role: "admin" as Role,
@@ -41,7 +45,8 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
         const docRef = await addDoc(usersCollection, newUser);
         
         await createEmployee({
-            name: newUser.name,
+            firstName: newUser.firstName,
+            lastName: newUser.lastName,
             email: newUser.email,
             role: newUser.role,
             idType: 'ID Nacional',
@@ -79,11 +84,16 @@ export const getUserByEmail = async (email: string): Promise<SystemUser | null> 
 };
 
 
-export const createUser = async (userData: Omit<SystemUser, 'id'>) => {
-  const docRef = await addDoc(usersCollection, userData);
+export const createUser = async (userData: Omit<SystemUser, 'id' | 'fullName'>) => {
+  const userPayload = {
+    ...userData,
+    fullName: `${userData.firstName} ${userData.lastName}`.trim(),
+  }
+  const docRef = await addDoc(usersCollection, userPayload);
   if (userData.role !== 'admin') {
       await createEmployee({
-        name: userData.name,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
         email: userData.email,
         role: userData.role as Employee['role'],
         idType: 'ID Nacional',

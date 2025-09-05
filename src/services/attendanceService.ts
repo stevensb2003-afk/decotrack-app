@@ -84,7 +84,7 @@ export const getDailyAttendanceSummary = async (daysLimit: number = 10, employee
     const patterns = await getRotationPatterns();
     const holidays = await getHolidays();
     
-    const employeeMap = new Map(employees.map(e => [e.id, e.name]));
+    const employeeMap = new Map(employees.map(e => [e.id, e.fullName]));
 
     const today = new Date();
     const startDate = new Date(today);

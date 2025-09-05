@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useAuth } from '@/hooks/use-auth';
@@ -89,21 +90,21 @@ export default function DashboardHeader() {
             <span className="sr-only">Toggle theme</span>
         </Button>
         
-        {employee && <p className="text-sm font-medium hidden sm:block">{employee.name}</p>}
+        {employee && <p className="text-sm font-medium hidden sm:block">{employee.fullName}</p>}
 
         <DropdownMenu>
         <DropdownMenuTrigger asChild>
             <Button variant="secondary" size="icon" className="rounded-full">
             <Avatar>
                 <AvatarImage data-ai-hint="profile avatar" src={employee?.avatarUrl} />
-                <AvatarFallback>{getInitials(employee?.name)}</AvatarFallback>
+                <AvatarFallback>{getInitials(employee?.fullName)}</AvatarFallback>
             </Avatar>
             <span className="sr-only">Toggle user menu</span>
             </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
-                <p className="font-semibold">{employee?.name || 'My Account'}</p>
+                <p className="font-semibold">{employee?.fullName || 'My Account'}</p>
                 <p className="text-xs text-muted-foreground font-normal">{user?.email}</p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
