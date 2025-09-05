@@ -31,7 +31,7 @@ export default function ProfilePage() {
     role: '', 
     cellphoneNumber: '',
     birthDate: new Date(),
-    idNumber: '', // Initialize idNumber to prevent uncontrolled input error
+    idNumber: '',
   });
   const [pendingRequest, setPendingRequest] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +53,7 @@ export default function ProfilePage() {
                   role: employee.role,
                   cellphoneNumber: employee.cellphoneNumber || '',
                   birthDate: employee.birthDate ? employee.birthDate.toDate() : new Date(),
-                  idNumber: employee.idNumber || '', // Ensure idNumber is always a string
+                  idNumber: employee.idNumber || '',
               });
               setAvatarUrl(employee.avatarUrl || `https://i.pravatar.cc/150?u=${employee.email}`);
               const hasPending = await getPendingRequestForEmployee(employee.id);
