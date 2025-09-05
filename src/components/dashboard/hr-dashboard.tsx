@@ -416,20 +416,23 @@ export default function HRDashboard() {
     }
     const manager = employees.find(e => e.id === newLocationData.managerId);
 
-    const locationPayload = {
+    const locationPayload: Partial<Location> = {
         name: newLocationData.name,
         managerId: manager?.id || '',
         managerName: manager?.fullName || '',
         address: newLocationData.address || '',
-        latitude: newLocationData.latitude || 0,
-        longitude: newLocationData.longitude || 0,
     };
+    
+    if (newLocationData.latitude && newLocationData.longitude) {
+        locationPayload.latitude = newLocationData.latitude;
+        locationPayload.longitude = newLocationData.longitude;
+    }
 
     if (editingLocation) {
         await updateLocation(editingLocation.id, locationPayload);
         toast({title: "Location Updated"});
     } else {
-        await createLocation(locationPayload);
+        await createLocation(locationPayload as Omit<Location, 'id'>);
         toast({title: "Location Created"});
     }
     
@@ -1092,6 +1095,31 @@ export default function HRDashboard() {
                         <div className="grid grid-cols-2"><Label>Salary Type</Label><p>{employeeSnapshot.salaryType}</p></div>
                         <div className="grid grid-cols-2"><Label>Salary</Label><p>{new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(employeeSnapshot.salary || 0)}</p></div>
                         <div className="grid grid-cols-2"><Label>Status</Label><p>{employeeSnapshot.status}</p></div>
+                         {employeeSnapshot.licensePermission && employeeSnapshot.licenses && employeeSnapshot.licenses.length > 0 && (
+                            <div className="col-span-2">
+                                <Label>Driver's Licenses</Label>
+                                <Table className="mt-2">
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Type</TableHead>
+                                            <TableHead>Number</TableHead>
+                                            <TableHead>Country</TableHead>
+                                            <TableHead>Expiration</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {employeeSnapshot.licenses.map((license, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell>{license.type}</TableCell>
+                                                <TableCell>{license.number}</TableCell>
+                                                <TableCell>{license.country}</TableCell>
+                                                <TableCell>{license.expirationDate ? format(license.expirationDate.toDate(), "PPP") : 'N/A'}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
                     </div>
                 </TabsContent>
                 <TabsContent value="changes">
@@ -1305,3 +1333,4 @@ export default function HRDashboard() {
     </div>
   );
 }
+
