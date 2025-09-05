@@ -375,10 +375,9 @@ export default function HRDashboard() {
       }
   }
 
-  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>, isNew: boolean, field: 'idAttachmentUrl' | 'licenseAttachmentUrl', licenseIndex?: number) => {
+  const handleAttachmentChange = async (e: React.ChangeEvent<HTMLInputElement>, isNew: boolean, field: 'idAttachmentUrl' | 'licenseAttachmentUrl', licenseIndex?: number) => {
     const file = e.target.files?.[0];
     if (file) {
-      const upload = async () => {
         toast({ title: "Uploading File...", description: "Please wait." });
         try {
           const path = field === 'idAttachmentUrl' 
@@ -397,11 +396,15 @@ export default function HRDashboard() {
               }
           } else if (selectedEmployee) {
               if (field === 'idAttachmentUrl') {
-                  setSelectedEmployee({ ...selectedEmployee, idAttachmentUrl: downloadURL });
+                  const updatedEmployee = { ...selectedEmployee, idAttachmentUrl: downloadURL };
+                  setSelectedEmployee(updatedEmployee);
+                  await updateEmployee(selectedEmployee.id, { idAttachmentUrl: downloadURL });
               } else if (field === 'licenseAttachmentUrl' && licenseIndex !== undefined) {
                   const newLicenses = [...(selectedEmployee.licenses || [])];
                   newLicenses[licenseIndex] = { ...newLicenses[licenseIndex], attachmentUrl: downloadURL };
-                  setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
+                  const updatedEmployee = { ...selectedEmployee, licenses: newLicenses };
+                  setSelectedEmployee(updatedEmployee);
+                  await updateEmployee(selectedEmployee.id, { licenses: newLicenses });
               }
           }
           toast({ title: "Attachment Uploaded", description: "The file has been saved." });
@@ -410,8 +413,6 @@ export default function HRDashboard() {
           toast({ title: "Upload Failed", description: "Could not upload the file. Please try again.", variant: "destructive"});
           console.error("File upload error:", error);
         }
-      }
-      upload();
     }
   };
 
@@ -1213,3 +1214,6 @@ export default function HRDashboard() {
 
 
 
+
+
+    
