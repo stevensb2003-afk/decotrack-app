@@ -684,7 +684,7 @@ export default function HRDashboard() {
 
   const availableFieldsForScheduling = useMemo(() => {
     const usedFields = new Set(newScheduledChanges.map(c => c.fieldName));
-    return employeeFields.filter(f => !f.value || !usedFields.has(f.value));
+    return employeeFields.filter(f => !usedFields.has(f.value));
   }, [newScheduledChanges]);
 
   const handleApproveRequest = async () => {
@@ -986,7 +986,7 @@ export default function HRDashboard() {
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                     <CardTitle>Scheduled Changes Runner</CardTitle>
-                    <CardDescription>Manually trigger the process to apply all pending scheduled changes.</CardDescription>
+                    <CardDescription>Changes are applied automatically each night. You can also run the process manually.</CardDescription>
                     </div>
                     <Button onClick={handleRunApplyChanges} disabled={isApplyingChanges}>
                         <Play className="mr-2 h-4 w-4" />
