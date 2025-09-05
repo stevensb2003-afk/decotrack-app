@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -62,6 +61,7 @@ const initialNewEmployeeData: Omit<Employee, 'id' | 'fullName'> = {
     managerName: '',
     contractSigned: false,
     CCSS: false,
+    profileComplete: false,
 };
 
 const countries = [

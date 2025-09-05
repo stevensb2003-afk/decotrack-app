@@ -73,6 +73,7 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
             hireDate: Timestamp.now(),
             employmentType: 'n/a',
             salaryType: 'Salary',
+            profileComplete: true, // Admin profile is complete by default
         });
 
         return { ...newUser, id: docRef.id };
@@ -119,6 +120,7 @@ export const createUser = async (userData: Omit<SystemUser, 'id'>) => {
         hireDate: Timestamp.now(),
         employmentType: 'n/a',
         salaryType: 'Salary',
+        profileComplete: false,
       });
     }
   return docRef.id;

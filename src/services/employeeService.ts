@@ -35,6 +35,7 @@ export type Employee = {
     managerName?: string;
     contractSigned?: boolean;
     CCSS?: boolean;
+    profileComplete?: boolean;
 };
 
 const employeesCollection = collection(db, 'employees');
@@ -61,6 +62,7 @@ export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'fullNa
         fullName: `${employeeData.firstName} ${employeeData.lastName}`.trim(),
         licenses: employeeData.licenses || [],
         avatarUrl: '',
+        profileComplete: false, // Default for new employees
     };
     const docRef = await addDoc(employeesCollection, dataToCreate);
     return docRef.id;
@@ -139,4 +141,3 @@ export const getEmployeeSnapshot = async (employeeId: string, asOf: Date): Promi
 
     return snapshotData;
 };
-
