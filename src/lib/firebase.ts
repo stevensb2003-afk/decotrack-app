@@ -2,6 +2,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -9,7 +10,7 @@ import { getFirestore } from "firebase/firestore";
 const firebaseConfig = {
   "projectId": "decotrack-l9y8l",
   "appId": "1:602878187874:web:95bbedd4e76e455e99f43b",
-  "storageBucket": "decotrack-l9y8l.firebasestorage.app",
+  "storageBucket": "decotrack-l9y8l.appspot.com",
   "apiKey": "AIzaSyCiNiYFmNKgDT93rre5cAwHFonVs6FVgRA",
   "authDomain": "decotrack-l9y8l.firebaseapp.com",
   "measurementId": "",
@@ -20,5 +21,6 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
-export { app, auth, db };
+export { app, auth, db, storage };

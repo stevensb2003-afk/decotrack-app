@@ -1,6 +1,7 @@
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, doc, query, where } from 'firebase/firestore';
 import { Timestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export type License = {
     type: string;
@@ -35,6 +36,13 @@ export type Employee = {
 };
 
 const employeesCollection = collection(db, 'employees');
+
+export const uploadFile = async (file: File, path: string): Promise<string> => {
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    return downloadURL;
+};
 
 export const getAllEmployees = async (): Promise<Employee[]> => {
     const snapshot = await getDocs(employeesCollection);

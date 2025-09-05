@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Employee, License, getAllEmployees, createEmployee, updateEmployee } from '@/services/employeeService';
+import { Employee, License, getAllEmployees, createEmployee, updateEmployee, uploadFile } from '@/services/employeeService';
 import { ChangeRequest, getPendingChangeRequests, updateChangeRequestStatus } from '@/services/changeRequestService';
 import { Switch } from '../ui/switch';
 import { useAuth } from '@/hooks/use-auth';
@@ -375,29 +375,40 @@ export default function HRDashboard() {
       }
   }
 
-  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>, isNew: boolean, field: 'idAttachmentUrl' | 'licenseAttachmentUrl', licenseIndex?: number) => {
+  const handleAttachmentChange = async (e: React.ChangeEvent<HTMLInputElement>, isNew: boolean, field: 'idAttachmentUrl' | 'licenseAttachmentUrl', licenseIndex?: number) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Mock upload
-      const mockUrl = `https://fake-storage.com/${file.name}`;
-      if (isNew) {
-        if (field === 'idAttachmentUrl') {
-          setNewEmployeeData({ ...newEmployeeData, idAttachmentUrl: mockUrl });
-        } else if (field === 'licenseAttachmentUrl' && licenseIndex !== undefined) {
-          const newLicenses = [...(newEmployeeData.licenses || [])];
-          newLicenses[licenseIndex] = { ...newLicenses[licenseIndex], attachmentUrl: mockUrl };
-          setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
+      toast({ title: "Uploading File...", description: "Please wait." });
+      try {
+        const path = field === 'idAttachmentUrl' 
+          ? `id_attachments/${Date.now()}_${file.name}`
+          : `license_attachments/${Date.now()}_${file.name}`;
+          
+        const downloadURL = await uploadFile(file, path);
+
+        if (isNew) {
+            if (field === 'idAttachmentUrl') {
+                setNewEmployeeData({ ...newEmployeeData, idAttachmentUrl: downloadURL });
+            } else if (field === 'licenseAttachmentUrl' && licenseIndex !== undefined) {
+                const newLicenses = [...(newEmployeeData.licenses || [])];
+                newLicenses[licenseIndex] = { ...newLicenses[licenseIndex], attachmentUrl: downloadURL };
+                setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
+            }
+        } else if (selectedEmployee) {
+            if (field === 'idAttachmentUrl') {
+                setSelectedEmployee({ ...selectedEmployee, idAttachmentUrl: downloadURL });
+            } else if (field === 'licenseAttachmentUrl' && licenseIndex !== undefined) {
+                const newLicenses = [...(selectedEmployee.licenses || [])];
+                newLicenses[licenseIndex] = { ...newLicenses[licenseIndex], attachmentUrl: downloadURL };
+                setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
+            }
         }
-      } else if (selectedEmployee) {
-        if (field === 'idAttachmentUrl') {
-          setSelectedEmployee({ ...selectedEmployee, idAttachmentUrl: mockUrl });
-        } else if (field === 'licenseAttachmentUrl' && licenseIndex !== undefined) {
-          const newLicenses = [...(selectedEmployee.licenses || [])];
-          newLicenses[licenseIndex] = { ...newLicenses[licenseIndex], attachmentUrl: mockUrl };
-          setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
-        }
+        toast({ title: "Attachment Uploaded", description: "The file has been saved." });
+
+      } catch (error) {
+        toast({ title: "Upload Failed", description: "Could not upload the file. Please try again.", variant: "destructive"});
+        console.error("File upload error:", error);
       }
-      toast({ title: "Attachment Uploaded", description: "This is a mock upload. The file was not saved." });
     }
   };
 
@@ -657,7 +668,7 @@ export default function HRDashboard() {
                                     <Label htmlFor="id-number-create">ID Number</Label>
                                     <div className="flex items-center gap-2">
                                         <Input id="id-number-create" value={newEmployeeData.idNumber} onChange={e => setNewEmployeeData({...newEmployeeData, idNumber: e.target.value})} className="flex-grow"/>
-                                        <input type="file" ref={idAttachmentRef} onChange={(e) => handleAttachmentChange(e, true, 'idAttachmentUrl')} className="hidden" />
+                                        <input type="file" ref={idAttachmentRef} onChange={(e) => handleAttachmentChange(e, true, 'idAttachmentUrl')} className="hidden" accept="image/*,.pdf" />
                                         <Button variant="outline" size="icon" onClick={() => {
                                             if (newEmployeeData.idAttachmentUrl) {
                                                 window.open(newEmployeeData.idAttachmentUrl, '_blank');
@@ -767,7 +778,7 @@ export default function HRDashboard() {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, true)} className="flex-grow"/>
-                                                    <input type="file" ref={el => licenseAttachmentRefs.current[index] = el} onChange={e => handleAttachmentChange(e, true, 'licenseAttachmentUrl', index)} className="hidden" />
+                                                    <input type="file" ref={el => licenseAttachmentRefs.current[index] = el} onChange={e => handleAttachmentChange(e, true, 'licenseAttachmentUrl', index)} className="hidden" accept="image/*,.pdf"/>
                                                     <Button variant="outline" size="icon" onClick={() => {
                                                         if (license.attachmentUrl) {
                                                             window.open(license.attachmentUrl, '_blank');
@@ -940,7 +951,7 @@ export default function HRDashboard() {
                             <Label htmlFor="update-idNumber">ID Number</Label>
                              <div className="flex items-center gap-2">
                                 <Input id="update-idNumber" value={selectedEmployee.idNumber || ''} onChange={(e) => setSelectedEmployee({...selectedEmployee, idNumber: e.target.value})} className="flex-grow"/>
-                                <input type="file" ref={idAttachmentRef} onChange={(e) => handleAttachmentChange(e, false, 'idAttachmentUrl')} className="hidden" />
+                                <input type="file" ref={idAttachmentRef} onChange={(e) => handleAttachmentChange(e, false, 'idAttachmentUrl')} className="hidden" accept="image/*,.pdf" />
                                 <Button variant="outline" size="icon" onClick={() => {
                                     if (selectedEmployee.idAttachmentUrl) {
                                         window.open(selectedEmployee.idAttachmentUrl, '_blank');
@@ -1068,7 +1079,7 @@ export default function HRDashboard() {
                                         </div>
                                          <div className="flex items-center gap-2">
                                             <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, false)} />
-                                            <input type="file" ref={el => licenseAttachmentRefs.current[index] = el} onChange={e => handleAttachmentChange(e, false, 'licenseAttachmentUrl', index)} className="hidden" />
+                                            <input type="file" ref={el => licenseAttachmentRefs.current[index] = el} onChange={e => handleAttachmentChange(e, false, 'licenseAttachmentUrl', index)} className="hidden" accept="image/*,.pdf"/>
                                             <Button variant="outline" size="icon" onClick={() => {
                                                 if (license.attachmentUrl) {
                                                     window.open(license.attachmentUrl, '_blank');
@@ -1194,6 +1205,7 @@ export default function HRDashboard() {
     </div>
   );
 }
+
 
 
 
