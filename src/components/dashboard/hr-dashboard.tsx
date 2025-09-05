@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -25,7 +26,7 @@ import { Switch } from '../ui/switch';
 import { useAuth } from '@/hooks/use-auth';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
-import { format } from 'date-fns';
+import { format, differenceInYears, differenceInMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
 import { updateUserPassword } from '@/services/userService';
@@ -315,9 +316,7 @@ export default function HRDashboard() {
   const handleSaveChanges = async () => {
     if (!selectedEmployee) return;
 
-    const { id, ...dataToUpdate } = selectedEmployee;
-    
-    await updateEmployee(id, dataToUpdate);
+    await updateEmployee(selectedEmployee.id, selectedEmployee);
 
     toast({
         title: "Record Updated",
@@ -568,6 +567,21 @@ export default function HRDashboard() {
   };
 
   const benefitApplicabilityOptions: BenefitApplicability[] = ['All', 'Employee', 'Manager', 'HR'];
+
+  const calculateSeniority = (hireDate: Timestamp): string => {
+    const today = new Date();
+    const start = hireDate.toDate();
+    const years = differenceInYears(today, start);
+    const months = differenceInMonths(today, start) % 12;
+
+    const yearString = years > 0 ? `${years} year${years > 1 ? 's' : ''}` : '';
+    const monthString = months > 0 ? `${months} month${months > 1 ? 's' : ''}` : '';
+
+    if (years > 0 && months > 0) {
+        return `${yearString}, ${monthString}`;
+    }
+    return yearString || monthString || 'Less than a month';
+  };
 
 
   return (
@@ -1195,11 +1209,12 @@ export default function HRDashboard() {
                         <div className="grid grid-cols-2"><Label>Email</Label><p>{selectedEmployee.email}</p></div>
                         <div className="grid grid-cols-2"><Label>Role</Label><p>{selectedEmployee.role}</p></div>
                         <div className="grid grid-cols-2"><Label>ID Type</Label><p>{selectedEmployee.idType}</p></div>
-                        <div className="grid grid-cols-2"><Label>ID Number</Label><p>{selectedEmployee.idNumber}</p></div>
-                        <div className="grid grid-cols-2"><Label>Cellphone</Label><p>{selectedEmployee.cellphoneNumber}</p></div>
-                        <div className="grid grid-cols-2"><Label>Nationality</Label><p>{selectedEmployee.nationality}</p></div>
+                        <div className="grid grid-cols-2"><Label>ID Number</Label><p>{selectedEmployee.idNumber || 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Cellphone</Label><p>{selectedEmployee.cellphoneNumber || 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Nationality</Label><p>{selectedEmployee.nationality || 'N/A'}</p></div>
                         <div className="grid grid-cols-2"><Label>Birth Date</Label><p>{selectedEmployee.birthDate ? format(selectedEmployee.birthDate.toDate(), "PPP") : 'N/A'}</p></div>
                         <div className="grid grid-cols-2"><Label>Hire Date</Label><p>{selectedEmployee.hireDate ? format(selectedEmployee.hireDate.toDate(), "PPP") : 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Seniority</Label><p>{calculateSeniority(selectedEmployee.hireDate)}</p></div>
                         <div className="grid grid-cols-2"><Label>Location</Label><p>{selectedEmployee.locationName || 'N/A'}</p></div>
                         <div className="grid grid-cols-2"><Label>Manager</Label><p>{selectedEmployee.managerName || 'N/A'}</p></div>
                         <div className="grid grid-cols-2"><Label>Employment Type</Label><p>{selectedEmployee.employmentType}</p></div>
@@ -1310,3 +1325,4 @@ export default function HRDashboard() {
 }
 
     
+
