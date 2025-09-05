@@ -30,7 +30,8 @@ export default function ProfilePage() {
     email: '', 
     role: '', 
     cellphoneNumber: '',
-    birthDate: new Date()
+    birthDate: new Date(),
+    idNumber: '', // Initialize idNumber to prevent uncontrolled input error
   });
   const [pendingRequest, setPendingRequest] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,7 +52,8 @@ export default function ProfilePage() {
                   email: employee.email, 
                   role: employee.role,
                   cellphoneNumber: employee.cellphoneNumber || '',
-                  birthDate: employee.birthDate ? employee.birthDate.toDate() : new Date()
+                  birthDate: employee.birthDate ? employee.birthDate.toDate() : new Date(),
+                  idNumber: employee.idNumber || '', // Ensure idNumber is always a string
               });
               setAvatarUrl(employee.avatarUrl || `https://i.pravatar.cc/150?u=${employee.email}`);
               const hasPending = await getPendingRequestForEmployee(employee.id);
@@ -91,10 +93,13 @@ export default function ProfilePage() {
       changes.push({ fieldName: 'Email', oldValue: employeeData.email, newValue: formData.email });
     }
     if(formData.cellphoneNumber !== employeeData.cellphoneNumber) {
-        changes.push({ fieldName: 'cellphoneNumber', oldValue: employeeData.cellphoneNumber, newValue: formData.cellphoneNumber})
+        changes.push({ fieldName: 'cellphoneNumber', oldValue: employeeData.cellphoneNumber || '', newValue: formData.cellphoneNumber})
     }
     if(format(formData.birthDate, "PPP") !== format(employeeData.birthDate.toDate(), "PPP")) {
         changes.push({ fieldName: 'birthDate', oldValue: format(employeeData.birthDate.toDate(), "PPP"), newValue: format(formData.birthDate, "PPP")})
+    }
+    if (formData.idNumber !== employeeData.idNumber) {
+        changes.push({ fieldName: 'idNumber', oldValue: employeeData.idNumber || '', newValue: formData.idNumber });
     }
 
     if (changes.length === 0) {
@@ -279,6 +284,10 @@ export default function ProfilePage() {
             <div>
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" value={formData.email} onChange={handleInputChange} disabled={!isEditing} />
+            </div>
+             <div>
+                <Label htmlFor="idNumber">ID Number</Label>
+                <Input id="idNumber" value={formData.idNumber} onChange={handleInputChange} disabled={!isEditing} />
             </div>
             <div>
               <Label htmlFor="cellphoneNumber">Cellphone</Label>
