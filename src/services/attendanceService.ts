@@ -10,6 +10,8 @@ export type AttendanceRecord = {
   employeeId: string;
   type: 'Entry' | 'Exit';
   timestamp: Timestamp;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type AttendanceDetail = {

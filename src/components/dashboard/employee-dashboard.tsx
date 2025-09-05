@@ -33,6 +33,8 @@ import { Badge } from "../ui/badge";
 import { getEmployeeScheduleAssignments, Shift, getShifts, EmployeeScheduleAssignment, RotationPattern, getRotationPatterns, Holiday, getHolidays } from "@/services/scheduleService";
 import { Switch } from "../ui/switch";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
+import { Location, getAllLocations } from "@/services/locationService";
+import haversine from 'haversine-distance';
 
 
 const timeOffReasons: TimeOffReason[] = [
@@ -64,6 +66,7 @@ export default function EmployeeDashboard() {
   }>({ reason: '', startDate: undefined, endDate: undefined });
   const [vacationBank, setVacationBank] = useState<VacationBank | null>(null);
   const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   
   // Schedule state
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -79,6 +82,9 @@ export default function EmployeeDashboard() {
     if (user?.email) {
       setIsLoading(true);
       const employeeData = await getEmployeeByEmail(user.email);
+      const allLocations = await getAllLocations();
+      setLocations(allLocations);
+
       if (employeeData) {
         setEmployee(employeeData);
         const attendanceRecords = await getEmployeeAttendance(employeeData.id, 5);
@@ -162,22 +168,72 @@ export default function EmployeeDashboard() {
   }, [user]);
 
   const handleMarking = async (type: 'Entry' | 'Exit') => {
-    if (!employee) return;
+    if (!employee || !employee.locationId) {
+        toast({ title: "Error", description: "You are not assigned to a location.", variant: "destructive" });
+        return;
+    }
 
-    const newRecord = { 
-        employeeId: employee.id, 
-        type, 
-        timestamp: Timestamp.now() 
-    };
-    await markAttendance(newRecord);
+    const assignedLocation = locations.find(l => l.id === employee.locationId);
+    if (!assignedLocation || !assignedLocation.latitude || !assignedLocation.longitude) {
+        toast({ title: "Error", description: "Your assigned location does not have coordinates set.", variant: "destructive" });
+        return;
+    }
     
-    fetchEmployeeData();
+    setIsLoading(true);
 
-    toast({
-      title: `Marked ${type} Successfully`,
-      description: `Your ${type.toLowerCase()} at ${newRecord.timestamp.toDate().toLocaleTimeString()} has been recorded.`,
-    });
+    navigator.geolocation.getCurrentPosition(
+        async (position) => {
+            const userCoords = {
+                lat: position.coords.latitude,
+                lon: position.coords.longitude
+            };
+
+            const locationCoords = {
+                lat: assignedLocation.latitude!,
+                lon: assignedLocation.longitude!
+            };
+
+            const distance = haversine(userCoords, locationCoords);
+
+            if (distance > 100) { // 100 meters radius
+                toast({
+                    title: "Out of Range",
+                    description: `You must be within 100 meters of your assigned location to clock in/out. You are currently ${distance.toFixed(0)}m away.`,
+                    variant: "destructive"
+                });
+                setIsLoading(false);
+                return;
+            }
+
+            const newRecord: Omit<AttendanceRecord, 'id'> = {
+                employeeId: employee.id,
+                type,
+                timestamp: Timestamp.now(),
+                latitude: userCoords.lat,
+                longitude: userCoords.lon,
+            };
+
+            await markAttendance(newRecord);
+            fetchEmployeeData();
+            toast({
+                title: `Marked ${type} Successfully`,
+                description: `Your ${type.toLowerCase()} at ${newRecord.timestamp.toDate().toLocaleTimeString()} has been recorded.`,
+            });
+            setIsLoading(false);
+        },
+        (error) => {
+            toast({
+                title: "Location Error",
+                description: "Could not get your location. Please ensure you have location services enabled and have granted permission.",
+                variant: "destructive"
+            });
+            console.error("Geolocation error:", error);
+            setIsLoading(false);
+        },
+        { enableHighAccuracy: true }
+    );
   };
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewRequest(prev => ({...prev, attachment: e.target.files ? e.target.files[0] : null}));
@@ -374,13 +430,13 @@ export default function EmployeeDashboard() {
             <CardDescription>Mark your daily entry and exit points.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col sm:flex-row gap-4">
-            <Button onClick={() => handleMarking('Entry')} disabled={lastAction === 'Entry'} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90" size="lg">
+            <Button onClick={() => handleMarking('Entry')} disabled={lastAction === 'Entry' || isLoading} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90" size="lg">
               <ArrowRight className="mr-2 h-5 w-5" />
-              Mark Entry (Clock In)
+              {isLoading && lastAction !== 'Exit' ? 'Validating...' : 'Mark Entry (Clock In)'}
             </Button>
-            <Button onClick={() => handleMarking('Exit')} disabled={lastAction !== 'Entry'} className="flex-1" size="lg" variant="destructive">
+            <Button onClick={() => handleMarking('Exit')} disabled={lastAction !== 'Entry' || isLoading} className="flex-1" size="lg" variant="destructive">
               <ArrowLeft className="mr-2 h-5 w-5" />
-              Mark Exit (Clock Out)
+              {isLoading && lastAction === 'Exit' ? 'Validating...' : 'Mark Exit (Clock Out)'}
             </Button>
           </CardContent>
         </Card>
