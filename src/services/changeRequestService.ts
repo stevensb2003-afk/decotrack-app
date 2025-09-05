@@ -1,4 +1,7 @@
 
+// This file is being kept for potential future use but is currently not used
+// by the main application flow, which now uses scheduledChangeService.
+// If you need to re-enable a manual approval flow, you can integrate this service again.
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc, query, where } from 'firebase/firestore';
 

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -107,6 +108,7 @@ export default function ProfilePage() {
       return;
     }
     
+    // NOTE: This now uses a deprecated flow. Scheduling changes is handled in HR Dashboard.
     for (const change of changes) {
         await createChangeRequest({
             employeeId: employeeData.id,
@@ -136,6 +138,7 @@ export default function ProfilePage() {
       return;
     }
     if (user && employeeData) {
+        // NOTE: This now uses a deprecated flow.
       await createChangeRequest({
         employeeId: user.id,
         employeeName: employeeData.fullName,
@@ -261,7 +264,7 @@ export default function ProfilePage() {
         <CardHeader className="flex flex-row items-center justify-between">
             <div>
                 <CardTitle>Personal Information</CardTitle>
-                <CardDescription>View and request changes to your personal details.</CardDescription>
+                <CardDescription>View and request changes to your personal details. Requests are approved by HR.</CardDescription>
             </div>
             {!isEditing && (
                 <Button onClick={() => setIsEditing(true)} disabled={pendingRequest || user?.role === 'admin'}>
