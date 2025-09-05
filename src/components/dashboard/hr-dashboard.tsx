@@ -1011,16 +1011,16 @@ export default function HRDashboard() {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label htmlFor="update-firstName">First Name</Label>
-                                <Input id="update-firstName" value={selectedEmployee.firstName} onChange={(e) => setSelectedEmployee({...selectedEmployee, firstName: e.target.value})} />
+                                <Input id="update-firstName" value={selectedEmployee.firstName} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, firstName: e.target.value} : null)} />
                             </div>
                              <div>
                                 <Label htmlFor="update-lastName">Last Name</Label>
-                                <Input id="update-lastName" value={selectedEmployee.lastName} onChange={(e) => setSelectedEmployee({...selectedEmployee, lastName: e.target.value})} />
+                                <Input id="update-lastName" value={selectedEmployee.lastName} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, lastName: e.target.value} : null)} />
                             </div>
                         </div>
                         <div>
                             <Label htmlFor="update-role">Role</Label>
-                            <Select value={selectedEmployee.role} onValueChange={(val: Employee['role']) => setSelectedEmployee({...selectedEmployee, role: val})}>
+                            <Select value={selectedEmployee.role} onValueChange={(val: Employee['role']) => setSelectedEmployee(prev => prev ? {...prev, role: val} : null)}>
                                 <SelectTrigger><SelectValue/></SelectTrigger>
                                 <SelectContent>
                                     {employeeRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
@@ -1029,7 +1029,7 @@ export default function HRDashboard() {
                         </div>
                         <div>
                             <Label htmlFor="update-idType">ID Type</Label>
-                            <Select value={selectedEmployee.idType} onValueChange={(val: Employee['idType']) => setSelectedEmployee({...selectedEmployee, idType: val})}>
+                            <Select value={selectedEmployee.idType} onValueChange={(val: Employee['idType']) => setSelectedEmployee(prev => prev ? {...prev, idType: val} : null)}>
                                 <SelectTrigger><SelectValue/></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="ID Nacional">ID Nacional</SelectItem>
@@ -1041,15 +1041,15 @@ export default function HRDashboard() {
                         </div>
                         <div>
                             <Label htmlFor="update-idNumber">ID Number</Label>
-                            <Input id="update-idNumber" value={selectedEmployee.idNumber || ''} onChange={(e) => setSelectedEmployee({...selectedEmployee, idNumber: e.target.value})} />
+                            <Input id="update-idNumber" value={selectedEmployee.idNumber || ''} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, idNumber: e.target.value} : null)} />
                         </div>
                         <div>
                             <Label htmlFor="update-cellphone">Cellphone</Label>
-                            <Input id="update-cellphone" value={selectedEmployee.cellphoneNumber || ''} onChange={(e) => setSelectedEmployee({...selectedEmployee, cellphoneNumber: e.target.value})} />
+                            <Input id="update-cellphone" value={selectedEmployee.cellphoneNumber || ''} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, cellphoneNumber: e.target.value} : null)} />
                         </div>
                         <div>
                             <Label htmlFor="update-nationality">Nationality</Label>
-                            <Select value={selectedEmployee.nationality} onValueChange={val => setSelectedEmployee({...selectedEmployee, nationality: val})}>
+                            <Select value={selectedEmployee.nationality} onValueChange={val => setSelectedEmployee(prev => prev ? {...prev, nationality: val} : null)}>
                                 <SelectTrigger><SelectValue placeholder="Select Nationality"/></SelectTrigger>
                                 <SelectContent>
                                     {countries.map(c => <SelectItem key={c.value} value={c.label}>{c.label}</SelectItem>)}
@@ -1086,7 +1086,7 @@ export default function HRDashboard() {
                         </div>
                          <div>
                             <Label htmlFor="update-employment-type">Employment Type</Label>
-                            <Select value={selectedEmployee.employmentType} onValueChange={(val: Employee['employmentType']) => setSelectedEmployee({...selectedEmployee, employmentType: val})}>
+                            <Select value={selectedEmployee.employmentType} onValueChange={(val: Employee['employmentType']) => setSelectedEmployee(prev => prev ? {...prev, employmentType: val} : null)}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     {employmentTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -1095,7 +1095,7 @@ export default function HRDashboard() {
                         </div>
                         <div>
                             <Label htmlFor="update-salary-type">Salary Type</Label>
-                            <Select value={selectedEmployee.salaryType} onValueChange={(val: Employee['salaryType']) => setSelectedEmployee({...selectedEmployee, salaryType: val})}>
+                            <Select value={selectedEmployee.salaryType} onValueChange={(val: Employee['salaryType']) => setSelectedEmployee(prev => prev ? {...prev, salaryType: val} : null)}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     {salaryTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -1104,7 +1104,7 @@ export default function HRDashboard() {
                         </div>
                         <div>
                             <Label htmlFor="update-salary">Salary (CRC)</Label>
-                            <Input id="update-salary" type="number" value={selectedEmployee.salary || 0} onChange={(e) => setSelectedEmployee({...selectedEmployee, salary: parseFloat(e.target.value) || 0})} />
+                            <Input id="update-salary" type="number" value={selectedEmployee.salary || 0} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, salary: parseFloat(e.target.value) || 0} : null)} />
                         </div>
                         <div>
                             <Label htmlFor="update-location">Location</Label>
@@ -1121,7 +1121,7 @@ export default function HRDashboard() {
                         </div>
                         <div>
                             <Label htmlFor="update-status">Status</Label>
-                            <Select value={selectedEmployee.status} onValueChange={(val: Employee['status']) => setSelectedEmployee({...selectedEmployee, status: val})}>
+                            <Select value={selectedEmployee.status} onValueChange={(val: Employee['status']) => setSelectedEmployee(prev => prev ? {...prev, status: val} : null)}>
                                 <SelectTrigger><SelectValue/></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Active">Active</SelectItem>
@@ -1133,7 +1133,7 @@ export default function HRDashboard() {
 
                         <div className="flex items-center space-x-2">
                            <Label htmlFor="update-license">Has License?</Label>
-                           <Switch id="update-license" checked={selectedEmployee.licensePermission} onCheckedChange={val => setSelectedEmployee({...selectedEmployee, licensePermission: val, licenses: val ? (selectedEmployee.licenses || []) : []})} />
+                           <Switch id="update-license" checked={selectedEmployee.licensePermission} onCheckedChange={val => setSelectedEmployee(prev => prev ? {...prev, licensePermission: val, licenses: val ? (selectedEmployee.licenses || []) : []} : null)} />
                         </div>
                         {selectedEmployee.licensePermission && (
                             <div className="space-y-4 rounded-md border p-4">
@@ -1308,3 +1308,5 @@ export default function HRDashboard() {
     </div>
   );
 }
+
+    
