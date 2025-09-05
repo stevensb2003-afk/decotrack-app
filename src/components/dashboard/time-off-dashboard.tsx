@@ -55,6 +55,8 @@ export default function TimeOffDashboard() {
     }
   }
 
+  const employeeMap = new Map(employees.map(e => [e.id, e.fullName]));
+
   const filteredRequests = requests.filter(r => {
       const statusMatch = r.status === filterStatus;
       const employeeMatch = filterEmployee === 'all' || r.employeeId === filterEmployee;
@@ -125,7 +127,7 @@ export default function TimeOffDashboard() {
             <TableBody>
               {filteredRequests.map((req) => (
                 <TableRow key={req.id}>
-                  <TableCell className="font-medium">{req.employeeName}</TableCell>
+                  <TableCell className="font-medium">{employeeMap.get(req.employeeId) || req.employeeName}</TableCell>
                   <TableCell>{req.reason}</TableCell>
                   <TableCell>{format(req.startDate.toDate(), "PPP")} - {format(req.endDate.toDate(), "PPP")}</TableCell>
                   <TableCell>
