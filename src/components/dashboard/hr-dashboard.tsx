@@ -375,40 +375,43 @@ export default function HRDashboard() {
       }
   }
 
-  const handleAttachmentChange = async (e: React.ChangeEvent<HTMLInputElement>, isNew: boolean, field: 'idAttachmentUrl' | 'licenseAttachmentUrl', licenseIndex?: number) => {
+  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>, isNew: boolean, field: 'idAttachmentUrl' | 'licenseAttachmentUrl', licenseIndex?: number) => {
     const file = e.target.files?.[0];
     if (file) {
-      toast({ title: "Uploading File...", description: "Please wait." });
-      try {
-        const path = field === 'idAttachmentUrl' 
-          ? `id_attachments/${Date.now()}_${file.name}`
-          : `license_attachments/${Date.now()}_${file.name}`;
-          
-        const downloadURL = await uploadFile(file, path);
+      const upload = async () => {
+        toast({ title: "Uploading File...", description: "Please wait." });
+        try {
+          const path = field === 'idAttachmentUrl' 
+            ? `id_attachments/${Date.now()}_${file.name}`
+            : `license_attachments/${Date.now()}_${file.name}`;
+            
+          const downloadURL = await uploadFile(file, path);
 
-        if (isNew) {
-            if (field === 'idAttachmentUrl') {
-                setNewEmployeeData({ ...newEmployeeData, idAttachmentUrl: downloadURL });
-            } else if (field === 'licenseAttachmentUrl' && licenseIndex !== undefined) {
-                const newLicenses = [...(newEmployeeData.licenses || [])];
-                newLicenses[licenseIndex] = { ...newLicenses[licenseIndex], attachmentUrl: downloadURL };
-                setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
-            }
-        } else if (selectedEmployee) {
-            if (field === 'idAttachmentUrl') {
-                setSelectedEmployee({ ...selectedEmployee, idAttachmentUrl: downloadURL });
-            } else if (field === 'licenseAttachmentUrl' && licenseIndex !== undefined) {
-                const newLicenses = [...(selectedEmployee.licenses || [])];
-                newLicenses[licenseIndex] = { ...newLicenses[licenseIndex], attachmentUrl: downloadURL };
-                setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
-            }
+          if (isNew) {
+              if (field === 'idAttachmentUrl') {
+                  setNewEmployeeData({ ...newEmployeeData, idAttachmentUrl: downloadURL });
+              } else if (field === 'licenseAttachmentUrl' && licenseIndex !== undefined) {
+                  const newLicenses = [...(newEmployeeData.licenses || [])];
+                  newLicenses[licenseIndex] = { ...newLicenses[licenseIndex], attachmentUrl: downloadURL };
+                  setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
+              }
+          } else if (selectedEmployee) {
+              if (field === 'idAttachmentUrl') {
+                  setSelectedEmployee({ ...selectedEmployee, idAttachmentUrl: downloadURL });
+              } else if (field === 'licenseAttachmentUrl' && licenseIndex !== undefined) {
+                  const newLicenses = [...(selectedEmployee.licenses || [])];
+                  newLicenses[licenseIndex] = { ...newLicenses[licenseIndex], attachmentUrl: downloadURL };
+                  setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
+              }
+          }
+          toast({ title: "Attachment Uploaded", description: "The file has been saved." });
+
+        } catch (error) {
+          toast({ title: "Upload Failed", description: "Could not upload the file. Please try again.", variant: "destructive"});
+          console.error("File upload error:", error);
         }
-        toast({ title: "Attachment Uploaded", description: "The file has been saved." });
-
-      } catch (error) {
-        toast({ title: "Upload Failed", description: "Could not upload the file. Please try again.", variant: "destructive"});
-        console.error("File upload error:", error);
       }
+      upload();
     }
   };
 
@@ -1205,6 +1208,7 @@ export default function HRDashboard() {
     </div>
   );
 }
+
 
 
 
