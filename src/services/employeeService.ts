@@ -14,7 +14,7 @@ export type Employee = {
     name: string;
     email: string;
     role: 'Cajero' | 'Chofer' | 'Vendedor' | 'Recursos Humanos' | 'Contabilidad' | 'Marketing' | 'Manager' | 'admin' | 'employee';
-    idType: 'ID Nacional' | 'Pasaporte' | 'Cédula Extranjero';
+    idType: 'ID Nacional' | 'Pasaporte' | 'Cédula Extranjero' | 'DIMEX';
     idNumber: string;
     cellphoneNumber: string;
     licensePermission: boolean;

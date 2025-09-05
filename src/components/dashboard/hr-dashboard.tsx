@@ -618,6 +618,7 @@ export default function HRDashboard() {
                                     <SelectItem value="ID Nacional">ID Nacional</SelectItem>
                                     <SelectItem value="Pasaporte">Pasaporte</SelectItem>
                                     <SelectItem value="Cédula Extranjero">Cédula Extranjero</SelectItem>
+                                    <SelectItem value="DIMEX">DIMEX</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 
@@ -874,6 +875,7 @@ export default function HRDashboard() {
                                     <SelectItem value="ID Nacional">ID Nacional</SelectItem>
                                     <SelectItem value="Pasaporte">Pasaporte</SelectItem>
                                     <SelectItem value="Cédula Extranjero">Cédula Extranjero</SelectItem>
+                                    <SelectItem value="DIMEX">DIMEX</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
