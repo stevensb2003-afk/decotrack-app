@@ -49,12 +49,17 @@ export const createScheduledChanges = async (employeeId: string, changes: {field
 
 
 export const getScheduledChangesForEmployee = async (employeeId: string): Promise<ScheduledChange[]> => {
-  const q = query(scheduledChangesCollection, where("employeeId", "==", employeeId), where("status", "in", ["pending", "applied"]));
+  const q = query(scheduledChangesCollection, where("employeeId", "==", employeeId));
   const snapshot = await getDocs(q);
   const changes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledChange));
   changes.sort((a, b) => b.effectiveDate.toMillis() - a.effectiveDate.toMillis());
   return changes;
 };
+
+export const cancelScheduledChange = async (changeId: string) => {
+    const changeDoc = doc(db, 'scheduledChanges', changeId);
+    await updateDoc(changeDoc, { status: 'cancelled' });
+}
 
 export const applyScheduledChanges = async (): Promise<{ appliedChangesCount: number }> => {
     return await applyScheduledChangesFlow();

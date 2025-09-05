@@ -21,7 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Employee, License, getAllEmployees, createEmployee, updateEmployee, getEmployeeSnapshot } from '@/services/employeeService';
-import { ScheduledChange, createScheduledChanges, getScheduledChangesForEmployee, applyScheduledChanges, createScheduledChange } from '@/services/scheduledChangeService';
+import { ScheduledChange, createScheduledChanges, getScheduledChangesForEmployee, applyScheduledChanges, createScheduledChange, cancelScheduledChange } from '@/services/scheduledChangeService';
 import { ChangeRequest, getPendingChangeRequests, updateChangeRequestStatus } from '@/services/changeRequestService';
 import { Switch } from '../ui/switch';
 import { useAuth } from '@/hooks/use-auth';
@@ -667,7 +667,7 @@ export default function HRDashboard() {
 
   const availableFieldsForScheduling = useMemo(() => {
     const usedFields = new Set(newScheduledChanges.map(c => c.fieldName));
-    return employeeFields.filter(f => !usedFields.has(f.value) || !f.value);
+    return employeeFields.filter(f => !f.value || !usedFields.has(f.value));
   }, [newScheduledChanges]);
 
   const handleApproveRequest = async () => {
@@ -694,6 +694,15 @@ export default function HRDashboard() {
     toast({title: "Request Rejected", variant: "destructive"});
     fetchData();
   };
+
+  const handleCancelScheduledChange = async (changeId: string) => {
+    await cancelScheduledChange(changeId);
+    toast({title: "Change Cancelled", description: "The scheduled change has been cancelled."});
+    if (selectedEmployee) {
+        const changes = await getScheduledChangesForEmployee(selectedEmployee.id);
+        setScheduledChanges(changes);
+    }
+  }
 
 
   return (
@@ -1032,6 +1041,7 @@ export default function HRDashboard() {
                                     <TableHead>Field</TableHead>
                                     <TableHead>New Value</TableHead>
                                     <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -1041,9 +1051,20 @@ export default function HRDashboard() {
                                         <TableCell>{change.fieldName}</TableCell>
                                         <TableCell>{getChangeValueLabel(change)}</TableCell>
                                         <TableCell>
-                                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${change.status === 'applied' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                                 change.status === 'applied' ? 'bg-blue-100 text-blue-800' : 
+                                                 change.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                                 'bg-gray-100 text-gray-800'
+                                             }`}>
                                                 {change.status}
                                             </span>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {change.status === 'pending' && (
+                                                <Button variant="ghost" size="icon" onClick={() => handleCancelScheduledChange(change.id)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -1161,7 +1182,7 @@ export default function HRDashboard() {
                                 <SelectTrigger><SelectValue placeholder="Select a field" /></SelectTrigger>
                                 <SelectContent>
                                     {change.fieldName && <SelectItem value={change.fieldName} disabled>{employeeFields.find(f => f.value === change.fieldName)?.label}</SelectItem>}
-                                    {availableFieldsForScheduling.map(field => <SelectItem key={field.value} value={field.value}>{field.label}</SelectItem>)}
+                                    {availableFieldsForScheduling.filter(f => f.value).map(field => <SelectItem key={field.value} value={field.value}>{field.label}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
