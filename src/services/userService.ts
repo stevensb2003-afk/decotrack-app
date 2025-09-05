@@ -18,9 +18,18 @@ export type SystemUser = {
 
 const usersCollection = collection(db, 'systemUsers');
 
+const toSystemUser = (doc: any): SystemUser => {
+    const data = doc.data();
+    return {
+        id: doc.id,
+        ...data,
+        fullName: `${data.firstName || ''} ${data.lastName || ''}`.trim(),
+    } as SystemUser;
+}
+
 export const getAllUsers = async (): Promise<SystemUser[]> => {
   const snapshot = await getDocs(usersCollection);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SystemUser));
+  return snapshot.docs.map(toSystemUser);
 };
 
 const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | null> => {
@@ -80,7 +89,7 @@ export const getUserByEmail = async (email: string): Promise<SystemUser | null> 
         return null;
     }
     const docData = snapshot.docs[0];
-    return { id: docData.id, ...docData.data() } as SystemUser;
+    return toSystemUser(docData);
 };
 
 
