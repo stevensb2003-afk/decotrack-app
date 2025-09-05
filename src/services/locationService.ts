@@ -1,4 +1,5 @@
 
+
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc } from 'firebase/firestore';
 
@@ -8,6 +9,8 @@ export type Location = {
     managerId?: string;
     managerName?: string;
     address?: string;
+    latitude?: number;
+    longitude?: number;
 };
 
 const locationsCollection = collection(db, 'locations');

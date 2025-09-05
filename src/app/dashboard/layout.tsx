@@ -1,5 +1,4 @@
 
-"use client";
 
 import DashboardClientLayout from "@/components/dashboard/dashboard-client-layout";
 
