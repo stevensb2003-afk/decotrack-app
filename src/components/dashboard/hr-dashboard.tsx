@@ -1092,7 +1092,7 @@ export default function HRDashboard() {
                             >
                                 <SelectTrigger><SelectValue placeholder="Select a field" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value={change.fieldName} disabled>{employeeFields.find(f => f.value === change.fieldName)?.label}</SelectItem>
+                                    {change.fieldName && <SelectItem value={change.fieldName} disabled>{employeeFields.find(f => f.value === change.fieldName)?.label}</SelectItem>}
                                     {availableFieldsForScheduling.map(field => <SelectItem key={field.value} value={field.value}>{field.label}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -1119,3 +1119,5 @@ export default function HRDashboard() {
     </div>
   );
 }
+
+    
