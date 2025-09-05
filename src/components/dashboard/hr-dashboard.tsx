@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter, FileText, Gift } from 'lucide-react';
+import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter, FileText, Gift, Upload } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +32,7 @@ import { updateUserPassword } from '@/services/userService';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Location, createLocation, getAllLocations, updateLocation } from '@/services/locationService';
-import { Benefit, createBenefit, getAllBenefits, updateBenefit, deleteBenefit } from '@/services/benefitService';
+import { Benefit, createBenefit, getAllBenefits, updateBenefit, deleteBenefit, BenefitApplicability } from '@/services/benefitService';
 import { Textarea } from '../ui/textarea';
 
 const initialNewEmployeeData: Omit<Employee, 'id'> = {
@@ -279,7 +279,7 @@ export default function HRDashboard() {
 
   const [isBenefitDialogOpen, setIsBenefitDialogOpen] = useState(false);
   const [editingBenefit, setEditingBenefit] = useState<Benefit | null>(null);
-  const [newBenefitData, setNewBenefitData] = useState<Omit<Benefit, 'id' | 'locationName'>>({ name: '', description: '', locationId: ''});
+  const [newBenefitData, setNewBenefitData] = useState<Omit<Benefit, 'id' | 'locationName'>>({ name: '', description: '', locationId: '', appliesTo: 'All' });
 
 
   const { toast } = useToast();
@@ -529,18 +529,19 @@ export default function HRDashboard() {
         setNewBenefitData({
             name: benefit.name,
             description: benefit.description,
-            locationId: benefit.locationId
+            locationId: benefit.locationId,
+            appliesTo: benefit.appliesTo
         });
     } else {
         setEditingBenefit(null);
-        setNewBenefitData({ name: '', description: '', locationId: '' });
+        setNewBenefitData({ name: '', description: '', locationId: '', appliesTo: 'All' });
     }
     setIsBenefitDialogOpen(true);
   };
 
   const handleSaveBenefit = async () => {
-    if (!newBenefitData.name || !newBenefitData.locationId) {
-        toast({title: "Name and location are required", variant: "destructive"});
+    if (!newBenefitData.name || !newBenefitData.locationId || !newBenefitData.appliesTo) {
+        toast({title: "All fields are required", variant: "destructive"});
         return;
     }
     const location = locations.find(l => l.id === newBenefitData.locationId);
@@ -564,6 +565,8 @@ export default function HRDashboard() {
     toast({title: "Benefit Deleted"});
     fetchData();
   };
+
+  const benefitApplicabilityOptions: BenefitApplicability[] = ['All', 'Employee', 'Manager', 'HR'];
 
 
   return (
@@ -946,6 +949,7 @@ export default function HRDashboard() {
                                 <TableHead>Benefit Name</TableHead>
                                 <TableHead>Description</TableHead>
                                 <TableHead>Location</TableHead>
+                                <TableHead>Applies To</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -955,6 +959,7 @@ export default function HRDashboard() {
                                     <TableCell>{ben.name}</TableCell>
                                     <TableCell>{ben.description}</TableCell>
                                     <TableCell>{ben.locationName}</TableCell>
+                                    <TableCell>{ben.appliesTo}</TableCell>
                                     <TableCell className="text-right">
                                         <Button variant="ghost" size="icon" onClick={() => handleOpenBenefitDialog(ben)}>
                                             <Pencil className="h-4 w-4"/>
@@ -1266,6 +1271,15 @@ export default function HRDashboard() {
                         <SelectTrigger><SelectValue placeholder="Select a location" /></SelectTrigger>
                         <SelectContent>
                             {locations.map(loc => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                 <div>
+                    <Label htmlFor="benefit-applies">Applies To</Label>
+                    <Select value={newBenefitData.appliesTo} onValueChange={(val: BenefitApplicability) => setNewBenefitData({...newBenefitData, appliesTo: val})}>
+                        <SelectTrigger><SelectValue placeholder="Select who it applies to" /></SelectTrigger>
+                        <SelectContent>
+                            {benefitApplicabilityOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
                         </SelectContent>
                     </Select>
                 </div>

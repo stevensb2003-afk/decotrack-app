@@ -1,12 +1,15 @@
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 
+export type BenefitApplicability = 'Employee' | 'Manager' | 'HR' | 'All';
+
 export type Benefit = {
     id: string;
     name: string;
     description: string;
     locationId: string;
     locationName: string;
+    appliesTo: BenefitApplicability;
 };
 
 const benefitsCollection = collection(db, 'benefits');
