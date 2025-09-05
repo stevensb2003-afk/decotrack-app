@@ -296,9 +296,9 @@ export default function HRDashboard() {
 
   const [newEmployeeData, setNewEmployeeData] = useState<Omit<Employee, 'id' | 'fullName'>>(initialNewEmployeeData);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
-  const [newLocationName, setNewLocationName] = useState("");
+  const [newLocationData, setNewLocationData] = useState<Partial<Location>>({ name: '', managerId: '', address: '', latitude: 0, longitude: 0});
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
-  const [locationManager, setLocationManager] = useState('');
+  
   const [filterLocation, setFilterLocation] = useState('all');
   const [filterEmployee, setFilterEmployee] = useState('all');
 
@@ -409,28 +409,30 @@ export default function HRDashboard() {
   }
 
   const handleSaveLocation = async () => {
-    if (!newLocationName) {
+    if (!newLocationData.name) {
         toast({title: "Location name is required", variant: "destructive"});
         return;
     }
-    const manager = employees.find(e => e.id === locationManager);
+    const manager = employees.find(e => e.id === newLocationData.managerId);
 
-    const locationData = {
-        name: newLocationName,
+    const locationPayload = {
+        name: newLocationData.name,
         managerId: manager?.id || '',
         managerName: manager?.fullName || '',
-    }
+        address: newLocationData.address || '',
+        latitude: newLocationData.latitude || 0,
+        longitude: newLocationData.longitude || 0,
+    };
 
     if (editingLocation) {
-        await updateLocation(editingLocation.id, locationData);
+        await updateLocation(editingLocation.id, locationPayload);
         toast({title: "Location Updated"});
     } else {
-        await createLocation(locationData);
+        await createLocation(locationPayload);
         toast({title: "Location Created"});
     }
     
-    setNewLocationName("");
-    setLocationManager("");
+    setNewLocationData({ name: '', managerId: '', address: '', latitude: 0, longitude: 0});
     setEditingLocation(null);
     setIsLocationDialogOpen(false);
     fetchData();
@@ -438,8 +440,7 @@ export default function HRDashboard() {
   
   const handleOpenLocationDialog = (location: Location | null) => {
     setEditingLocation(location);
-    setNewLocationName(location?.name || "");
-    setLocationManager(location?.managerId || "");
+    setNewLocationData(location || { name: '', managerId: '', address: '', latitude: 0, longitude: 0 });
     setIsLocationDialogOpen(true);
   };
   
@@ -695,7 +696,7 @@ export default function HRDashboard() {
 
   const getAvailableFieldsForScheduling = (currentIndex: number) => {
     const usedFields = new Set(newScheduledChanges.map((c, i) => i === currentIndex ? null : c.fieldName).filter(Boolean));
-    return employeeFields.filter(f => !usedFields.has(f.value));
+    return employeeFields.filter(f => !usedFields.has(f.value) || newScheduledChanges[currentIndex].fieldName === f.value);
   };
 
 
@@ -858,6 +859,7 @@ export default function HRDashboard() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Location Name</TableHead>
+                                <TableHead>Address</TableHead>
                                 <TableHead>Manager</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
@@ -866,6 +868,7 @@ export default function HRDashboard() {
                             {locations.map(loc => (
                                 <TableRow key={loc.id}>
                                     <TableCell>{loc.name}</TableCell>
+                                    <TableCell>{loc.address || 'N/A'}</TableCell>
                                     <TableCell>{loc.managerName || 'Not Assigned'}</TableCell>
                                     <TableCell className="text-right">
                                         <Button variant="ghost" size="icon" onClick={() => handleOpenLocationDialog(loc)}>
@@ -1141,11 +1144,25 @@ export default function HRDashboard() {
             <div className="space-y-4 py-4">
                 <div>
                     <Label htmlFor="location-name">Location Name</Label>
-                    <Input id="location-name" value={newLocationName} onChange={e => setNewLocationName(e.target.value)} placeholder="e.g., Downtown Store"/>
+                    <Input id="location-name" value={newLocationData.name || ''} onChange={e => setNewLocationData({...newLocationData, name: e.target.value})} placeholder="e.g., Downtown Store"/>
+                </div>
+                <div>
+                    <Label htmlFor="location-address">Address</Label>
+                    <Input id="location-address" value={newLocationData.address || ''} onChange={e => setNewLocationData({...newLocationData, address: e.target.value})} placeholder="e.g., 123 Main St, Anytown"/>
+                </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="location-lat">Latitude</Label>
+                        <Input id="location-lat" type="number" value={newLocationData.latitude || ''} onChange={e => setNewLocationData({...newLocationData, latitude: parseFloat(e.target.value) || 0})} placeholder="e.g., 34.0522"/>
+                    </div>
+                    <div>
+                        <Label htmlFor="location-lon">Longitude</Label>
+                        <Input id="location-lon" type="number" value={newLocationData.longitude || ''} onChange={e => setNewLocationData({...newLocationData, longitude: parseFloat(e.target.value) || 0})} placeholder="e.g., -118.2437"/>
+                    </div>
                 </div>
                 <div>
                     <Label htmlFor="location-manager">Assign Manager</Label>
-                    <Select value={locationManager} onValueChange={setLocationManager}>
+                    <Select value={newLocationData.managerId} onValueChange={val => setNewLocationData({...newLocationData, managerId: val})}>
                         <SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger>
                         <SelectContent>
                              <SelectItem value="none">None</SelectItem>
