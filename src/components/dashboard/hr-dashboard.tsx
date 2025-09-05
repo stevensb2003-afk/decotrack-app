@@ -2,11 +2,11 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter, FileText, Gift, Upload, CalendarClock, Play } from 'lucide-react';
+import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter, FileText, Gift, Upload, CalendarClock, Play, PlusCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -20,13 +20,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Employee, License, getAllEmployees, createEmployee, updateEmployee } from '@/services/employeeService';
-import { ScheduledChange, createScheduledChange, getScheduledChangesForEmployee, applyScheduledChanges } from '@/services/scheduledChangeService';
+import { Employee, License, getAllEmployees, createEmployee, updateEmployee, getEmployeeSnapshot } from '@/services/employeeService';
+import { ScheduledChange, createScheduledChanges, getScheduledChangesForEmployee, applyScheduledChanges } from '@/services/scheduledChangeService';
 import { Switch } from '../ui/switch';
 import { useAuth } from '@/hooks/use-auth';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
-import { format, differenceInYears, differenceInMonths, parseISO } from 'date-fns';
+import { format, differenceInYears, differenceInMonths, parseISO, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
 import { updateUserPassword } from '@/services/userService';
@@ -35,6 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Location, createLocation, getAllLocations, updateLocation } from '@/services/locationService';
 import { Benefit, createBenefit, getAllBenefits, updateBenefit, deleteBenefit, BenefitApplicability } from '@/services/benefitService';
 import { Textarea } from '../ui/textarea';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '../ui/dropdown-menu';
 
 const initialNewEmployeeData: Omit<Employee, 'id' | 'fullName'> = {
     firstName: '',
@@ -259,13 +260,20 @@ const countries = [
     { value: "ZW", label: "Zimbabwe" },
 ];
 
-const employeeFields: { value: keyof Employee; label: string; inputType: 'text' | 'number' | 'select' }[] = [
+const employeeFields: { value: keyof Employee; label: string; inputType: 'text' | 'number' | 'select' | 'date' }[] = [
+    { value: 'firstName', label: 'First Name', inputType: 'text' },
+    { value: 'lastName', label: 'Last Name', inputType: 'text' },
+    { value: 'email', label: 'Email', inputType: 'text' },
     { value: 'role', label: 'Role', inputType: 'select' },
     { value: 'salary', label: 'Salary', inputType: 'number' },
     { value: 'employmentType', label: 'Employment Type', inputType: 'select' },
     { value: 'salaryType', label: 'Salary Type', inputType: 'select' },
     { value: 'status', label: 'Status', inputType: 'select' },
     { value: 'locationId', label: 'Location', inputType: 'select' },
+    { value: 'nationality', label: 'Nationality', inputType: 'select' },
+    { value: 'idNumber', label: 'ID Number', inputType: 'text' },
+    { value: 'cellphoneNumber', label: 'Cellphone Number', inputType: 'text' },
+    { value: 'birthDate', label: 'Birth Date', inputType: 'date' },
 ];
 
 export default function HRDashboard() {
@@ -278,11 +286,10 @@ export default function HRDashboard() {
   const [isCreateDialogOpen, setCreateIsDialogOpen] = useState(false);
   
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [employeeSnapshot, setEmployeeSnapshot] = useState<Employee | null>(null);
   const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
-  const [isEditingDetail, setIsEditingDetail] = useState(false);
   const [isSchedulingChange, setIsSchedulingChange] = useState(false);
   const [isApplyingChanges, setIsApplyingChanges] = useState(false);
-
 
   const [newEmployeeData, setNewEmployeeData] = useState<Omit<Employee, 'id' | 'fullName'>>(initialNewEmployeeData);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
@@ -296,11 +303,11 @@ export default function HRDashboard() {
   const [editingBenefit, setEditingBenefit] = useState<Benefit | null>(null);
   const [newBenefitData, setNewBenefitData] = useState<Omit<Benefit, 'id' | 'locationName'>>({ name: '', description: '', locationId: '', appliesTo: 'All' });
 
-  const [newScheduledChange, setNewScheduledChange] = useState<{
-    fieldName: keyof Employee | '';
-    newValue: string;
-    effectiveDate: Date | undefined;
-  }>({ fieldName: '', newValue: '', effectiveDate: undefined });
+  const [newScheduledChanges, setNewScheduledChanges] = useState<{ fieldName: keyof Employee | ''; newValue: any }[]>([{ fieldName: '', newValue: '' }]);
+  const [newChangeEffectiveDate, setNewChangeEffectiveDate] = useState<Date | undefined>(undefined);
+  
+  const [effectiveDates, setEffectiveDates] = useState<Date[]>([]);
+
 
   const { toast } = useToast();
 
@@ -318,33 +325,17 @@ export default function HRDashboard() {
   }, []);
 
   const handleViewDetailsClick = async (employee: Employee) => {
-    const employeeCopy: Employee = {
-        ...employee,
-        birthDate: employee.birthDate,
-        hireDate: employee.hireDate,
-        licenses: employee.licenses ? [...employee.licenses] : []
-    };
-    setSelectedEmployee(employeeCopy);
+    setSelectedEmployee(employee);
+    setEmployeeSnapshot(employee);
     const changes = await getScheduledChangesForEmployee(employee.id);
+    const uniqueDates = Array.from(new Set(changes.filter(c => c.status === 'applied').map(c => c.effectiveDate.toDate().toISOString())))
+                           .map(dateStr => new Date(dateStr))
+                           .sort((a,b) => b.getTime() - a.getTime());
+    setEffectiveDates(uniqueDates);
     setScheduledChanges(changes);
     setIsDetailViewOpen(true);
-    setIsEditingDetail(false);
   };
   
-  const handleSaveChanges = async () => {
-    if (!selectedEmployee) return;
-
-    await updateEmployee(selectedEmployee.id, selectedEmployee);
-
-    toast({
-        title: "Record Updated",
-        description: `Record for ${selectedEmployee.fullName} has been updated.`,
-    });
-    setIsEditingDetail(false);
-    setIsDetailViewOpen(false);
-    fetchData();
-  };
-
   const handleCreateEmployee = async () => {
     if (!newEmployeeData.firstName || !newEmployeeData.email || !newEmployeeData.role) {
       toast({ title: "Missing Fields", description: "First name, email and role are required.", variant: "destructive" });
@@ -370,56 +361,6 @@ export default function HRDashboard() {
           default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
       }
   }
-  const handleLicenseChange = (index: number, field: keyof License, value: string, isNew: boolean) => {
-    if (isNew) {
-        const newLicenses = [...(newEmployeeData.licenses || [])];
-        newLicenses[index] = { ...newLicenses[index], [field]: value };
-        setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
-    } else if (selectedEmployee) {
-        const newLicenses = [...(selectedEmployee.licenses || [])];
-        newLicenses[index] = { ...newLicenses[index], [field]: value };
-        setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
-    }
-  };
-
-  const handleLicenseDateChange = (index: number, date: Date | undefined, isNew: boolean) => {
-    if(!date) return;
-    const timestamp = Timestamp.fromDate(date);
-
-    if (isNew) {
-        const newLicenses = [...(newEmployeeData.licenses || [])];
-        newLicenses[index] = { ...newLicenses[index], expirationDate: timestamp };
-        setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
-    } else if (selectedEmployee) {
-        const newLicenses = [...(selectedEmployee.licenses || [])];
-        newLicenses[index] = { ...newLicenses[index], expirationDate: timestamp };
-        setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
-    }
-  };
-
-
-  const addLicenseField = (isNew: boolean) => {
-      if (isNew) {
-          if((newEmployeeData.licenses || []).length < 3) {
-            setNewEmployeeData(prev => ({...prev, licenses: [...(prev.licenses || []), { type: '', number: '', country: '', expirationDate: Timestamp.now()}]}));
-          }
-      } else if (selectedEmployee && (selectedEmployee.licenses || []).length < 3) {
-          setSelectedEmployee(prev => prev ? ({...prev, licenses: [...(prev.licenses || []), { type: '', number: '', country: '', expirationDate: Timestamp.now()}]}) : prev);
-      }
-  };
-
-  const removeLicenseField = (index: number, isNew: boolean) => {
-    if(isNew) {
-        const newLicenses = [...(newEmployeeData.licenses || [])];
-        newLicenses.splice(index, 1);
-        setNewEmployeeData({ ...newEmployeeData, licenses: newLicenses });
-    } else if (selectedEmployee) {
-        const newLicenses = [...(selectedEmployee.licenses || [])];
-        newLicenses.splice(index, 1);
-        setSelectedEmployee({ ...selectedEmployee, licenses: newLicenses });
-    }
-  };
-
 
   const canEdit = user?.role === 'admin' || user?.role === 'hr';
 
@@ -429,27 +370,18 @@ export default function HRDashboard() {
   const salaryTypes: Employee['salaryType'][] = ["Hourly", "Salary", "Profesional Services"];
   const statusTypes: Employee['status'][] = ["Active", "LOA", "Terminated"];
 
-  const handleDateChange = (date: Date | undefined, field: 'birthDate' | 'hireDate', isNew: boolean) => {
-    if (date) {
-        const timestamp = Timestamp.fromDate(date);
-        if (isNew) {
-            setNewEmployeeData({ ...newEmployeeData, [field]: timestamp });
-        } else if (selectedEmployee) {
-            setSelectedEmployee({ ...selectedEmployee, [field]: timestamp });
-        }
-    }
-  };
-
   const getInitials = (name: string = '') => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  const handleLocationSelect = (locationId: string, isNew: boolean, isScheduleChange: boolean = false) => {
+  const handleLocationSelect = (locationId: string, isNew: boolean, changeIndex?: number) => {
       const location = locations.find(l => l.id === locationId);
       if (!location) return;
 
-      if (isScheduleChange) {
-        setNewScheduledChange(prev => ({ ...prev, newValue: locationId }));
+      if(changeIndex !== undefined) {
+        const updatedChanges = [...newScheduledChanges];
+        updatedChanges[changeIndex].newValue = locationId;
+        setNewScheduledChanges(updatedChanges);
       } else if(isNew) {
           setNewEmployeeData(prev => ({
               ...prev,
@@ -457,13 +389,6 @@ export default function HRDashboard() {
               locationName: location.name,
               managerName: location.managerName || 'N/A'
           }));
-      } else if (selectedEmployee) {
-          setSelectedEmployee(prev => prev ? ({
-              ...prev,
-              locationId: location.id,
-              locationName: location.name,
-              managerName: location.managerName || 'N/A'
-          }) : prev);
       }
   }
 
@@ -562,6 +487,7 @@ export default function HRDashboard() {
   const benefitApplicabilityOptions: BenefitApplicability[] = ['All', 'Employee', 'Manager', 'HR'];
 
   const calculateSeniority = (hireDate: Timestamp): string => {
+    if (!hireDate) return 'N/A';
     const today = new Date();
     const start = hireDate.toDate();
     const years = differenceInYears(today, start);
@@ -576,23 +502,19 @@ export default function HRDashboard() {
     return yearString || monthString || 'Less than a month';
   };
 
-  const handleScheduleChange = async () => {
-    if (!selectedEmployee || !newScheduledChange.fieldName || !newScheduledChange.effectiveDate) {
-        toast({ title: "Missing fields", description: "Field, new value, and effective date are required.", variant: "destructive" });
+  const handleScheduleChanges = async () => {
+    if (!selectedEmployee || !newChangeEffectiveDate || newScheduledChanges.some(c => !c.fieldName)) {
+        toast({ title: "Missing fields", description: "All change fields and an effective date are required.", variant: "destructive" });
         return;
     }
+    const validChanges = newScheduledChanges.filter(c => c.fieldName);
 
-    await createScheduledChange({
-        employeeId: selectedEmployee.id,
-        fieldName: newScheduledChange.fieldName,
-        newValue: newScheduledChange.newValue,
-        effectiveDate: Timestamp.fromDate(newScheduledChange.effectiveDate),
-        status: 'pending'
-    });
+    await createScheduledChanges(selectedEmployee.id, validChanges, newChangeEffectiveDate);
 
-    toast({ title: "Change Scheduled", description: "The employee data change has been scheduled." });
+    toast({ title: "Changes Scheduled", description: "The employee data changes have been scheduled." });
     setIsSchedulingChange(false);
-    setNewScheduledChange({ fieldName: '', newValue: '', effectiveDate: undefined });
+    setNewScheduledChanges([{ fieldName: '', newValue: '' }]);
+    setNewChangeEffectiveDate(undefined);
     // Refetch changes for the employee
     const changes = await getScheduledChangesForEmployee(selectedEmployee.id);
     setScheduledChanges(changes);
@@ -619,51 +541,111 @@ export default function HRDashboard() {
     }
   };
 
+  const handleEffectiveDateChange = async (dateISO: string) => {
+    if (!selectedEmployee) return;
+    
+    if (dateISO === 'current') {
+        setEmployeeSnapshot(selectedEmployee);
+        return;
+    }
 
-  const renderValueInputForScheduling = () => {
-    const field = employeeFields.find(f => f.value === newScheduledChange.fieldName);
+    const asOfDate = new Date(dateISO);
+    // Add one day to include changes on the effective date itself
+    asOfDate.setDate(asOfDate.getDate() + 1);
+
+    const snapshot = await getEmployeeSnapshot(selectedEmployee.id, asOfDate);
+    setEmployeeSnapshot(snapshot);
+  }
+
+  const addChangeField = () => {
+      setNewScheduledChanges([...newScheduledChanges, { fieldName: '', newValue: '' }]);
+  };
+
+  const removeChangeField = (index: number) => {
+      const updatedChanges = [...newScheduledChanges];
+      updatedChanges.splice(index, 1);
+      setNewScheduledChanges(updatedChanges);
+  };
+  
+  const handleScheduledChangeValue = (index: number, value: any) => {
+        const updatedChanges = [...newScheduledChanges];
+        updatedChanges[index].newValue = value;
+        setNewScheduledChanges(updatedChanges);
+  };
+  
+  const handleScheduledChangeField = (index: number, fieldName: keyof Employee) => {
+        const updatedChanges = [...newScheduledChanges];
+        updatedChanges[index].fieldName = fieldName;
+        updatedChanges[index].newValue = ''; // Reset value when field changes
+        setNewScheduledChanges(updatedChanges);
+  };
+
+
+  const renderValueInputForScheduling = (change: {fieldName: keyof Employee | '', newValue: any}, index: number) => {
+    const field = employeeFields.find(f => f.value === change.fieldName);
     if (!field) return null;
 
     switch (field.value) {
         case 'role':
             return (
-                <Select value={newScheduledChange.newValue} onValueChange={val => setNewScheduledChange(p => ({ ...p, newValue: val }))}>
+                <Select value={change.newValue} onValueChange={val => handleScheduledChangeValue(index, val)}>
                     <SelectTrigger><SelectValue placeholder="Select new role" /></SelectTrigger>
                     <SelectContent>{employeeRoles.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                 </Select>
             );
         case 'employmentType':
              return (
-                <Select value={newScheduledChange.newValue} onValueChange={val => setNewScheduledChange(p => ({ ...p, newValue: val }))}>
+                <Select value={change.newValue} onValueChange={val => handleScheduledChangeValue(index, val)}>
                     <SelectTrigger><SelectValue placeholder="Select new employment type" /></SelectTrigger>
                     <SelectContent>{employmentTypes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                 </Select>
             );
         case 'salaryType':
              return (
-                <Select value={newScheduledChange.newValue} onValueChange={val => setNewScheduledChange(p => ({ ...p, newValue: val }))}>
+                <Select value={change.newValue} onValueChange={val => handleScheduledChangeValue(index, val)}>
                     <SelectTrigger><SelectValue placeholder="Select new salary type" /></SelectTrigger>
                     <SelectContent>{salaryTypes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                 </Select>
             );
         case 'status':
              return (
-                <Select value={newScheduledChange.newValue} onValueChange={val => setNewScheduledChange(p => ({ ...p, newValue: val }))}>
+                <Select value={change.newValue} onValueChange={val => handleScheduledChangeValue(index, val)}>
                     <SelectTrigger><SelectValue placeholder="Select new status" /></SelectTrigger>
                     <SelectContent>{statusTypes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
                 </Select>
             );
         case 'locationId':
              return (
-                 <Select value={newScheduledChange.newValue} onValueChange={val => handleLocationSelect(val, false, true)}>
+                 <Select value={change.newValue} onValueChange={val => handleLocationSelect(val, false, index)}>
                     <SelectTrigger><SelectValue placeholder="Select new location" /></SelectTrigger>
                     <SelectContent>{locations.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent>
                 </Select>
             );
+         case 'nationality':
+             return (
+                <Select value={change.newValue} onValueChange={val => handleScheduledChangeValue(index, val)}>
+                    <SelectTrigger><SelectValue placeholder="Select new nationality" /></SelectTrigger>
+                    <SelectContent>{countries.map(o => <SelectItem key={o.value} value={o.label}>{o.label}</SelectItem>)}</SelectContent>
+                </Select>
+             );
         case 'salary':
-            return <Input type="number" value={newScheduledChange.newValue} onChange={e => setNewScheduledChange(p => ({ ...p, newValue: e.target.value }))} />;
+            return <Input type="number" value={change.newValue} onChange={e => handleScheduledChangeValue(index, parseFloat(e.target.value) || 0)} />;
+        case 'birthDate':
+            return (
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant={"outline"} className="w-full justify-start text-left font-normal">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {change.newValue ? format(change.newValue, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar mode="single" selected={change.newValue} onSelect={d => handleScheduledChangeValue(index, d)} initialFocus />
+                    </PopoverContent>
+                </Popover>
+            );
         default:
-            return <Input value={newScheduledChange.newValue} onChange={e => setNewScheduledChange(p => ({ ...p, newValue: e.target.value }))} />;
+            return <Input value={change.newValue} onChange={e => handleScheduledChangeValue(index, e.target.value)} />;
     }
   };
   
@@ -671,8 +653,16 @@ export default function HRDashboard() {
     if (change.fieldName === 'locationId') {
         return locations.find(l => l.id === change.newValue)?.name || change.newValue;
     }
-    return change.newValue;
+    if (['birthDate', 'hireDate'].includes(change.fieldName) && change.newValue instanceof Timestamp) {
+        return format(change.newValue.toDate(), "PPP");
+    }
+    return change.newValue.toString();
   };
+
+  const availableFieldsForScheduling = useMemo(() => {
+    const usedFields = new Set(newScheduledChanges.map(c => c.fieldName));
+    return employeeFields.filter(f => !usedFields.has(f.value));
+  }, [newScheduledChanges]);
 
 
   return (
@@ -747,160 +737,8 @@ export default function HRDashboard() {
                                         <Input id="lastName-create" value={newEmployeeData.lastName} onChange={e => setNewEmployeeData({...newEmployeeData, lastName: e.target.value})} />
                                     </div>
                                 </div>
-                                
                                 <Label htmlFor="email-create">Email</Label>
                                 <Input id="email-create" type="email" value={newEmployeeData.email} onChange={e => setNewEmployeeData({...newEmployeeData, email: e.target.value})} />
-                                
-                                <Label htmlFor="role-create">Role</Label>
-                                <Select value={newEmployeeData.role} onValueChange={(val: Employee['role']) => setNewEmployeeData({...newEmployeeData, role: val})}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {employeeRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-
-                                <Label htmlFor="id-type-create">ID Type</Label>
-                                <Select value={newEmployeeData.idType} onValueChange={(val: Employee['idType']) => setNewEmployeeData({...newEmployeeData, idType: val})}>
-                                    <SelectTrigger><SelectValue/></SelectTrigger>
-                                    <SelectContent>
-                                    <SelectItem value="ID Nacional">ID Nacional</SelectItem>
-                                    <SelectItem value="Pasaporte">Pasaporte</SelectItem>
-                                    <SelectItem value="Cédula Extranjero">Cédula Extranjero</SelectItem>
-                                    <SelectItem value="DIMEX">DIMEX</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                
-                                <div>
-                                    <Label htmlFor="id-number-create">ID Number</Label>
-                                    <Input id="id-number-create" value={newEmployeeData.idNumber} onChange={e => setNewEmployeeData({...newEmployeeData, idNumber: e.target.value})} />
-                                </div>
-                                
-                                <Label htmlFor="cellphone-create">Cellphone Number</Label>
-                                <Input id="cellphone-create" type="tel" value={newEmployeeData.cellphoneNumber} onChange={e => setNewEmployeeData({...newEmployeeData, cellphoneNumber: e.target.value})} />
-                                
-                                <Label htmlFor="nationality-create">Nationality</Label>
-                                <Select value={newEmployeeData.nationality} onValueChange={val => setNewEmployeeData({...newEmployeeData, nationality: val})}>
-                                    <SelectTrigger><SelectValue placeholder="Select Nationality"/></SelectTrigger>
-                                    <SelectContent>
-                                        {countries.map(c => <SelectItem key={c.value} value={c.label}>{c.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-
-                                <Label htmlFor="birthdate-create">Birth Date</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newEmployeeData.birthDate && "text-muted-foreground")}>
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {newEmployeeData.birthDate ? format(newEmployeeData.birthDate.toDate(), "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar mode="single" selected={newEmployeeData.birthDate.toDate()} onSelect={date => handleDateChange(date, 'birthDate', true)} initialFocus />
-                                    </PopoverContent>
-                                </Popover>
-
-                                <Label htmlFor="hiredate-create">Hire Date</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newEmployeeData.hireDate && "text-muted-foreground")}>
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {newEmployeeData.hireDate ? format(newEmployeeData.hireDate.toDate(), "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar mode="single" selected={newEmployeeData.hireDate.toDate()} onSelect={date => handleDateChange(date, 'hireDate', true)} initialFocus />
-                                    </PopoverContent>
-                                </Popover>
-
-                                <Label htmlFor="employment-type-create">Employment Type</Label>
-                                <Select value={newEmployeeData.employmentType} onValueChange={(val: Employee['employmentType']) => setNewEmployeeData({...newEmployeeData, employmentType: val})}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {employmentTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-
-                                <Label htmlFor="salary-type-create">Salary Type</Label>
-                                <Select value={newEmployeeData.salaryType} onValueChange={(val: Employee['salaryType']) => setNewEmployeeData({...newEmployeeData, salaryType: val})}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {salaryTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-
-                                <Label htmlFor="salary-create">Salary (CRC)</Label>
-                                <Input id="salary-create" type="number" value={newEmployeeData.salary} onChange={e => setNewEmployeeData({...newEmployeeData, salary: parseFloat(e.target.value) || 0})} />
-                                
-                                <Label htmlFor="location-create">Location</Label>
-                                <Select onValueChange={val => handleLocationSelect(val, true)}>
-                                    <SelectTrigger><SelectValue placeholder="Select Location"/></SelectTrigger>
-                                    <SelectContent>
-                                        {locations.map(loc => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <div>
-                                    <Label>Manager</Label>
-                                    <p className='text-sm text-muted-foreground'>{newEmployeeData.managerName || 'N/A'}</p>
-                                </div>
-
-
-                                <div className="flex items-center space-x-2">
-                                    <Label htmlFor="license-create">Has License?</Label>
-                                    <Switch id="license-create" checked={newEmployeeData.licensePermission} onCheckedChange={val => setNewEmployeeData({...newEmployeeData, licensePermission: val})} />
-                                </div>
-                                {newEmployeeData.licensePermission && (
-                                    <div className="space-y-4 rounded-md border p-4">
-                                    <Label>License Details</Label>
-                                        {(newEmployeeData.licenses || []).map((license, index) => (
-                                            <div key={index} className="space-y-2 border-t pt-2">
-                                                <div className="flex items-center gap-x-2">
-                                                    <div className="flex-grow">
-                                                        <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, true)}>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="License Type" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {licenseTypes.map(type => (
-                                                            <SelectItem key={type} value={type}>{type}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removeLicenseField(index, true)}>
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
-                                                </div>
-                                                <div>
-                                                    <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, true)} />
-                                                </div>
-                                                <Select value={license.country} onValueChange={value => handleLicenseChange(index, 'country', value, true)}>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Country" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {countries.map(country => (
-                                                            <SelectItem key={country.value} value={country.label}>{country.label}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !license.expirationDate && "text-muted-foreground")}>
-                                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                                            {license.expirationDate ? format(license.expirationDate.toDate(), "PPP") : <span>Expiration Date</span>}
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0">
-                                                        <Calendar mode="single" selected={license.expirationDate?.toDate()} onSelect={date => handleLicenseDateChange(index, date, true)} initialFocus />
-                                                    </PopoverContent>
-                                                </Popover>
-                                            </div>
-                                        ))}
-                                        {(newEmployeeData.licenses || []).length < 3 && (
-                                            <Button variant="outline" size="sm" onClick={() => addLicenseField(true)}>Add License</Button>
-                                        )}
-                                    </div>
-                                )}
                             </div>
                             <DialogFooter>
                                 <Button onClick={handleCreateEmployee}>Add Employee</Button>
@@ -1003,7 +841,7 @@ export default function HRDashboard() {
                                     <TableCell>{emp.fullName}</TableCell>
                                     <TableCell>
                                         <Switch
-                                            checked={emp.contractSigned}
+                                            checked={emp.CCSS}
                                             onCheckedChange={(value) => handleContractStatusChange(emp.id, 'contractSigned', value)}
                                         />
                                     </TableCell>
@@ -1061,257 +899,58 @@ export default function HRDashboard() {
             </Card>
         </TabsContent>
       </Tabs>
-
       
       <Dialog open={isDetailViewOpen} onOpenChange={setIsDetailViewOpen}>
         <DialogContent className="sm:max-w-2xl">
-          <DialogHeader className="flex-row items-center justify-between">
+          <DialogHeader className="flex-row items-center justify-between pr-10">
             <div className='flex items-center gap-4'>
                 <Avatar className="h-12 w-12">
-                    <AvatarImage src={selectedEmployee?.avatarUrl || ''} alt={selectedEmployee?.fullName} />
-                    <AvatarFallback>{getInitials(selectedEmployee?.fullName)}</AvatarFallback>
+                    <AvatarImage src={employeeSnapshot?.avatarUrl || ''} alt={employeeSnapshot?.fullName} />
+                    <AvatarFallback>{getInitials(employeeSnapshot?.fullName)}</AvatarFallback>
                 </Avatar>
-                <DialogTitle>Details for {selectedEmployee?.fullName}</DialogTitle>
+                <DialogTitle>Details for {employeeSnapshot?.fullName}</DialogTitle>
             </div>
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline">View History</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                    <DropdownMenuLabel>Effective Dates</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => handleEffectiveDateChange('current')}>Current</DropdownMenuItem>
+                    {effectiveDates.map(date => (
+                        <DropdownMenuItem key={date.toISOString()} onSelect={() => handleEffectiveDateChange(date.toISOString())}>
+                            {format(date, 'PPP')}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
           </DialogHeader>
-          {selectedEmployee && (
+          {employeeSnapshot && (
              <Tabs defaultValue="details">
                 <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="details">Current Details</TabsTrigger>
+                    <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="changes">Scheduled Changes</TabsTrigger>
                 </TabsList>
                 <TabsContent value="details">
                      <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-6">
-                        {isEditingDetail ? (
-                            <>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <Label htmlFor="update-firstName">First Name</Label>
-                                        <Input id="update-firstName" value={selectedEmployee.firstName} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, firstName: e.target.value} : null)} />
-                                    </div>
-                                     <div>
-                                        <Label htmlFor="update-lastName">Last Name</Label>
-                                        <Input id="update-lastName" value={selectedEmployee.lastName} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, lastName: e.target.value} : null)} />
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label htmlFor="update-role">Role</Label>
-                                    <Select value={selectedEmployee.role} onValueChange={(val: Employee['role']) => setSelectedEmployee(prev => prev ? {...prev, role: val} : null)}>
-                                        <SelectTrigger><SelectValue/></SelectTrigger>
-                                        <SelectContent>
-                                            {employeeRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="update-idType">ID Type</Label>
-                                    <Select value={selectedEmployee.idType} onValueChange={(val: Employee['idType']) => setSelectedEmployee(prev => prev ? {...prev, idType: val} : null)}>
-                                        <SelectTrigger><SelectValue/></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="ID Nacional">ID Nacional</SelectItem>
-                                            <SelectItem value="Pasaporte">Pasaporte</SelectItem>
-                                            <SelectItem value="Cédula Extranjero">Cédula Extranjero</SelectItem>
-                                            <SelectItem value="DIMEX">DIMEX</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="update-idNumber">ID Number</Label>
-                                    <Input id="update-idNumber" value={selectedEmployee.idNumber || ''} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, idNumber: e.target.value} : null)} />
-                                </div>
-                                <div>
-                                    <Label htmlFor="update-cellphone">Cellphone</Label>
-                                    <Input id="update-cellphone" value={selectedEmployee.cellphoneNumber || ''} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, cellphoneNumber: e.target.value} : null)} />
-                                </div>
-                                <div>
-                                    <Label htmlFor="update-nationality">Nationality</Label>
-                                    <Select value={selectedEmployee.nationality} onValueChange={val => setSelectedEmployee(prev => prev ? {...prev, nationality: val} : null)}>
-                                        <SelectTrigger><SelectValue placeholder="Select Nationality"/></SelectTrigger>
-                                        <SelectContent>
-                                            {countries.map(c => <SelectItem key={c.value} value={c.label}>{c.label}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                   <Label htmlFor="update-birthdate">Birth Date</Label>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !selectedEmployee.birthDate && "text-muted-foreground")}>
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {selectedEmployee.birthDate ? format(selectedEmployee.birthDate.toDate(), "PPP") : <span>Pick a date</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar mode="single" selected={selectedEmployee.birthDate?.toDate()} onSelect={date => handleDateChange(date, 'birthDate', false)} initialFocus />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
-                                <div>
-                                   <Label htmlFor="update-hiredate">Hire Date</Label>
-                                   <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !selectedEmployee.hireDate && "text-muted-foreground")}>
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {selectedEmployee.hireDate ? format(selectedEmployee.hireDate.toDate(), "PPP") : <span>Pick a date</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar mode="single" selected={selectedEmployee.hireDate?.toDate()} onSelect={date => handleDateChange(date, 'hireDate', false)} initialFocus />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
-                                 <div>
-                                    <Label htmlFor="update-employment-type">Employment Type</Label>
-                                    <Select value={selectedEmployee.employmentType} onValueChange={(val: Employee['employmentType']) => setSelectedEmployee(prev => prev ? {...prev, employmentType: val} : null)}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            {employmentTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="update-salary-type">Salary Type</Label>
-                                    <Select value={selectedEmployee.salaryType} onValueChange={(val: Employee['salaryType']) => setSelectedEmployee(prev => prev ? {...prev, salaryType: val} : null)}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            {salaryTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="update-salary">Salary (CRC)</Label>
-                                    <Input id="update-salary" type="number" value={selectedEmployee.salary || 0} onChange={(e) => setSelectedEmployee(prev => prev ? {...prev, salary: parseFloat(e.target.value) || 0} : null)} />
-                                </div>
-                                <div>
-                                    <Label htmlFor="update-location">Location</Label>
-                                    <Select value={selectedEmployee.locationId || ''} onValueChange={val => handleLocationSelect(val, false)}>
-                                        <SelectTrigger><SelectValue placeholder="Select Location"/></SelectTrigger>
-                                        <SelectContent>
-                                            {locations.map(loc => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                 <div>
-                                    <Label>Manager</Label>
-                                    <p className='text-sm text-muted-foreground'>{selectedEmployee.managerName || 'N/A'}</p>
-                                </div>
-                                <div>
-                                    <Label htmlFor="update-status">Status</Label>
-                                    <Select value={selectedEmployee.status} onValueChange={(val: Employee['status']) => setSelectedEmployee(prev => prev ? {...prev, status: val} : null)}>
-                                        <SelectTrigger><SelectValue/></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Active">Active</SelectItem>
-                                            <SelectItem value="LOA">LOA</SelectItem>
-                                            <SelectItem value="Terminated">Terminated</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="flex items-center space-x-2">
-                                   <Label htmlFor="update-license">Has License?</Label>
-                                   <Switch id="update-license" checked={selectedEmployee.licensePermission} onCheckedChange={val => setSelectedEmployee(prev => prev ? {...prev, licensePermission: val, licenses: val ? (selectedEmployee.licenses || []) : []} : null)} />
-                                </div>
-                                {selectedEmployee.licensePermission && (
-                                    <div className="space-y-4 rounded-md border p-4">
-                                        <Label>License Details</Label>
-                                        {(selectedEmployee.licenses || []).map((license, index) => (
-                                            <div key={index} className="space-y-2 border-t pt-2">
-                                               <div className="flex items-center gap-x-2">
-                                                    <div className="flex-grow">
-                                                        <Select value={license.type} onValueChange={value => handleLicenseChange(index, 'type', value, false)}>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="License Type" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {licenseTypes.map(type => (
-                                                            <SelectItem key={type} value={type}>{type}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removeLicenseField(index, false)}>
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
-                                                </div>
-                                                 <div>
-                                                    <Input placeholder="License Number" value={license.number} onChange={e => handleLicenseChange(index, 'number', e.target.value, false)} />
-                                                </div>
-                                                <Select value={license.country} onValueChange={value => handleLicenseChange(index, 'country', value, false)}>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Country" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {countries.map(country => (
-                                                            <SelectItem key={country.value} value={country.label}>{country.label}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                 <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !license.expirationDate && "text-muted-foreground")}>
-                                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                                            {license.expirationDate ? format(license.expirationDate.toDate(), "PPP") : <span>Expiration Date</span>}
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0">
-                                                        <Calendar mode="single" selected={license.expirationDate?.toDate()} onSelect={date => handleLicenseDateChange(index, date, false)} initialFocus />
-                                                    </PopoverContent>
-                                                </Popover>
-                                            </div>
-                                        ))}
-                                        {(selectedEmployee.licenses || []).length < 3 && (
-                                            <Button variant="outline" size="sm" onClick={() => addLicenseField(false)}>Add License</Button>
-                                        )}
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                            <>
-                                <div className="grid grid-cols-2"><Label>Full Name</Label><p>{selectedEmployee.fullName}</p></div>
-                                <div className="grid grid-cols-2"><Label>Email</Label><p>{selectedEmployee.email}</p></div>
-                                <div className="grid grid-cols-2"><Label>Role</Label><p>{selectedEmployee.role}</p></div>
-                                <div className="grid grid-cols-2"><Label>ID Type</Label><p>{selectedEmployee.idType}</p></div>
-                                <div className="grid grid-cols-2"><Label>ID Number</Label><p>{selectedEmployee.idNumber || 'N/A'}</p></div>
-                                <div className="grid grid-cols-2"><Label>Cellphone</Label><p>{selectedEmployee.cellphoneNumber || 'N/A'}</p></div>
-                                <div className="grid grid-cols-2"><Label>Nationality</Label><p>{selectedEmployee.nationality || 'N/A'}</p></div>
-                                <div className="grid grid-cols-2"><Label>Birth Date</Label><p>{selectedEmployee.birthDate ? format(selectedEmployee.birthDate.toDate(), "PPP") : 'N/A'}</p></div>
-                                <div className="grid grid-cols-2"><Label>Hire Date</Label><p>{selectedEmployee.hireDate ? format(selectedEmployee.hireDate.toDate(), "PPP") : 'N/A'}</p></div>
-                                <div className="grid grid-cols-2"><Label>Seniority</Label><p>{calculateSeniority(selectedEmployee.hireDate)}</p></div>
-                                <div className="grid grid-cols-2"><Label>Location</Label><p>{selectedEmployee.locationName || 'N/A'}</p></div>
-                                <div className="grid grid-cols-2"><Label>Manager</Label><p>{selectedEmployee.managerName || 'N/A'}</p></div>
-                                <div className="grid grid-cols-2"><Label>Employment Type</Label><p>{selectedEmployee.employmentType}</p></div>
-                                <div className="grid grid-cols-2"><Label>Salary Type</Label><p>{selectedEmployee.salaryType}</p></div>
-                                <div className="grid grid-cols-2"><Label>Salary</Label><p>{new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(selectedEmployee.salary || 0)}</p></div>
-                                <div className="grid grid-cols-2"><Label>Status</Label><p>{selectedEmployee.status}</p></div>
-                                <div className="grid grid-cols-2"><Label>Has License?</Label><p>{selectedEmployee.licensePermission ? 'Yes' : 'No'}</p></div>
-                                {selectedEmployee.licensePermission && (selectedEmployee.licenses || []).length > 0 && (
-                                    <div>
-                                        <Label>Licenses</Label>
-                                        <div className="space-y-2 mt-1">
-                                            {(selectedEmployee.licenses || []).map((license, index) => (
-                                                <div key={index} className="p-2 border rounded-md text-sm">
-                                                    <p><strong>Type:</strong> {license.type}</p>
-                                                    <p><strong>Number:</strong> {license.number}</p>
-                                                    <p><strong>Country:</strong> {license.country}</p>
-                                                    <p><strong>Expiration:</strong> {license.expirationDate ? format(license.expirationDate.toDate(), "PPP") : 'N/A'}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        )}
+                        <div className="grid grid-cols-2"><Label>Full Name</Label><p>{employeeSnapshot.fullName}</p></div>
+                        <div className="grid grid-cols-2"><Label>Email</Label><p>{employeeSnapshot.email}</p></div>
+                        <div className="grid grid-cols-2"><Label>Role</Label><p>{employeeSnapshot.role}</p></div>
+                        <div className="grid grid-cols-2"><Label>ID Type</Label><p>{employeeSnapshot.idType}</p></div>
+                        <div className="grid grid-cols-2"><Label>ID Number</Label><p>{employeeSnapshot.idNumber || 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Cellphone</Label><p>{employeeSnapshot.cellphoneNumber || 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Nationality</Label><p>{employeeSnapshot.nationality || 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Birth Date</Label><p>{employeeSnapshot.birthDate ? format(employeeSnapshot.birthDate.toDate(), "PPP") : 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Hire Date</Label><p>{employeeSnapshot.hireDate ? format(employeeSnapshot.hireDate.toDate(), "PPP") : 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Seniority</Label><p>{calculateSeniority(employeeSnapshot.hireDate)}</p></div>
+                        <div className="grid grid-cols-2"><Label>Location</Label><p>{employeeSnapshot.locationName || 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Manager</Label><p>{employeeSnapshot.managerName || 'N/A'}</p></div>
+                        <div className="grid grid-cols-2"><Label>Employment Type</Label><p>{employeeSnapshot.employmentType}</p></div>
+                        <div className="grid grid-cols-2"><Label>Salary Type</Label><p>{employeeSnapshot.salaryType}</p></div>
+                        <div className="grid grid-cols-2"><Label>Salary</Label><p>{new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(employeeSnapshot.salary || 0)}</p></div>
+                        <div className="grid grid-cols-2"><Label>Status</Label><p>{employeeSnapshot.status}</p></div>
                     </div>
-                     <DialogFooter className="pt-4 border-t">
-                        {isEditingDetail ? (
-                            <>
-                                <Button variant="outline" onClick={() => setIsEditingDetail(false)}>Cancel</Button>
-                                <Button onClick={handleSaveChanges}>Save Changes</Button>
-                            </>
-                        ) : (
-                             <Button onClick={() => setIsEditingDetail(true)}><Pencil className="mr-2 h-4 w-4"/>Edit Details</Button>
-                        )}
-                    </DialogFooter>
                 </TabsContent>
                 <TabsContent value="changes">
                     <div className="space-y-4 py-4">
@@ -1423,41 +1062,57 @@ export default function HRDashboard() {
       <Dialog open={isSchedulingChange} onOpenChange={setIsSchedulingChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Schedule a Change for {selectedEmployee?.fullName}</DialogTitle>
-            <DialogDescription>The change will be applied automatically on the effective date.</DialogDescription>
+            <DialogTitle>Schedule Changes for {selectedEmployee?.fullName}</DialogTitle>
+            <DialogDescription>The changes will be applied automatically on the effective date.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="change-field">Field to Change</Label>
-              <Select value={newScheduledChange.fieldName} onValueChange={(val: keyof Employee) => setNewScheduledChange(p => ({ ...p, fieldName: val, newValue: '' }))}>
-                <SelectTrigger><SelectValue placeholder="Select a field" /></SelectTrigger>
-                <SelectContent>
-                  {employeeFields.map(field => <SelectItem key={field.value} value={field.value}>{field.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="change-value">New Value</Label>
-              {renderValueInputForScheduling()}
-            </div>
-            <div>
-              <Label htmlFor="change-date">Effective Date</Label>
-               <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newScheduledChange.effectiveDate && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {newScheduledChange.effectiveDate ? format(newScheduledChange.effectiveDate, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                        <Calendar mode="single" selected={newScheduledChange.effectiveDate} onSelect={d => setNewScheduledChange(p => ({ ...p, effectiveDate: d }))} initialFocus />
-                    </PopoverContent>
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-4">
+            <div className='sticky top-0 bg-background pt-2 pb-4'>
+                <Label htmlFor="change-date">Effective Date</Label>
+                <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !newChangeEffectiveDate && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {newChangeEffectiveDate ? format(newChangeEffectiveDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar mode="single" selected={newChangeEffectiveDate} onSelect={setNewChangeEffectiveDate} initialFocus />
+                        </PopoverContent>
                 </Popover>
             </div>
+
+            {newScheduledChanges.map((change, index) => (
+                 <div key={index} className="flex items-end gap-2 border-t pt-4">
+                    <div className="grid gap-2 flex-grow">
+                        <div>
+                            <Label htmlFor={`change-field-${index}`}>Field to Change</Label>
+                            <Select 
+                                value={change.fieldName} 
+                                onValueChange={(val: keyof Employee) => handleScheduledChangeField(index, val)}
+                            >
+                                <SelectTrigger><SelectValue placeholder="Select a field" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={change.fieldName} disabled>{employeeFields.find(f => f.value === change.fieldName)?.label}</SelectItem>
+                                    {availableFieldsForScheduling.map(field => <SelectItem key={field.value} value={field.value}>{field.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label htmlFor={`change-value-${index}`}>New Value</Label>
+                            {renderValueInputForScheduling(change, index)}
+                        </div>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => removeChangeField(index)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={addChangeField}><PlusCircle className="mr-2 h-4 w-4"/>Add Field</Button>
+
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsSchedulingChange(false)}>Cancel</Button>
-            <Button onClick={handleScheduleChange}>Schedule Change</Button>
+            <Button onClick={handleScheduleChanges}>Schedule Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

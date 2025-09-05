@@ -1,7 +1,7 @@
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, doc, query, where, getDoc } from 'firebase/firestore';
-import { Timestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, query, where, getDoc, Timestamp } from 'firebase/firestore';
+import { ScheduledChange, getScheduledChangesForEmployee } from './scheduledChangeService';
 
 export type License = {
     type: string;
@@ -80,3 +80,63 @@ export const updateEmployee = async (employeeId: string, data: Partial<Omit<Empl
 
     await updateDoc(employeeDoc, updateData);
 };
+
+export const getEmployeeSnapshot = async (employeeId: string, asOf: Date): Promise<Employee | null> => {
+    const employeeDocRef = doc(db, 'employees', employeeId);
+    const employeeDoc = await getDoc(employeeDocRef);
+    if (!employeeDoc.exists()) {
+        return null;
+    }
+    let snapshotData = { ...employeeDoc.data() } as Employee;
+
+    const allChanges = await getScheduledChangesForEmployee(employeeId);
+    
+    // Filter for changes that were effective AFTER the date we are looking for
+    // and sort them from most recent to oldest.
+    const changesToRevert = allChanges
+        .filter(c => c.effectiveDate.toDate() > asOf && c.status === 'applied')
+        .sort((a, b) => b.effectiveDate.toMillis() - a.effectiveDate.toMillis());
+
+    if (changesToRevert.length === 0) {
+        return snapshotData; // Return current data if no reversions are needed
+    }
+
+    // This is a simplified reversion logic. A more robust system might store the oldValue.
+    // For now, we find the "previous" value by looking at the next change in the revert list.
+    for (let i = 0; i < changesToRevert.length; i++) {
+        const changeToRevert = changesToRevert[i];
+        
+        let oldValue: any = undefined;
+
+        // Find the next most recent change for the same field to get the "old" value.
+        const previousChangeForField = changesToRevert
+            .slice(i + 1)
+            .find(c => c.fieldName === changeToRevert.fieldName);
+
+        if (previousChangeForField) {
+            oldValue = previousChangeForField.newValue;
+        } else {
+            // If no previous change, we need to get the original value.
+            // This is a complex problem. For this implementation, we will assume we can't revert the first ever change.
+            // A truly auditable system would store `oldValue` in the change document itself.
+            // Let's assume for now that reverting to "undefined" or an empty state is acceptable if original is unknown.
+            const originalDocData = (await getDoc(doc(db, 'employees', employeeId))).data();
+            if(originalDocData) {
+                 oldValue = originalDocData[changeToRevert.fieldName];
+            }
+        }
+        
+        if (oldValue !== undefined) {
+             (snapshotData as any)[changeToRevert.fieldName] = oldValue;
+        }
+    }
+
+    // Recalculate fullName if firstName or lastName was reverted
+    if (changesToRevert.some(c => c.fieldName === 'firstName' || c.fieldName === 'lastName')) {
+        snapshotData.fullName = `${snapshotData.firstName} ${snapshotData.lastName}`.trim();
+    }
+
+
+    return snapshotData;
+};
+

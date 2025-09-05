@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp, writeBatch } from 'firebase/firestore';
 import { updateEmployee, Employee } from './employeeService';
 import { applyScheduledChangesFlow } from '@/ai/flows/apply-scheduled-changes-flow';
 
@@ -10,13 +10,32 @@ export type ScheduledChange = {
   newValue: any;
   effectiveDate: Timestamp;
   status: 'pending' | 'applied' | 'cancelled';
+  batchId?: string; // To group changes with the same effective date
 };
 
 const scheduledChangesCollection = collection(db, 'scheduledChanges');
 
-export const createScheduledChange = async (changeData: Omit<ScheduledChange, 'id'>) => {
-  return await addDoc(scheduledChangesCollection, changeData);
+export const createScheduledChanges = async (employeeId: string, changes: {fieldName: keyof Employee, newValue: any}[], effectiveDate: Date) => {
+  const batch = writeBatch(db);
+  const batchId = doc(collection(db, 'scheduledChanges')).id; // Generate a unique ID for the batch
+  const effectiveTimestamp = Timestamp.fromDate(effectiveDate);
+
+  changes.forEach(change => {
+    const changeDocRef = doc(collection(db, 'scheduledChanges'));
+    const changeData: Omit<ScheduledChange, 'id'> = {
+      employeeId,
+      fieldName: change.fieldName,
+      newValue: change.newValue,
+      effectiveDate: effectiveTimestamp,
+      status: 'pending',
+      batchId,
+    };
+    batch.set(changeDocRef, changeData);
+  });
+
+  return await batch.commit();
 };
+
 
 export const getScheduledChangesForEmployee = async (employeeId: string): Promise<ScheduledChange[]> => {
   const q = query(scheduledChangesCollection, where("employeeId", "==", employeeId), where("status", "in", ["pending", "applied"]));
