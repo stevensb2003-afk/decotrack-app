@@ -10,7 +10,6 @@ export type SystemUser = {
   id: string;
   firstName: string;
   lastName: string;
-  fullName: string;
   email: string;
   role: Role;
   password?: string; // Should be handled securely, this is for demo
@@ -23,7 +22,6 @@ const toSystemUser = (doc: any): SystemUser => {
     return {
         id: doc.id,
         ...data,
-        fullName: `${data.firstName || ''} ${data.lastName || ''}`.trim(),
     } as SystemUser;
 }
 
@@ -77,7 +75,7 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
             salaryType: 'Salary',
         });
 
-        return { ...newUser, fullName: 'Admin User', id: docRef.id };
+        return { ...newUser, id: docRef.id };
     }
     return null;
 };
@@ -98,10 +96,9 @@ export const getUserByEmail = async (email: string): Promise<SystemUser | null> 
 };
 
 
-export const createUser = async (userData: Omit<SystemUser, 'id' | 'fullName'>) => {
+export const createUser = async (userData: Omit<SystemUser, 'id'>) => {
   const userPayload = {
     ...userData,
-    fullName: `${userData.firstName} ${userData.lastName}`.trim(),
   }
   const docRef = await addDoc(usersCollection, userPayload);
   if (userData.role !== 'admin') {

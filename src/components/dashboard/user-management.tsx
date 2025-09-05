@@ -38,6 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SystemUser, Role, getAllUsers, createUser, updateUserRole, deleteUser } from '@/services/userService';
+import { Employee, getAllEmployees } from '@/services/employeeService';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 
 const SECURITY_CODE = process.env.NEXT_PUBLIC_ADMIN_SECURITY_CODE;
@@ -45,6 +46,7 @@ const SECURITY_CODE = process.env.NEXT_PUBLIC_ADMIN_SECURITY_CODE;
 export default function UserManagement() {
   const { user: authUser } = useAuth();
   const [users, setUsers] = useState<SystemUser[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [isEditing, setIsEditing] = useState<SystemUser | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isCodePromptOpen, setIsCodePromptOpen] = useState(false);
@@ -55,20 +57,24 @@ export default function UserManagement() {
   const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: '' as Role | ''});
   const { toast } = useToast();
 
-  const fetchUsers = async () => {
+  const fetchData = async () => {
     const allUsers = await getAllUsers();
+    const allEmployees = await getAllEmployees();
     setUsers(allUsers);
+    setEmployees(allEmployees);
   };
   
   useEffect(() => {
-    fetchUsers();
+    fetchData();
   }, []);
+
+  const employeeNameMap = new Map(employees.map(emp => [emp.email, emp.fullName]));
   
   const handleRoleChange = async (userId: string, newRole: Role) => {
     await updateUserRole(userId, newRole);
     toast({ title: "Role Updated", description: "User's role has been successfully changed." });
     setIsEditing(null);
-    fetchUsers();
+    fetchData();
   };
   
   const handleCreateUser = async () => {
@@ -79,7 +85,7 @@ export default function UserManagement() {
 
     const newUserEntry = {
         ...newUser,
-    } as Omit<SystemUser, 'id' | 'fullName'>;
+    } as Omit<SystemUser, 'id'>;
     
     await createUser(newUserEntry);
 
@@ -87,7 +93,7 @@ export default function UserManagement() {
 
     setIsCreating(false);
     setNewUser({ firstName: '', lastName: '', email: '', password: '', role: ''});
-    fetchUsers();
+    fetchData();
   };
 
   const handleViewPasswordClick = (user: SystemUser) => {
@@ -114,7 +120,7 @@ export default function UserManagement() {
     await deleteUser(userToDelete.id);
     toast({ title: "User Deleted", description: `User ${userToDelete.email} has been deleted.` });
     setUserToDelete(null);
-    fetchUsers();
+    fetchData();
   };
 
   return (
@@ -182,7 +188,7 @@ export default function UserManagement() {
             <TableBody>
               {users.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.fullName}</TableCell>
+                  <TableCell className="font-medium">{employeeNameMap.get(user.email) || `${user.firstName} ${user.lastName}`}</TableCell>
                   <TableCell>{user.email}</TableCell>
                    <TableCell className="font-mono">****</TableCell>
                   <TableCell className="capitalize">{user.role}</TableCell>
@@ -268,11 +274,11 @@ export default function UserManagement() {
           <DialogHeader>
             <DialogTitle>User Credentials</DialogTitle>
             <DialogDescription>
-              These are the credentials for {selectedUserForPassword?.fullName}.
+              These are the credentials for {employeeNameMap.get(selectedUserForPassword?.email || '')}.
             </DialogDescription>
           </DialogHeader>
             <Alert>
-              <AlertTitle>{selectedUserForPassword?.fullName}</AlertTitle>
+              <AlertTitle>{employeeNameMap.get(selectedUserForPassword?.email || '')}</AlertTitle>
               <AlertDescription>
                 <p className="mt-2"><strong>Email:</strong> {selectedUserForPassword?.email}</p>
                 <p><strong>Password:</strong> {selectedUserForPassword?.password}</p>
