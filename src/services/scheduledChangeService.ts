@@ -47,6 +47,13 @@ export const createScheduledChanges = async (employeeId: string, changes: {field
   return await batch.commit();
 };
 
+export const getAllScheduledChanges = async (status: 'pending' | 'applied' | 'cancelled' = 'pending'): Promise<ScheduledChange[]> => {
+  const q = query(scheduledChangesCollection, where("status", "==", status));
+  const snapshot = await getDocs(q);
+  const changes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledChange));
+  changes.sort((a,b) => a.effectiveDate.toMillis() - b.effectiveDate.toMillis());
+  return changes;
+}
 
 export const getScheduledChangesForEmployee = async (employeeId: string): Promise<ScheduledChange[]> => {
   const q = query(scheduledChangesCollection, where("employeeId", "==", employeeId));

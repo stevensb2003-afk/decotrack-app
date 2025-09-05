@@ -21,7 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Employee, License, getAllEmployees, createEmployee, updateEmployee, getEmployeeSnapshot } from '@/services/employeeService';
-import { ScheduledChange, createScheduledChanges, getScheduledChangesForEmployee, applyScheduledChanges, createScheduledChange, cancelScheduledChange } from '@/services/scheduledChangeService';
+import { ScheduledChange, createScheduledChanges, getScheduledChangesForEmployee, applyScheduledChanges, createScheduledChange, cancelScheduledChange, getAllScheduledChanges } from '@/services/scheduledChangeService';
 import { ChangeRequest, getPendingChangeRequests, updateChangeRequestStatus } from '@/services/changeRequestService';
 import { Switch } from '../ui/switch';
 import { useAuth } from '@/hooks/use-auth';
@@ -283,6 +283,7 @@ export default function HRDashboard() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [benefits, setBenefits] = useState<Benefit[]>([]);
   const [scheduledChanges, setScheduledChanges] = useState<ScheduledChange[]>([]);
+  const [allPendingChanges, setAllPendingChanges] = useState<ScheduledChange[]>([]);
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
 
   const [isCreateDialogOpen, setCreateIsDialogOpen] = useState(false);
@@ -320,10 +321,19 @@ export default function HRDashboard() {
       const locs = await getAllLocations();
       const bens = await getAllBenefits();
       const reqs = await getPendingChangeRequests();
+      const allChanges = await getAllScheduledChanges();
+
+      const employeeMap = new Map(emps.map(e => [e.id, e.fullName]));
+      const changesWithNames = allChanges.map(c => ({
+        ...c,
+        employeeName: employeeMap.get(c.employeeId) || 'Unknown Employee'
+      }));
+
       setEmployees(emps);
       setLocations(locs);
       setBenefits(bens);
       setChangeRequests(reqs);
+      setAllPendingChanges(changesWithNames);
   };
 
   useEffect(() => {
@@ -524,6 +534,7 @@ export default function HRDashboard() {
     // Refetch changes for the employee
     const changes = await getScheduledChangesForEmployee(selectedEmployee.id);
     setScheduledChanges(changes);
+    fetchData(); // Refetch all data to update global list
   };
 
   const handleRunApplyChanges = async () => {
@@ -662,7 +673,13 @@ export default function HRDashboard() {
     if (['birthDate', 'hireDate'].includes(change.fieldName) && change.newValue instanceof Timestamp) {
         return format(change.newValue.toDate(), "PPP");
     }
-    return change.newValue.toString();
+    if (typeof change.newValue === 'string') {
+        return change.newValue;
+    }
+    if(typeof change.newValue === 'number') {
+        return change.newValue.toString();
+    }
+    return JSON.stringify(change.newValue);
   };
 
   const availableFieldsForScheduling = useMemo(() => {
@@ -698,6 +715,7 @@ export default function HRDashboard() {
   const handleCancelScheduledChange = async (changeId: string) => {
     await cancelScheduledChange(changeId);
     toast({title: "Change Cancelled", description: "The scheduled change has been cancelled."});
+    fetchData(); // Refetch global list
     if (selectedEmployee) {
         const changes = await getScheduledChangesForEmployee(selectedEmployee.id);
         setScheduledChanges(changes);
@@ -707,25 +725,13 @@ export default function HRDashboard() {
 
   return (
     <div className="space-y-6">
-      <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Scheduled Changes Runner</CardTitle>
-              <CardDescription>Manually trigger the process to apply all pending scheduled changes.</CardDescription>
-            </div>
-            <Button onClick={handleRunApplyChanges} disabled={isApplyingChanges}>
-                <Play className="mr-2 h-4 w-4" />
-                {isApplyingChanges ? 'Applying...' : 'Apply Pending Changes'}
-            </Button>
-          </CardHeader>
-      </Card>
-      
       <Tabs defaultValue="employees" className="space-y-4">
         <TabsList>
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
             <TabsTrigger value="contracts">Contracts</TabsTrigger>
             <TabsTrigger value="requests">Change Requests</TabsTrigger>
+            <TabsTrigger value="scheduledChanges">Scheduled Changes</TabsTrigger>
         </TabsList>
         <TabsContent value="employees">
             <Card>
@@ -972,6 +978,49 @@ export default function HRDashboard() {
                         </TableBody>
                     </Table>
                     {changeRequests.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">No pending change requests.</p>}
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="scheduledChanges">
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                    <CardTitle>Scheduled Changes Runner</CardTitle>
+                    <CardDescription>Manually trigger the process to apply all pending scheduled changes.</CardDescription>
+                    </div>
+                    <Button onClick={handleRunApplyChanges} disabled={isApplyingChanges}>
+                        <Play className="mr-2 h-4 w-4" />
+                        {isApplyingChanges ? 'Applying...' : 'Apply Pending Changes'}
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Effective Date</TableHead>
+                                <TableHead>Employee</TableHead>
+                                <TableHead>Field</TableHead>
+                                <TableHead>New Value</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {allPendingChanges.map(change => (
+                                <TableRow key={change.id}>
+                                    <TableCell>{format(change.effectiveDate.toDate(), "PPP")}</TableCell>
+                                    <TableCell>{(change as any).employeeName}</TableCell>
+                                    <TableCell>{change.fieldName}</TableCell>
+                                    <TableCell>{getChangeValueLabel(change)}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => handleCancelScheduledChange(change.id)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    {allPendingChanges.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">No pending changes for any employee.</p>}
                 </CardContent>
             </Card>
         </TabsContent>
