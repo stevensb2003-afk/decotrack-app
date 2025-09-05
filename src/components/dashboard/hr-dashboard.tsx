@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -37,6 +36,8 @@ import { Location, createLocation, getAllLocations, updateLocation } from '@/ser
 import { Benefit, createBenefit, getAllBenefits, updateBenefit, deleteBenefit, BenefitApplicability } from '@/services/benefitService';
 import { Textarea } from '../ui/textarea';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '../ui/dropdown-menu';
+import { APIProvider } from '@vis.gl/react-google-maps';
+import LocationMap from './location-map';
 
 const initialNewEmployeeData: Omit<Employee, 'id' | 'fullName'> = {
     firstName: '',
@@ -1137,42 +1138,36 @@ export default function HRDashboard() {
       </Dialog>
       
        <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
                 <DialogTitle>{editingLocation ? "Edit Location" : "Add New Location"}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-                <div>
-                    <Label htmlFor="location-name">Location Name</Label>
-                    <Input id="location-name" value={newLocationData.name || ''} onChange={e => setNewLocationData({...newLocationData, name: e.target.value})} placeholder="e.g., Downtown Store"/>
-                </div>
-                <div>
-                    <Label htmlFor="location-address">Address</Label>
-                    <Input id="location-address" value={newLocationData.address || ''} onChange={e => setNewLocationData({...newLocationData, address: e.target.value})} placeholder="e.g., 123 Main St, Anytown"/>
-                </div>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <Label htmlFor="location-lat">Latitude</Label>
-                        <Input id="location-lat" type="number" value={newLocationData.latitude || ''} onChange={e => setNewLocationData({...newLocationData, latitude: parseFloat(e.target.value) || 0})} placeholder="e.g., 34.0522"/>
+             <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+                <div className="space-y-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="location-name">Location Name</Label>
+                            <Input id="location-name" value={newLocationData.name || ''} onChange={e => setNewLocationData({...newLocationData, name: e.target.value})} placeholder="e.g., Downtown Store"/>
+                        </div>
+                        <div>
+                            <Label htmlFor="location-manager">Assign Manager</Label>
+                            <Select value={newLocationData.managerId} onValueChange={val => setNewLocationData({...newLocationData, managerId: val})}>
+                                <SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">None</SelectItem>
+                                    {managementEmployees.map(emp => (
+                                        <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
-                    <div>
-                        <Label htmlFor="location-lon">Longitude</Label>
-                        <Input id="location-lon" type="number" value={newLocationData.longitude || ''} onChange={e => setNewLocationData({...newLocationData, longitude: parseFloat(e.target.value) || 0})} placeholder="e.g., -118.2437"/>
-                    </div>
+                    <LocationMap
+                        location={newLocationData}
+                        onLocationChange={(loc) => setNewLocationData(prev => ({...prev, ...loc}))}
+                    />
                 </div>
-                <div>
-                    <Label htmlFor="location-manager">Assign Manager</Label>
-                    <Select value={newLocationData.managerId} onValueChange={val => setNewLocationData({...newLocationData, managerId: val})}>
-                        <SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger>
-                        <SelectContent>
-                             <SelectItem value="none">None</SelectItem>
-                            {managementEmployees.map(emp => (
-                                <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
+            </APIProvider>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>Cancel</Button>
                 <Button onClick={handleSaveLocation}>Save Location</Button>
@@ -1312,3 +1307,5 @@ export default function HRDashboard() {
     </div>
   );
 }
+
+    
