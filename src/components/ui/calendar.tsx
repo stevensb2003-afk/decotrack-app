@@ -2,10 +2,13 @@
 "use client"
 
 import * as React from "react"
-import { DayPicker } from "react-day-picker"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+import { DayPicker, useDayPicker, useNavigation } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select"
+import { format } from "date-fns"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
@@ -23,7 +26,7 @@ function Calendar({
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
+        caption_label: "text-sm font-medium hidden",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
@@ -56,6 +59,7 @@ function Calendar({
       components={{
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
+        Caption: CustomCaption,
       }}
       {...props}
     />
@@ -63,21 +67,62 @@ function Calendar({
 }
 Calendar.displayName = "Calendar"
 
-function ChevronLeft(props: React.SVGProps<SVGSVGElement>) {
-    return (
-        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-        </svg>
-    )
-}
+function CustomCaption(props: React.ComponentProps<typeof DayPicker>['components']['Caption']) {
+    const { goToMonth, nextMonth, previousMonth } = useNavigation();
+    const { fromYear, toYear } = useDayPicker();
 
-function ChevronRight(props: React.SVGProps<SVGSVGElement>) {
-    return (
-        <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-        </svg>
-    )
-}
+    const handleYearChange = (newValue: string) => {
+        const newDate = new Date(props.displayMonth);
+        newDate.setFullYear(parseInt(newValue));
+        goToMonth(newDate);
+    }
+    
+    const years = [];
+    const startYear = fromYear || (new Date().getFullYear() - 100);
+    const endYear = toYear || (new Date().getFullYear());
 
+    for (let i = startYear; i <= endYear; i++) {
+        years.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-between w-full">
+        <Button
+            disabled={!previousMonth}
+            onClick={() => previousMonth && goToMonth(previousMonth)}
+            variant="outline"
+            className="h-7 w-7 p-0"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex items-center gap-1">
+            <span className="text-sm font-medium">
+                {format(props.displayMonth, 'MMMM')}
+            </span>
+            <Select
+                onValueChange={handleYearChange}
+                value={props.displayMonth.getFullYear().toString()}
+            >
+                <SelectTrigger className="w-[80px] h-7 text-sm">
+                    <SelectValue>{props.displayMonth.getFullYear()}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                    {years.map(year => (
+                        <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
+        <Button
+            disabled={!nextMonth}
+            onClick={() => nextMonth && goToMonth(nextMonth)}
+            variant="outline"
+            className="h-7 w-7 p-0"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+}
 
 export { Calendar }
