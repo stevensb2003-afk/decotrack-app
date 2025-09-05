@@ -37,7 +37,6 @@ import { Location, createLocation, getAllLocations, updateLocation } from '@/ser
 import { Benefit, createBenefit, getAllBenefits, updateBenefit, deleteBenefit, BenefitApplicability } from '@/services/benefitService';
 import { Textarea } from '../ui/textarea';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '../ui/dropdown-menu';
-import LocationMap from '@/components/dashboard/location-map';
 
 const initialNewEmployeeData: Omit<Employee, 'id' | 'fullName'> = {
     firstName: '',
@@ -297,7 +296,7 @@ export default function HRDashboard() {
 
   const [newEmployeeData, setNewEmployeeData] = useState<Omit<Employee, 'id' | 'fullName'>>(initialNewEmployeeData);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
-  const [newLocationData, setNewLocationData] = useState<Partial<Location>>({ name: '', managerId: '', address: '', latitude: 0, longitude: 0});
+  const [newLocationData, setNewLocationData] = useState<Partial<Location>>({ name: '', managerId: '', address: '' });
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   
   const [filterLocation, setFilterLocation] = useState('all');
@@ -421,8 +420,6 @@ export default function HRDashboard() {
         managerId: manager?.id || '',
         managerName: manager?.fullName || '',
         address: newLocationData.address || '',
-        latitude: newLocationData.latitude || 0,
-        longitude: newLocationData.longitude || 0,
     };
 
     if (editingLocation) {
@@ -433,7 +430,7 @@ export default function HRDashboard() {
         toast({title: "Location Created"});
     }
     
-    setNewLocationData({ name: '', managerId: '', address: '', latitude: 0, longitude: 0});
+    setNewLocationData({ name: '', managerId: '', address: ''});
     setEditingLocation(null);
     setIsLocationDialogOpen(false);
     fetchData();
@@ -441,7 +438,7 @@ export default function HRDashboard() {
   
   const handleOpenLocationDialog = (location: Location | null) => {
     setEditingLocation(location);
-    setNewLocationData(location || { name: '', managerId: '', address: '', latitude: 0, longitude: 0 });
+    setNewLocationData(location || { name: '', managerId: '', address: '' });
     setIsLocationDialogOpen(true);
   };
   
@@ -1138,7 +1135,7 @@ export default function HRDashboard() {
       </Dialog>
       
        <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>{editingLocation ? "Edit Location" : "Add New Location"}</DialogTitle>
             </DialogHeader>
@@ -1161,10 +1158,10 @@ export default function HRDashboard() {
                         </Select>
                     </div>
                 </div>
-                <LocationMap
-                    location={newLocationData}
-                    onLocationChange={(loc) => setNewLocationData(prev => ({...prev, ...loc}))}
-                />
+                 <div>
+                    <Label htmlFor="location-address">Address</Label>
+                    <Input id="location-address" value={newLocationData.address || ''} onChange={e => setNewLocationData({...newLocationData, address: e.target.value})} placeholder="e.g., 123 Main St, Anytown"/>
+                </div>
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>Cancel</Button>

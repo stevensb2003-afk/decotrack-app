@@ -8,8 +8,6 @@ export type Location = {
     managerId?: string;
     managerName?: string;
     address?: string;
-    latitude?: number;
-    longitude?: number;
 };
 
 const locationsCollection = collection(db, 'locations');

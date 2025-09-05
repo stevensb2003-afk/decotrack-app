@@ -4,7 +4,6 @@
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { APIProvider } from '@vis.gl/react-google-maps';
 
 export default function DashboardClientLayout({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
@@ -25,8 +24,8 @@ export default function DashboardClientLayout({ children }: { children: React.Re
     }
     
     return (
-        <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!} libraries={['places']}>
+        <>
             {children}
-        </APIProvider>
+        </>
     );
 }
