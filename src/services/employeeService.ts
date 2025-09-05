@@ -1,8 +1,7 @@
 
-import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, doc, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, addDoc, updateDoc, doc, query, where, getDoc } from 'firebase/firestore';
 import { Timestamp } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 export type License = {
     type: string;
@@ -55,17 +54,14 @@ export const getEmployeeByEmail = async (email: string): Promise<Employee | null
     return { id: docData.id, ...docData.data() } as Employee;
 };
 
-export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'fullName'> & {name?: string}) => {
+export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'fullName'>) => {
     // Ensure licenses is always an array
     const dataToCreate = {
         ...employeeData,
-        firstName: employeeData.firstName || employeeData.name || '',
-        lastName: employeeData.lastName || '',
-        fullName: `${employeeData.firstName || employeeData.name || ''} ${employeeData.lastName || ''}`.trim(),
+        fullName: `${employeeData.firstName} ${employeeData.lastName}`.trim(),
         licenses: employeeData.licenses || [],
         avatarUrl: '',
     };
-    delete (dataToCreate as any).name;
     const docRef = await addDoc(employeesCollection, dataToCreate);
     return docRef.id;
 };
@@ -74,7 +70,7 @@ export const updateEmployee = async (employeeId: string, data: Partial<Omit<Empl
     const employeeDoc = doc(db, 'employees', employeeId);
     
     const updateData = {...data};
-    if (data.firstName || data.lastName) {
+    if ('firstName' in data || 'lastName' in data) {
         const currentDoc = await getDoc(employeeDoc);
         const currentData = currentDoc.data() as Employee;
         const firstName = data.firstName ?? currentData.firstName;
