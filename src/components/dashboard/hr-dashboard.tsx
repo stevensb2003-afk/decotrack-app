@@ -333,7 +333,7 @@ export default function HRDashboard() {
       setLocations(locs);
       setBenefits(bens);
       setChangeRequests(reqs);
-      setAllPendingChanges(changesWithNames);
+      setAllPendingChanges(changesWithNames.filter(c => c.status === 'pending'));
   };
 
   useEffect(() => {
@@ -693,10 +693,11 @@ export default function HRDashboard() {
     return JSON.stringify(change.newValue);
   };
 
-  const availableFieldsForScheduling = useMemo(() => {
-    const usedFields = new Set(newScheduledChanges.map(c => c.fieldName));
+  const getAvailableFieldsForScheduling = (currentIndex: number) => {
+    const usedFields = new Set(newScheduledChanges.map((c, i) => i === currentIndex ? null : c.fieldName).filter(Boolean));
     return employeeFields.filter(f => !usedFields.has(f.value));
-  }, [newScheduledChanges]);
+  };
+
 
   const handleApproveRequest = async () => {
     if (!requestToApprove || !approvalEffectiveDate) return;
@@ -1235,7 +1236,7 @@ export default function HRDashboard() {
                             >
                                 <SelectTrigger><SelectValue placeholder="Select a field" /></SelectTrigger>
                                 <SelectContent>
-                                    {availableFieldsForScheduling.map(field => field.value && <SelectItem key={field.value} value={field.value}>{field.label}</SelectItem>)}
+                                    {getAvailableFieldsForScheduling(index).map(field => field.value && <SelectItem key={field.value} value={field.value}>{field.label}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
