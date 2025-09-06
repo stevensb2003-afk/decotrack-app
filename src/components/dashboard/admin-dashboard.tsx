@@ -22,7 +22,7 @@ export default function AdminDashboard({ currentView }: AdminDashboardProps) {
         return <SchedulingDashboard />;
       case 'reports':
         return <ReportsDashboard />;
-      case 'users':
+      case 'settings':
         return <UserManagement />;
       case 'overview':
       default:

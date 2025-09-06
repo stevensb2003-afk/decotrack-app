@@ -18,7 +18,7 @@ export default function DashboardSidebar({ onNavigate }: { onNavigate: (view: st
     { view: 'scheduling', label: 'Scheduling', icon: CalendarDays },
     { view: 'time-off', label: 'Time Off', icon: CalendarOff },
     { view: 'reports', label: 'Reports', icon: BarChart },
-    { view: 'users', label: 'User Management', icon: Settings },
+    { view: 'settings', label: 'Settings', icon: Settings },
   ];
   
   const handleNavigation = (view: string) => {
