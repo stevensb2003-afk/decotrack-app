@@ -12,13 +12,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Employee, getEmployeeByEmail, updateEmployee } from '@/services/employeeService';
 import { createChangeRequest, getPendingRequestForEmployee } from '@/services/changeRequestService';
-import { Camera, CalendarIcon, ArrowLeft } from 'lucide-react';
+import { Camera, CalendarIcon, ArrowLeft, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
 import Link from 'next/link';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -200,15 +201,29 @@ export default function ProfilePage() {
        <Card>
         <CardHeader>
             <div className="flex items-center gap-4">
-                 <div className="relative group">
-                    <Avatar className="h-20 w-20 cursor-pointer" onClick={handleAvatarClick}>
-                        <AvatarImage data-ai-hint="profile avatar" src={avatarUrl} />
-                        <AvatarFallback>{getInitials(employeeData.fullName)}</AvatarFallback>
-                    </Avatar>
-                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={handleAvatarClick}>
-                        <Camera className="text-white h-8 w-8" />
+                <div className="relative">
+                     <div className="relative group">
+                        <Avatar className="h-20 w-20 cursor-pointer" onClick={handleAvatarClick}>
+                            <AvatarImage data-ai-hint="profile avatar" src={avatarUrl} />
+                            <AvatarFallback>{getInitials(employeeData.fullName)}</AvatarFallback>
+                        </Avatar>
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={handleAvatarClick}>
+                            <Camera className="text-white h-8 w-8" />
+                        </div>
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
                     </div>
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div className="absolute bottom-0 right-0 -mr-2 -mb-2">
+                                     <Info className="h-5 w-5 text-muted-foreground cursor-pointer hover:text-primary"/>
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p className="text-sm">Recommended: 200x200px, 1MB max, JPG/PNG.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
                 <div>
                     <CardTitle className="text-3xl">{employeeData.fullName}</CardTitle>
