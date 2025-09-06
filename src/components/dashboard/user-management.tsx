@@ -59,7 +59,7 @@ export default function UserManagement() {
   const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: '' as Role | ''});
   
   const [cronHour, setCronHour] = useState(0);
-  const [cronMinute, setCronMinute] = useState(15);
+  const [cronMinute, setCronMinute] = useState(0);
   
   const { toast } = useToast();
 
@@ -262,8 +262,8 @@ export default function UserManagement() {
                             type="number" 
                             min="0" 
                             max="23" 
-                            value={cronHour}
-                            onChange={(e) => setCronHour(parseInt(e.target.value))}
+                            value={cronHour || 0}
+                            onChange={(e) => setCronHour(parseInt(e.target.value) || 0)}
                         />
                     </div>
                      <div className="flex-1">
@@ -273,8 +273,8 @@ export default function UserManagement() {
                             type="number" 
                             min="0" 
                             max="59" 
-                            value={cronMinute}
-                            onChange={(e) => setCronMinute(parseInt(e.target.value))}
+                            value={cronMinute || 0}
+                            onChange={(e) => setCronMinute(parseInt(e.target.value) || 0)}
                         />
                     </div>
                      <Button onClick={handleSaveSettings} className="self-end">
