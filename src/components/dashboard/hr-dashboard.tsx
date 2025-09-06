@@ -592,9 +592,6 @@ export default function HRDashboard() {
     }
 
     const asOfDate = new Date(dateISO);
-    // Add one day to include changes on the effective date itself
-    asOfDate.setDate(asOfDate.getDate() + 1);
-
     const snapshot = await getEmployeeSnapshot(selectedEmployee.id, asOfDate);
     setEmployeeSnapshot(snapshot);
   }
@@ -1087,7 +1084,7 @@ export default function HRDashboard() {
                     <TabsTrigger value="changes">Scheduled Changes</TabsTrigger>
                 </TabsList>
                 <TabsContent value="details">
-                    <div className="space-y-6 py-4">
+                    <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto pr-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6">
                             <DetailItem label="Full Name" value={employeeSnapshot.fullName} />
                             <DetailItem label="Email" value={employeeSnapshot.email} />
