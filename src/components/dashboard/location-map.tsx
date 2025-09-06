@@ -77,7 +77,7 @@ function PlacesAutocomplete({ onLocationSelect, initialLocation }: PlacesAutocom
         });
 
         return () => {
-            if (window.google) {
+            if (window.google && autocomplete) {
                 // Using a try-catch block as clearInstanceListeners can sometimes throw errors
                 // if the component unmounts unexpectedly.
                 try {
