@@ -30,13 +30,9 @@ export const getAllUsers = async (): Promise<SystemUser[]> => {
   return snapshot.docs.map(toSystemUser);
 };
 
-const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | null> => {
+const createDefaultAdminIfNeeded = async () => {
     const adminEmail = "decoinnova24@gmail.com";
-    if (email.toLowerCase() !== adminEmail) {
-        return null;
-    }
-
-    const q = query(usersCollection, where("role", "==", "admin"));
+    const q = query(usersCollection, where("email", "==", adminEmail));
     const adminSnapshot = await getDocs(q);
 
     if (adminSnapshot.empty) {
@@ -78,13 +74,13 @@ const createDefaultAdminIfNeeded = async (email: string): Promise<SystemUser | n
 
         return { ...newUser, id: docRef.id };
     }
-    return null;
+    return toSystemUser(adminSnapshot.docs[0]);
 };
 
+
 export const getUserByEmail = async (email: string): Promise<SystemUser | null> => {
-    const newAdmin = await createDefaultAdminIfNeeded(email);
-    if(newAdmin && newAdmin.email.toLowerCase() === email.toLowerCase()) {
-        return newAdmin;
+    if (email.toLowerCase() === "decoinnova24@gmail.com") {
+        return await createDefaultAdminIfNeeded();
     }
 
     const q = query(usersCollection, where("email", "==", email));
