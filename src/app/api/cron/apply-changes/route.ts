@@ -10,9 +10,10 @@ export const GET = async (req: NextRequest) => {
     const currentHour = now.getUTCHours();
     const currentMinute = now.getUTCMinutes();
     
+    console.log(`Cron trigger received. Current UTC time: ${currentHour}:${currentMinute}. Scheduled time: ${settings.cronHour}:${settings.cronMinute}.`);
+    
     // Check if the current time matches the configured time
     if (currentHour !== settings.cronHour || currentMinute !== settings.cronMinute) {
-      console.log(`Cron job skipped. Current time ${currentHour}:${currentMinute} does not match scheduled time ${settings.cronHour}:${settings.cronMinute}.`);
       return NextResponse.json({
         success: true,
         message: 'Job skipped, not the scheduled time.',

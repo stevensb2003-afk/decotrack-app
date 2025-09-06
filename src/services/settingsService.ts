@@ -17,7 +17,7 @@ export const getSettings = async (): Promise<AppSettings> => {
         // Default settings if the document doesn't exist
         const defaultSettings: AppSettings = {
             cronHour: 1, // 1 AM UTC
-            cronMinute: 10,
+            cronMinute: 6,
         };
         // Create the document with default settings
         await setDoc(settingsDocRef, defaultSettings);
