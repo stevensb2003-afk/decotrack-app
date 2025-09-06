@@ -22,12 +22,10 @@ export const applyScheduledChangesFlow = ai.defineFlow(
     
     // Query for all pending changes that are due to be applied.
     // NOTE: This query requires a composite index on (status, effectiveDate).
-    // Firestore will provide a link in the console error to create this automatically.
     const q = query(
       collection(db, 'scheduledChanges'),
       where('status', '==', 'pending'),
-      where('effectiveDate', '<=', now),
-      orderBy('effectiveDate')
+      where('effectiveDate', '<=', now)
     );
 
     const snapshot = await getDocs(q);
