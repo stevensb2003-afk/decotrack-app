@@ -8,5 +8,5 @@ runConfig:
 
 # Add a scheduled trigger to run a cron job
 scheduledTriggers:
-  - schedule: "0 0 * * *" # Runs every day at midnight
+  - schedule: "10 0 * * *" # Runs every day at 00:10
     target: /api/cron/apply-changes
