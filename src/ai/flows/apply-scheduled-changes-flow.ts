@@ -52,8 +52,10 @@ export const applyScheduledChangesFlow = ai.defineFlow(
             const locationDocSnapshot = await getDoc(locationDocRef);
             if(locationDocSnapshot.exists()) {
                 const locationData = locationDocSnapshot.data();
-                updateData.locationName = locationData.name;
-                updateData.managerName = locationData.managerName || 'N/A';
+                if (locationData) { // THIS IS THE FIX
+                    updateData.locationName = locationData.name;
+                    updateData.managerName = locationData.managerName || 'N/A';
+                }
             }
         } catch (e) {
             console.error(`Could not fetch location ${change.newValue} for employee ${change.employeeId}. Location-dependent fields might be stale.`);
