@@ -7,35 +7,34 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { collection, getDocs, query, where, Timestamp, doc, writeBatch, orderBy, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, doc, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Employee } from '@/services/employeeService';
 import { ScheduledChange } from '@/services/scheduledChangeService';
+import { getSettings } from '@/services/settingsService';
 
 export const applyScheduledChangesFlow = ai.defineFlow(
   {
     name: 'applyScheduledChangesFlow',
-    outputSchema: ai.defineSchema<{ appliedChangesCount: number }>(),
+    outputSchema: ai.defineSchema<{ appliedChangesCount: number; message: string }>(),
   },
   async () => {
-    const now = Timestamp.now();
+    const nowTimestamp = Timestamp.now();
     
-    // Query for all pending changes that are due to be applied.
-    // NOTE: This query requires a composite index on (status, effectiveDate).
     const q = query(
       collection(db, 'scheduledChanges'),
       where('status', '==', 'pending'),
-      where('effectiveDate', '<=', now)
+      where('effectiveDate', '<=', nowTimestamp)
     );
 
     const snapshot = await getDocs(q);
-    
     const changesToApply = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledChange));
 
     if (changesToApply.length === 0) {
-      return { appliedChangesCount: 0 };
+      return { appliedChangesCount: 0, message: "No pending changes to apply." };
     }
 
+    console.log(`Found ${changesToApply.length} changes to apply.`);
     const batch = writeBatch(db);
 
     for (const change of changesToApply) {
@@ -44,15 +43,15 @@ export const applyScheduledChangesFlow = ai.defineFlow(
       let updateData: Partial<Employee> = {
         [change.fieldName]: change.newValue,
       };
-
-      // If location is changing, we need to update locationName and managerName too
+      
+      // If location is changing, also update locationName and managerName
       if (change.fieldName === 'locationId' && typeof change.newValue === 'string') {
         const locationDocRef = doc(db, 'locations', change.newValue);
         try {
             const locationDocSnapshot = await getDoc(locationDocRef);
-            if(locationDocSnapshot.exists()) {
+            if (locationDocSnapshot.exists()) {
                 const locationData = locationDocSnapshot.data();
-                if (locationData) { // THIS IS THE FIX
+                if (locationData) {
                     updateData.locationName = locationData.name;
                     updateData.managerName = locationData.managerName || 'N/A';
                 }
@@ -63,13 +62,46 @@ export const applyScheduledChangesFlow = ai.defineFlow(
       }
 
       batch.update(employeeDocRef, updateData);
-
       const changeDocRef = doc(db, 'scheduledChanges', change.id);
       batch.update(changeDocRef, { status: 'applied' });
     }
 
     await batch.commit();
 
-    return { appliedChangesCount: changesToApply.length };
+    return { appliedChangesCount: changesToApply.length, message: `Successfully applied ${changesToApply.length} changes.` };
+  }
+);
+
+// This is the cron job trigger flow.
+export const applyScheduledChangesCronFlow = ai.defineFlow(
+  {
+    name: 'applyScheduledChangesCronFlow',
+    outputSchema: ai.defineSchema<{ appliedChangesCount: number; message: string }>(),
+  },
+  async () => {
+    const settings = await getSettings();
+    const timeZone = 'America/Costa_Rica'; 
+    const now = new Date();
+
+    // Get current hour and minute in Costa Rica timezone
+    const currentHourCR = parseInt(
+      new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone }).format(now)
+    );
+    const currentMinuteCR = parseInt(
+      new Intl.DateTimeFormat('en-US', { minute: 'numeric', timeZone }).format(now)
+    );
+
+    console.log(`Cron flow running. Current Costa Rica time: ${currentHourCR}:${currentMinuteCR}. Scheduled time: ${settings.cronHour}:${settings.cronMinute}.`);
+
+    // Check if the current Costa Rica time matches the configured time
+    if (currentHourCR === settings.cronHour && currentMinuteCR === settings.cronMinute) {
+        console.log('Time matches. Applying scheduled changes...');
+        return await applyScheduledChangesFlow();
+    }
+    
+    return { 
+        appliedChangesCount: 0,
+        message: `Job skipped. Current time ${currentHourCR}:${currentMinuteCR} does not match scheduled time ${settings.cronHour}:${settings.cronMinute}.`
+    };
   }
 );

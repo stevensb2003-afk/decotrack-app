@@ -1,3 +1,4 @@
+
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp, writeBatch } from 'firebase/firestore';
 import { updateEmployee, Employee } from './employeeService';
@@ -69,5 +70,6 @@ export const cancelScheduledChange = async (changeId: string) => {
 }
 
 export const applyScheduledChanges = async (): Promise<{ appliedChangesCount: number }> => {
-    return await applyScheduledChangesFlow();
+    const result = await applyScheduledChangesFlow();
+    return { appliedChangesCount: result.appliedChangesCount };
 };
