@@ -3,20 +3,20 @@
 import { applyScheduledChangesFlow } from '@/ai/flows/apply-scheduled-changes-flow';
 import { getSettings } from '@/services/settingsService';
 import { NextRequest, NextResponse } from 'next/server';
+import { utcToZonedTime, format } from 'date-fns-tz';
 
 export const GET = async (req: NextRequest) => {
   try {
     const settings = await getSettings();
-    
-    // Get current time in UTC
+    const timeZone = 'America/Costa_Rica';
+
+    // Get current time in UTC and convert it to Costa Rica's timezone
     const nowUtc = new Date();
+    const zonedDate = utcToZonedTime(nowUtc, timeZone);
 
-    // Convert UTC to Costa Rica time (UTC-6)
-    // Subtract 6 hours (6 * 60 * 60 * 1000 milliseconds)
-    const costaRicaTime = new Date(nowUtc.getTime() - (6 * 60 * 60 * 1000));
-
-    const currentHourCR = costaRicaTime.getUTCHours(); // Use getUTCHours on the adjusted date
-    const currentMinuteCR = costaRicaTime.getUTCMinutes(); // Use getUTCMinutes on the adjusted date
+    // Extract hour and minute from the zoned date
+    const currentHourCR = parseInt(format(zonedDate, 'H', { timeZone }));
+    const currentMinuteCR = parseInt(format(zonedDate, 'm', { timeZone }));
     
     console.log(`Cron trigger received. Current Costa Rica time: ${currentHourCR}:${currentMinuteCR}. Scheduled time: ${settings.cronHour}:${settings.cronMinute}.`);
     
