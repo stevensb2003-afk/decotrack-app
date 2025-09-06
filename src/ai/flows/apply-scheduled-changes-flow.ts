@@ -12,11 +12,17 @@ import { db } from '@/lib/firebase';
 import { Employee } from '@/services/employeeService';
 import { ScheduledChange } from '@/services/scheduledChangeService';
 import { getSettings } from '@/services/settingsService';
+import { z } from 'genkit';
+
+const ApplyChangesOutputSchema = z.object({
+    appliedChangesCount: z.number(),
+    message: z.string(),
+});
 
 export const applyScheduledChangesFlow = ai.defineFlow(
   {
     name: 'applyScheduledChangesFlow',
-    outputSchema: ai.defineSchema<{ appliedChangesCount: number; message: string }>(),
+    outputSchema: ApplyChangesOutputSchema,
   },
   async () => {
     const nowTimestamp = Timestamp.now();
@@ -76,7 +82,7 @@ export const applyScheduledChangesFlow = ai.defineFlow(
 export const applyScheduledChangesCronFlow = ai.defineFlow(
   {
     name: 'applyScheduledChangesCronFlow',
-    outputSchema: ai.defineSchema<{ appliedChangesCount: number; message: string }>(),
+    outputSchema: ApplyChangesOutputSchema,
   },
   async () => {
     const settings = await getSettings();
