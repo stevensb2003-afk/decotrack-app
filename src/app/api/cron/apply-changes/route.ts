@@ -1,3 +1,4 @@
+
 // src/app/api/cron/apply-changes/route.ts
 import { applyScheduledChangesFlow } from '@/ai/flows/apply-scheduled-changes-flow';
 import { getSettings } from '@/services/settingsService';
@@ -6,14 +7,21 @@ import { NextRequest, NextResponse } from 'next/server';
 export const GET = async (req: NextRequest) => {
   try {
     const settings = await getSettings();
-    const now = new Date();
-    const currentHour = now.getUTCHours();
-    const currentMinute = now.getUTCMinutes();
     
-    console.log(`Cron trigger received. Current UTC time: ${currentHour}:${currentMinute}. Scheduled time: ${settings.cronHour}:${settings.cronMinute}.`);
+    // Get current time in UTC
+    const nowUtc = new Date();
+
+    // Convert UTC to Costa Rica time (UTC-6)
+    // Subtract 6 hours (6 * 60 * 60 * 1000 milliseconds)
+    const costaRicaTime = new Date(nowUtc.getTime() - (6 * 60 * 60 * 1000));
+
+    const currentHourCR = costaRicaTime.getUTCHours(); // Use getUTCHours on the adjusted date
+    const currentMinuteCR = costaRicaTime.getUTCMinutes(); // Use getUTCMinutes on the adjusted date
     
-    // Check if the current time matches the configured time
-    if (currentHour !== settings.cronHour || currentMinute !== settings.cronMinute) {
+    console.log(`Cron trigger received. Current Costa Rica time: ${currentHourCR}:${currentMinuteCR}. Scheduled time: ${settings.cronHour}:${settings.cronMinute}.`);
+    
+    // Check if the current Costa Rica time matches the configured time
+    if (currentHourCR !== settings.cronHour || currentMinuteCR !== settings.cronMinute) {
       return NextResponse.json({
         success: true,
         message: 'Job skipped, not the scheduled time.',
