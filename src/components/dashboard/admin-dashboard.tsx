@@ -2,7 +2,7 @@
 
 import ManagementDashboard from "./management-dashboard";
 import HRDashboard from "./hr-dashboard";
-import UserManagement from "./user-management";
+import SettingsDashboard from "./settings-dashboard";
 import ReportsDashboard from "./reports-dashboard";
 import TimeOffDashboard from "./time-off-dashboard";
 import SchedulingDashboard from "./scheduling-dashboard";
@@ -23,7 +23,7 @@ export default function AdminDashboard({ currentView }: AdminDashboardProps) {
       case 'reports':
         return <ReportsDashboard />;
       case 'settings':
-        return <UserManagement />;
+        return <SettingsDashboard />;
       case 'overview':
       default:
         return <ManagementDashboard />;
