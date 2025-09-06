@@ -20,25 +20,22 @@ export const applyScheduledChangesFlow = ai.defineFlow(
   async () => {
     const now = Timestamp.now();
     
-    // The query requires filtering by status and ordering by effectiveDate.
-    // To work around composite index requirements, we query by date first and filter by status in code.
+    // Query for all pending changes that are due to be applied.
+    // NOTE: This query requires a composite index on (status, effectiveDate).
+    // Firestore will provide a link in the console error to create this automatically.
     const q = query(
       collection(db, 'scheduledChanges'),
+      where('status', '==', 'pending'),
       where('effectiveDate', '<=', now),
       orderBy('effectiveDate')
     );
 
     const snapshot = await getDocs(q);
-    if (snapshot.empty) {
-      return { appliedChangesCount: 0 };
-    }
+    
+    const changesToApply = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledChange));
 
-    const changesToApply = snapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() } as ScheduledChange))
-      .filter(change => change.status === 'pending');
-      
     if (changesToApply.length === 0) {
-        return { appliedChangesCount: 0 };
+      return { appliedChangesCount: 0 };
     }
 
     const batch = writeBatch(db);
@@ -51,15 +48,17 @@ export const applyScheduledChangesFlow = ai.defineFlow(
       };
 
       // If location is changing, we need to update locationName and managerName too
-      if (change.fieldName === 'locationId') {
+      if (change.fieldName === 'locationId' && typeof change.newValue === 'string') {
         const locationDocRef = doc(db, 'locations', change.newValue);
-        // This is not efficient, but for the sake of the demo we get it directly.
-        // A better approach would be to have location data denormalized or cached.
-        const locationDocSnapshot = await getDoc(locationDocRef);
-        if(locationDocSnapshot.exists()) {
-            const locationData = locationDocSnapshot.data();
-            updateData.locationName = locationData.name;
-            updateData.managerName = locationData.managerName || 'N/A';
+        try {
+            const locationDocSnapshot = await getDoc(locationDocRef);
+            if(locationDocSnapshot.exists()) {
+                const locationData = locationDocSnapshot.data();
+                updateData.locationName = locationData.name;
+                updateData.managerName = locationData.managerName || 'N/A';
+            }
+        } catch (e) {
+            console.error(`Could not fetch location ${change.newValue} for employee ${change.employeeId}. Location-dependent fields might be stale.`);
         }
       }
 
