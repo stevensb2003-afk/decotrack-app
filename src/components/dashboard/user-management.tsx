@@ -253,7 +253,7 @@ export default function UserManagement() {
                 <CardDescription>Configure the schedule for automatic employee data updates.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">Set the time of day (in UTC) for the system to automatically apply all pending scheduled changes.</p>
+                <p className="text-sm text-muted-foreground">Set the time of day (Costa Rica Time, UTC-6) for the system to automatically apply all pending scheduled changes.</p>
                 <div className="flex items-center gap-4 p-4 border rounded-lg">
                     <div className="flex-1">
                         <Label htmlFor="cron-hour">Hour (0-23)</Label>
