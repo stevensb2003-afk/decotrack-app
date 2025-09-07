@@ -1,25 +1,109 @@
 
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Map,
+  AdvancedMarker,
+  Pin,
+  useMap,
+  useAdvancedMarkerRef
+} from '@vis.gl/react-google-maps';
 import { Input } from '../ui/input';
 import { Location } from '@/services/locationService';
-import { Label } from '../ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 interface LocationMapProps {
   initialLocation: Partial<Location>;
   onLocationChange: (location: Partial<Location>) => void;
 }
 
+const INITIAL_POSITION = { lat: 9.9281, lng: -84.0907 }; // San Jose, Costa Rica
+
 export default function LocationMap({ onLocationChange, initialLocation }: LocationMapProps) {
+  const [position, setPosition] = useState(initialLocation.latitude && initialLocation.longitude ? { lat: initialLocation.latitude, lng: initialLocation.longitude } : INITIAL_POSITION);
+  const [markerRef, marker] = useAdvancedMarkerRef();
+  const map = useMap();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (initialLocation.latitude && initialLocation.longitude) {
+      const newPos = { lat: initialLocation.latitude, lng: initialLocation.longitude };
+      if (map) {
+          map.moveCamera({ center: newPos, zoom: 15 });
+      }
+      if(position.lat !== newPos.lat || position.lng !== newPos.lng){
+        setPosition(newPos);
+      }
+    }
+  }, [initialLocation, map, position]);
+
+  const handleMarkerDragEnd = (e: google.maps.MapMouseEvent) => {
+    if (e.latLng) {
+      const newLat = e.latLng.lat();
+      const newLng = e.latLng.lng();
+      setPosition({ lat: newLat, lng: newLng });
+
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ location: e.latLng }, (results, status) => {
+        if (status === 'OK' && results && results[0]) {
+          onLocationChange({
+            address: results[0].formatted_address,
+            latitude: newLat,
+            longitude: newLng,
+          });
+        } else {
+            onLocationChange({
+              latitude: newLat,
+              longitude: newLng,
+            });
+          console.error('Geocoder failed due to: ' + status);
+          toast({ title: "Reverse Geocoding Failed", description: "Could not fetch address for the selected point.", variant: "destructive"})
+        }
+      });
+    }
+  };
+  
+  const handlePlaceSelect = (details: {position: google.maps.LatLngLiteral, address: string} | null) => {
+      if (details) {
+          if (map) {
+              map.moveCamera({ center: details.position, zoom: 15 });
+          }
+          setPosition(details.position);
+          onLocationChange({
+              address: details.address,
+              latitude: details.position.lat,
+              longitude: details.position.lng
+          });
+      }
+  }
 
   return (
     <div className="space-y-4">
-      <PlacesAutocomplete
-        onLocationSelect={onLocationChange}
-        initialAddress={initialLocation.address}
-      />
+      <PlacesAutocomplete onSelect={handlePlaceSelect} />
+
+      <div style={{ height: '400px', borderRadius: '0.5rem', overflow: 'hidden' }}>
+        <Map
+            defaultCenter={INITIAL_POSITION}
+            defaultZoom={10}
+            center={position}
+            mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'}
+            gestureHandling={'greedy'}
+            className="w-full h-full"
+        >
+          <AdvancedMarker
+            ref={markerRef}
+            position={position}
+            draggable={true}
+            onDragEnd={handleMarkerDragEnd}
+          >
+            <Pin />
+          </AdvancedMarker>
+        </Map>
+      </div>
       <div>
+        <p className="text-sm font-medium">Address:</p>
+        <p className="text-sm text-muted-foreground">{initialLocation.address || 'Move the pin to set an address'}</p>
         <p className="text-sm font-medium mt-2">Coordinates:</p>
         <p className="text-sm text-muted-foreground">
             Lat: {initialLocation.latitude?.toFixed(6) || 'N/A'}, Lng: {initialLocation.longitude?.toFixed(6) || 'N/A'}
@@ -29,55 +113,12 @@ export default function LocationMap({ onLocationChange, initialLocation }: Locat
   );
 }
 
-interface PlacesAutocompleteProps {
-    onLocationSelect: (details: Partial<Location>) => void;
-    initialAddress?: string;
-}
-
-function PlacesAutocomplete({ onLocationSelect, initialAddress }: PlacesAutocompleteProps) {
+function PlacesAutocomplete({ onSelect }: { onSelect: (details: {position: google.maps.LatLngLiteral, address: string} | null) => void}) {
     const inputRef = useRef<HTMLInputElement>(null);
-    const [inputValue, setInputValue] = useState(initialAddress || '');
-    const [isScriptLoaded, setIsScriptLoaded] = useState(false);
 
-    const loadScript = useCallback((callback: () => void) => {
-        const scriptId = 'google-maps-script';
+    useEffect(() => {
+        if (!inputRef.current || !window.google?.maps?.places) return;
         
-        if (document.getElementById(scriptId)) {
-            if (window.google?.maps?.places) {
-                 callback();
-            }
-            return;
-        }
-
-        const script = document.createElement('script');
-        script.id = scriptId;
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`;
-        script.async = true;
-        script.defer = true;
-        script.onload = () => {
-            callback();
-        };
-        script.onerror = () => {
-            console.error("Google Maps script failed to load.");
-        };
-        document.head.appendChild(script);
-    }, []);
-
-    useEffect(() => {
-        loadScript(() => {
-             setIsScriptLoaded(true);
-        });
-    }, [loadScript]);
-
-    useEffect(() => {
-        if (initialAddress !== inputValue) {
-            setInputValue(initialAddress || '');
-        }
-    }, [initialAddress]);
-
-    useEffect(() => {
-        if (!isScriptLoaded || !inputRef.current) return;
-
         const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
             fields: ['geometry.location', 'formatted_address']
         });
@@ -85,13 +126,13 @@ function PlacesAutocomplete({ onLocationSelect, initialAddress }: PlacesAutocomp
         const listener = autocomplete.addListener('place_changed', () => {
             const place = autocomplete.getPlace();
             if (place.geometry?.location) {
-                const newLocation: Partial<Location> = {
-                    address: place.formatted_address || '',
-                    latitude: place.geometry.location.lat(),
-                    longitude: place.geometry.location.lng(),
+                const position = {
+                    lat: place.geometry.location.lat(),
+                    lng: place.geometry.location.lng(),
                 };
-                setInputValue(newLocation.address!);
-                onLocationSelect(newLocation);
+                onSelect({ position, address: place.formatted_address || '' });
+            } else {
+                onSelect(null);
             }
         });
 
@@ -99,22 +140,14 @@ function PlacesAutocomplete({ onLocationSelect, initialAddress }: PlacesAutocomp
             if (window.google?.maps?.event) {
                 window.google.maps.event.clearInstanceListeners(autocomplete);
             }
-        };
+        }
 
-    }, [isScriptLoaded, onLocationSelect]);
-    
+    }, [onSelect]);
+
     return (
         <div>
-            <Label htmlFor="location-search">Address</Label>
-            <Input
-                ref={inputRef}
-                id="location-search"
-                placeholder="Search for an address..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                disabled={!isScriptLoaded}
-            />
-            {!isScriptLoaded && <p className="text-xs text-muted-foreground mt-1">Loading Google Maps service...</p>}
+            <label htmlFor="location-search" className="text-sm font-medium">Search for a location</label>
+            <Input ref={inputRef} id="location-search" placeholder="e.g., 123 Main St, Anytown" />
         </div>
     )
 }
