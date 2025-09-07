@@ -1,4 +1,3 @@
-
 // src/app/api/cron/apply-changes/route.ts
 import { applyScheduledChanges } from '@/services/scheduledChangeService';
 import { getSettings, updateSettings } from '@/services/settingsService';
@@ -17,9 +16,10 @@ export const GET = async (req: NextRequest) => {
     
     // Check if the job has already run successfully today
     const lastRunDate = settings.lastSuccessfulRun ? parseISO(settings.lastSuccessfulRun) : null;
-    const hasRunToday = lastRunDate ? isSameDay(lastRunDate, now) : false;
+    // TEMPORARILY DISABLED FOR TESTING: The line below is disabled to allow re-running the job.
+    const hasRunToday = false; // lastRunDate ? isSameDay(lastRunDate, now) : false;
 
-    console.log(`Cron running. Current CR Time: ${currentHourCR}:${currentMinuteCR}. Scheduled: ${settings.cronHour}:${settings.cronMinute}. Has run today: ${hasRunToday}`);
+    console.log(`Cron running. Current CR Time: ${currentHourCR}:${currentMinuteCR}. Scheduled: ${settings.cronHour}:${settings.cronMinute}. Has run today: ${hasRunToday} (Check is temporarily disabled for testing)`);
     
     // Conditions to run the job:
     // 1. The current time matches the scheduled time.
