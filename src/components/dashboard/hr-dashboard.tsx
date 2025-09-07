@@ -1188,7 +1188,7 @@ export default function HRDashboard() {
       </Dialog>
       
        <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-xl">
             <DialogHeader>
                 <DialogTitle>{editingLocation ? "Edit Location" : "Add New Location"}</DialogTitle>
             </DialogHeader>
@@ -1213,8 +1213,8 @@ export default function HRDashboard() {
                         </div>
                     </div>
                     <LocationMap
-                        location={newLocationData}
                         onLocationChange={handleLocationMapChange}
+                        initialLocation={newLocationData}
                     />
                 </div>
                  <DialogFooter>
