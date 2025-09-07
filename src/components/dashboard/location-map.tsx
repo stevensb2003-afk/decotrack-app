@@ -39,26 +39,34 @@ function PlacesAutocomplete({ onLocationSelect, initialAddress }: PlacesAutocomp
     const [inputValue, setInputValue] = useState(initialAddress || '');
     const [isScriptLoaded, setIsScriptLoaded] = useState(false);
 
-    const loadScript = useCallback(() => {
+    const loadScript = useCallback((callback: () => void) => {
         const scriptId = 'google-maps-script';
-        if (document.getElementById(scriptId) || window.google?.maps?.places) {
-            setIsScriptLoaded(true);
+        
+        if (document.getElementById(scriptId)) {
+            if (window.google?.maps?.places) {
+                 callback();
+            }
             return;
         }
 
         const script = document.createElement('script');
         script.id = scriptId;
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&callback=initAutocomplete`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`;
         script.async = true;
         script.defer = true;
-        (window as any).initAutocomplete = () => {
-            setIsScriptLoaded(true);
+        script.onload = () => {
+            callback();
+        };
+        script.onerror = () => {
+            console.error("Google Maps script failed to load.");
         };
         document.head.appendChild(script);
     }, []);
 
     useEffect(() => {
-        loadScript();
+        loadScript(() => {
+             setIsScriptLoaded(true);
+        });
     }, [loadScript]);
 
     useEffect(() => {
