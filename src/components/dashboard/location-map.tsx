@@ -1,11 +1,10 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from '../ui/input';
 import { Location } from '@/services/locationService';
 import { Label } from '../ui/label';
-import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 interface LocationMapProps {
   initialLocation: Partial<Location>;
@@ -38,7 +37,29 @@ interface PlacesAutocompleteProps {
 function PlacesAutocomplete({ onLocationSelect, initialAddress }: PlacesAutocompleteProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [inputValue, setInputValue] = useState(initialAddress || '');
-    const places = useMapsLibrary('places');
+    const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+
+    const loadScript = useCallback(() => {
+        const scriptId = 'google-maps-script';
+        if (document.getElementById(scriptId) || window.google?.maps?.places) {
+            setIsScriptLoaded(true);
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.id = scriptId;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&callback=initAutocomplete`;
+        script.async = true;
+        script.defer = true;
+        (window as any).initAutocomplete = () => {
+            setIsScriptLoaded(true);
+        };
+        document.head.appendChild(script);
+    }, []);
+
+    useEffect(() => {
+        loadScript();
+    }, [loadScript]);
 
     useEffect(() => {
         if (initialAddress !== inputValue) {
@@ -47,9 +68,9 @@ function PlacesAutocomplete({ onLocationSelect, initialAddress }: PlacesAutocomp
     }, [initialAddress]);
 
     useEffect(() => {
-        if (!places || !inputRef.current) return;
+        if (!isScriptLoaded || !inputRef.current) return;
 
-        const autocomplete = new places.Autocomplete(inputRef.current, {
+        const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
             fields: ['geometry.location', 'formatted_address']
         });
 
@@ -68,11 +89,11 @@ function PlacesAutocomplete({ onLocationSelect, initialAddress }: PlacesAutocomp
 
         return () => {
             if (window.google?.maps?.event) {
-                google.maps.event.clearInstanceListeners(autocomplete);
+                window.google.maps.event.clearInstanceListeners(autocomplete);
             }
         };
 
-    }, [places, onLocationSelect]);
+    }, [isScriptLoaded, onLocationSelect]);
     
     return (
         <div>
@@ -83,9 +104,9 @@ function PlacesAutocomplete({ onLocationSelect, initialAddress }: PlacesAutocomp
                 placeholder="Search for an address..."
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                disabled={!places}
+                disabled={!isScriptLoaded}
             />
-            {!places && <p className="text-xs text-muted-foreground mt-1">Loading Google Maps service...</p>}
+            {!isScriptLoaded && <p className="text-xs text-muted-foreground mt-1">Loading Google Maps service...</p>}
         </div>
     )
 }
