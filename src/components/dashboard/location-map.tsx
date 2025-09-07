@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Input } from '../ui/input';
 import { Location } from '@/services/locationService';
 import { Label } from '../ui/label';
+import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 interface LocationMapProps {
   location: Partial<Location>;
@@ -38,28 +39,16 @@ interface PlacesAutocompleteProps {
 function PlacesAutocomplete({ onLocationSelect, initialLocation }: PlacesAutocompleteProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [inputValue, setInputValue] = useState(initialLocation.address || '');
-    const [isGoogleReady, setIsGoogleReady] = useState(false);
+    const places = useMapsLibrary('places');
 
     useEffect(() => {
         setInputValue(initialLocation.address || '');
     }, [initialLocation.address]);
 
     useEffect(() => {
-        const checkGoogle = () => {
-            if (window.google && window.google.maps && window.google.maps.places) {
-                setIsGoogleReady(true);
-            } else {
-                setTimeout(checkGoogle, 100); // Check again shortly
-            }
-        };
-        checkGoogle();
-    }, []);
+        if (!places || !inputRef.current) return;
 
-
-    useEffect(() => {
-        if (!isGoogleReady || !inputRef.current) return;
-
-        const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
+        const autocomplete = new places.Autocomplete(inputRef.current, {
             fields: ['geometry.location', 'formatted_address']
         });
 
@@ -77,22 +66,15 @@ function PlacesAutocomplete({ onLocationSelect, initialLocation }: PlacesAutocom
         });
 
         return () => {
-            if (window.google && autocomplete) {
-                // Using a try-catch block as clearInstanceListeners can sometimes throw errors
-                // if the component unmounts unexpectedly.
-                try {
-                    google.maps.event.clearInstanceListeners(autocomplete);
-                } catch (e) {
-                    console.error("Error clearing autocomplete listeners", e);
-                }
+            if (window.google && google.maps && google.maps.event) {
+                google.maps.event.clearInstanceListeners(autocomplete);
             }
         };
 
-    }, [isGoogleReady, onLocationSelect]);
+    }, [places, onLocationSelect]);
     
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setInputValue(e.target.value);
-        // Also update parent but only with address, coords become stale
         onLocationSelect({
             ...initialLocation,
             address: e.target.value,
@@ -108,9 +90,9 @@ function PlacesAutocomplete({ onLocationSelect, initialLocation }: PlacesAutocom
                 placeholder="Search for an address..."
                 value={inputValue}
                 onChange={handleInputChange}
-                disabled={!isGoogleReady}
+                disabled={!places}
             />
-            {!isGoogleReady && <p className="text-xs text-muted-foreground mt-1">Loading Google Maps...</p>}
+            {!places && <p className="text-xs text-muted-foreground mt-1">Loading Google Maps...</p>}
         </div>
     )
 }
