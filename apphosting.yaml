@@ -5,8 +5,3 @@ runConfig:
   # Increase this value if you'd like to automatically spin up
   # more instances in response to increased traffic.
   maxInstances: 1
-
-# Add a scheduled trigger to run a cron job
-scheduledTriggers:
-  - schedule: "* * * * *" # Runs every minute
-    target: /api/cron/apply-changes

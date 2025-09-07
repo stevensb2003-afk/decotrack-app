@@ -40,30 +40,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SystemUser, Role, getAllUsers, createUser, updateUserRole, deleteUser, updateUserPassword } from '@/services/userService';
 import { Employee, getAllEmployees } from '@/services/employeeService';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import AutomationSettings from './automation-settings';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 const SECURITY_CODE = process.env.NEXT_PUBLIC_ADMIN_SECURITY_CODE;
 
 export default function SettingsDashboard() {
-    return (
-        <Tabs defaultValue="users">
-            <TabsList>
-                <TabsTrigger value="users">User Management</TabsTrigger>
-                <TabsTrigger value="automation">Automation Settings</TabsTrigger>
-            </TabsList>
-            <TabsContent value="users">
-                <UserManagement />
-            </TabsContent>
-            <TabsContent value="automation">
-                <AutomationSettings />
-            </TabsContent>
-        </Tabs>
-    );
-}
-
-
-function UserManagement() {
   const { user: authUser } = useAuth();
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -399,4 +379,3 @@ function UserManagement() {
     </>
   );
 }
-
