@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -37,8 +37,8 @@ import { Location, createLocation, getAllLocations, updateLocation } from '@/ser
 import { Benefit, createBenefit, getAllBenefits, updateBenefit, deleteBenefit, BenefitApplicability } from '@/services/benefitService';
 import { Textarea } from '../ui/textarea';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '../ui/dropdown-menu';
-import { APIProvider } from '@vis.gl/react-google-maps';
 import LocationMap from './location-map';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const initialNewEmployeeData: Omit<Employee, 'id' | 'fullName'> = {
     firstName: '',
@@ -63,6 +63,7 @@ const initialNewEmployeeData: Omit<Employee, 'id' | 'fullName'> = {
     managerName: '',
     contractSigned: false,
     CCSS: false,
+    profileComplete: false,
 };
 
 const countries = [
@@ -279,6 +280,14 @@ const employeeFields: { value: keyof Employee; label: string; inputType: 'text' 
     { value: 'birthDate', label: 'Birth Date', inputType: 'date' },
 ];
 
+const DetailItem = ({ label, value }: { label: string, value: React.ReactNode }) => (
+    <div className="space-y-1">
+        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+        <p className="text-base">{value || 'N/A'}</p>
+    </div>
+);
+
+
 export default function HRDashboard() {
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -317,6 +326,10 @@ export default function HRDashboard() {
   const [approvalEffectiveDate, setApprovalEffectiveDate] = useState<Date | undefined>(new Date());
 
   const { toast } = useToast();
+
+  const handleLocationMapChange = useCallback((loc: Partial<Location>) => {
+    setNewLocationData(prev => ({...prev, ...loc}));
+  }, []);
 
   const fetchData = async () => {
       const emps = await getAllEmployees();
@@ -417,20 +430,23 @@ export default function HRDashboard() {
     }
     const manager = employees.find(e => e.id === newLocationData.managerId);
 
-    const locationPayload = {
+    const locationPayload: Partial<Location> = {
         name: newLocationData.name,
         managerId: manager?.id || '',
         managerName: manager?.fullName || '',
         address: newLocationData.address || '',
-        latitude: newLocationData.latitude || 0,
-        longitude: newLocationData.longitude || 0,
     };
+    
+    if (newLocationData.latitude && newLocationData.longitude) {
+        locationPayload.latitude = newLocationData.latitude;
+        locationPayload.longitude = newLocationData.longitude;
+    }
 
     if (editingLocation) {
         await updateLocation(editingLocation.id, locationPayload);
         toast({title: "Location Updated"});
     } else {
-        await createLocation(locationPayload);
+        await createLocation(locationPayload as Omit<Location, 'id'>);
         toast({title: "Location Created"});
     }
     
@@ -572,20 +588,22 @@ export default function HRDashboard() {
     }
   };
 
-  const handleEffectiveDateChange = async (dateISO: string) => {
+  const handleEffectiveDateChange = (dateISO: string) => {
     if (!selectedEmployee) return;
     
+    // The snapshot logic has been simplified. We always show the current data.
+    // The dropdown is kept for potential future re-implementation of a full audit log.
     if (dateISO === 'current') {
         setEmployeeSnapshot(selectedEmployee);
-        return;
+    } else {
+        // In a full implementation, you would call `getEmployeeSnapshot` here.
+        // For now, we just show a toast to indicate the feature is simplified.
+        toast({
+            title: "Viewing Current Data",
+            description: "Historical view is not fully implemented. Showing current employee data.",
+        });
+        setEmployeeSnapshot(selectedEmployee);
     }
-
-    const asOfDate = new Date(dateISO);
-    // Add one day to include changes on the effective date itself
-    asOfDate.setDate(asOfDate.getDate() + 1);
-
-    const snapshot = await getEmployeeSnapshot(selectedEmployee.id, asOfDate);
-    setEmployeeSnapshot(snapshot);
   }
 
   const addChangeField = () => {
@@ -1044,7 +1062,7 @@ export default function HRDashboard() {
       </Tabs>
       
       <Dialog open={isDetailViewOpen} onOpenChange={setIsDetailViewOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader className="flex-row items-center justify-between pr-10">
             <div className='flex items-center gap-4'>
                 <Avatar className="h-12 w-12">
@@ -1076,23 +1094,54 @@ export default function HRDashboard() {
                     <TabsTrigger value="changes">Scheduled Changes</TabsTrigger>
                 </TabsList>
                 <TabsContent value="details">
-                     <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-6">
-                        <div className="grid grid-cols-2"><Label>Full Name</Label><p>{employeeSnapshot.fullName}</p></div>
-                        <div className="grid grid-cols-2"><Label>Email</Label><p>{employeeSnapshot.email}</p></div>
-                        <div className="grid grid-cols-2"><Label>Role</Label><p>{employeeSnapshot.role}</p></div>
-                        <div className="grid grid-cols-2"><Label>ID Type</Label><p>{employeeSnapshot.idType}</p></div>
-                        <div className="grid grid-cols-2"><Label>ID Number</Label><p>{employeeSnapshot.idNumber || 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Cellphone</Label><p>{employeeSnapshot.cellphoneNumber || 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Nationality</Label><p>{employeeSnapshot.nationality || 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Birth Date</Label><p>{employeeSnapshot.birthDate ? format(employeeSnapshot.birthDate.toDate(), "PPP") : 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Hire Date</Label><p>{employeeSnapshot.hireDate ? format(employeeSnapshot.hireDate.toDate(), "PPP") : 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Seniority</Label><p>{calculateSeniority(employeeSnapshot.hireDate)}</p></div>
-                        <div className="grid grid-cols-2"><Label>Location</Label><p>{employeeSnapshot.locationName || 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Manager</Label><p>{employeeSnapshot.managerName || 'N/A'}</p></div>
-                        <div className="grid grid-cols-2"><Label>Employment Type</Label><p>{employeeSnapshot.employmentType}</p></div>
-                        <div className="grid grid-cols-2"><Label>Salary Type</Label><p>{employeeSnapshot.salaryType}</p></div>
-                        <div className="grid grid-cols-2"><Label>Salary</Label><p>{new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(employeeSnapshot.salary || 0)}</p></div>
-                        <div className="grid grid-cols-2"><Label>Status</Label><p>{employeeSnapshot.status}</p></div>
+                    <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto pr-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6">
+                            <DetailItem label="Full Name" value={employeeSnapshot.fullName} />
+                            <DetailItem label="Email" value={employeeSnapshot.email} />
+                            <DetailItem label="Role" value={employeeSnapshot.role} />
+                            <DetailItem label="Status" value={employeeSnapshot.status} />
+
+                            <DetailItem label="ID Type" value={employeeSnapshot.idType} />
+                            <DetailItem label="ID Number" value={employeeSnapshot.idNumber} />
+                            <DetailItem label="Cellphone" value={employeeSnapshot.cellphoneNumber} />
+                            <DetailItem label="Nationality" value={employeeSnapshot.nationality} />
+
+                            <DetailItem label="Birth Date" value={employeeSnapshot.birthDate ? format(employeeSnapshot.birthDate.toDate(), "PPP") : 'N/A'} />
+                            <DetailItem label="Hire Date" value={employeeSnapshot.hireDate ? format(employeeSnapshot.hireDate.toDate(), "PPP") : 'N/A'} />
+                            <DetailItem label="Seniority" value={calculateSeniority(employeeSnapshot.hireDate)} />
+                            <DetailItem label="Manager" value={employeeSnapshot.managerName} />
+                            
+                            <DetailItem label="Location" value={employeeSnapshot.locationName} />
+                            <DetailItem label="Employment Type" value={employeeSnapshot.employmentType} />
+                            <DetailItem label="Salary Type" value={employeeSnapshot.salaryType} />
+                            <DetailItem label="Salary" value={new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(employeeSnapshot.salary || 0)} />
+                        </div>
+                        
+                        {employeeSnapshot.licensePermission && employeeSnapshot.licenses && employeeSnapshot.licenses.length > 0 && (
+                            <div className="space-y-2 pt-4">
+                                <h4 className="text-base font-semibold text-muted-foreground">Driver's Licenses</h4>
+                                <Table className="mt-2">
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Type</TableHead>
+                                            <TableHead>Number</TableHead>
+                                            <TableHead>Country</TableHead>
+                                            <TableHead>Expiration</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {employeeSnapshot.licenses.map((license, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell>{license.type}</TableCell>
+                                                <TableCell>{license.number}</TableCell>
+                                                <TableCell>{license.country}</TableCell>
+                                                <TableCell>{license.expirationDate ? format(license.expirationDate.toDate(), "PPP") : 'N/A'}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
                     </div>
                 </TabsContent>
                 <TabsContent value="changes">
@@ -1139,37 +1188,35 @@ export default function HRDashboard() {
       </Dialog>
       
        <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-xl">
             <DialogHeader>
                 <DialogTitle>{editingLocation ? "Edit Location" : "Add New Location"}</DialogTitle>
             </DialogHeader>
-             <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
-                <div className="space-y-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="location-name">Location Name</Label>
-                            <Input id="location-name" value={newLocationData.name || ''} onChange={e => setNewLocationData({...newLocationData, name: e.target.value})} placeholder="e.g., Downtown Store"/>
-                        </div>
-                        <div>
-                            <Label htmlFor="location-manager">Assign Manager</Label>
-                            <Select value={newLocationData.managerId} onValueChange={val => setNewLocationData({...newLocationData, managerId: val})}>
-                                <SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">None</SelectItem>
-                                    {managementEmployees.map(emp => (
-                                        <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+            <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="location-name">Location Name</Label>
+                        <Input id="location-name" value={newLocationData.name || ''} onChange={e => setNewLocationData({...newLocationData, name: e.target.value})} placeholder="e.g., Downtown Store"/>
                     </div>
-                    <LocationMap
-                        location={newLocationData}
-                        onLocationChange={(loc) => setNewLocationData(prev => ({...prev, ...loc}))}
-                    />
+                    <div>
+                        <Label htmlFor="location-manager">Assign Manager</Label>
+                        <Select value={newLocationData.managerId} onValueChange={val => setNewLocationData({...newLocationData, managerId: val})}>
+                            <SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">None</SelectItem>
+                                {managementEmployees.map(emp => (
+                                    <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
-            </APIProvider>
-            <DialogFooter>
+                <LocationMap
+                    onLocationChange={handleLocationMapChange}
+                    initialLocation={newLocationData}
+                />
+            </div>
+             <DialogFooter>
                 <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>Cancel</Button>
                 <Button onClick={handleSaveLocation}>Save Location</Button>
             </DialogFooter>
@@ -1308,3 +1355,4 @@ export default function HRDashboard() {
     </div>
   );
 }
+
