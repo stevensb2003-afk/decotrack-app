@@ -8,6 +8,7 @@ import HRDashboard from '@/components/dashboard/hr-dashboard';
 import ManagementDashboard from '@/components/dashboard/management-dashboard';
 import DashboardSidebar from '@/components/dashboard/sidebar';
 import DashboardHeader from '@/components/dashboard/header';
+import { APIProvider } from '@vis.gl/react-google-maps';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -31,18 +32,20 @@ export default function DashboardPage() {
   const isAdmin = user?.role === 'admin';
 
   return (
-    <div className={`flex min-h-screen w-full bg-muted/40 ${isAdmin ? '' : 'flex-col'}`}>
-      {isAdmin && (
-        <div className="hidden md:flex">
-          <DashboardSidebar onNavigate={setAdminView} />
+    <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+      <div className={`flex min-h-screen w-full bg-muted/40 ${isAdmin ? '' : 'flex-col'}`}>
+        {isAdmin && (
+          <div className="hidden md:flex">
+            <DashboardSidebar onNavigate={setAdminView} />
+          </div>
+        )}
+        <div className={`flex flex-col flex-1 ${isAdmin ? 'overflow-hidden' : ''}`}>
+          <DashboardHeader />
+          <main className={`flex-1 p-4 sm:p-6 ${isAdmin ? 'overflow-auto' : ''}`}>
+            {renderDashboardByRole()}
+          </main>
         </div>
-      )}
-      <div className={`flex flex-col flex-1 ${isAdmin ? 'overflow-hidden' : ''}`}>
-        <DashboardHeader />
-        <main className={`flex-1 p-4 sm:p-6 ${isAdmin ? 'overflow-auto' : ''}`}>
-          {renderDashboardByRole()}
-        </main>
       </div>
-    </div>
+    </APIProvider>
   );
 }
