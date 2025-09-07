@@ -13,7 +13,7 @@ const firebaseConfig = {
   "storageBucket": "decotrack-l9y8l.appspot.com",
   "apiKey": "AIzaSyDlDmioqDC8-i0aP61SSk4AJAixssy9ax0",
   "authDomain": "decotrack-l9y8l.firebaseapp.com",
-  "measurementId": "",
+  "measurementId": "G-5G65G5G5G5",
   "messagingSenderId": "602878187874"
 };
 
