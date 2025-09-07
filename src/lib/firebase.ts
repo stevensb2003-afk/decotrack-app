@@ -10,7 +10,7 @@ const firebaseConfig = {
   "projectId": "decotrack-l9y8l",
   "appId": "1:602878187874:web:95bbedd4e76e455e99f43b",
   "storageBucket": "decotrack-l9y8l.appspot.com",
-  "apiKey": "AIzaSyCiNiYFmNKgDT93rre5cAwHFonVs6FVgRA",
+  "apiKey": "AIzaSyDlDmioqDC8-i0aP61SSk4AJAixssy9ax0",
   "authDomain": "decotrack-l9y8l.firebaseapp.com",
   "measurementId": "",
   "messagingSenderId": "602878187874"
