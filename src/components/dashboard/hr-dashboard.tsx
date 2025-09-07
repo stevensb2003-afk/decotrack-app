@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,6 @@ import { Location, createLocation, getAllLocations, updateLocation } from '@/ser
 import { Benefit, createBenefit, getAllBenefits, updateBenefit, deleteBenefit, BenefitApplicability } from '@/services/benefitService';
 import { Textarea } from '../ui/textarea';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '../ui/dropdown-menu';
-import { APIProvider } from '@vis.gl/react-google-maps';
 import LocationMap from './location-map';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -327,6 +326,10 @@ export default function HRDashboard() {
   const [approvalEffectiveDate, setApprovalEffectiveDate] = useState<Date | undefined>(new Date());
 
   const { toast } = useToast();
+
+  const handleLocationMapChange = useCallback((loc: Partial<Location>) => {
+    setNewLocationData(prev => ({...prev, ...loc}));
+  }, []);
 
   const fetchData = async () => {
       const emps = await getAllEmployees();
@@ -1189,32 +1192,30 @@ export default function HRDashboard() {
             <DialogHeader>
                 <DialogTitle>{editingLocation ? "Edit Location" : "Add New Location"}</DialogTitle>
             </DialogHeader>
-             <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
-                <div className="space-y-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="location-name">Location Name</Label>
-                            <Input id="location-name" value={newLocationData.name || ''} onChange={e => setNewLocationData({...newLocationData, name: e.target.value})} placeholder="e.g., Downtown Store"/>
-                        </div>
-                        <div>
-                            <Label htmlFor="location-manager">Assign Manager</Label>
-                            <Select value={newLocationData.managerId} onValueChange={val => setNewLocationData({...newLocationData, managerId: val})}>
-                                <SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">None</SelectItem>
-                                    {managementEmployees.map(emp => (
-                                        <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+            <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="location-name">Location Name</Label>
+                        <Input id="location-name" value={newLocationData.name || ''} onChange={e => setNewLocationData({...newLocationData, name: e.target.value})} placeholder="e.g., Downtown Store"/>
                     </div>
-                    <LocationMap
-                        location={newLocationData}
-                        onLocationChange={(loc) => setNewLocationData(prev => ({...prev, ...loc}))}
-                    />
+                    <div>
+                        <Label htmlFor="location-manager">Assign Manager</Label>
+                        <Select value={newLocationData.managerId} onValueChange={val => setNewLocationData({...newLocationData, managerId: val})}>
+                            <SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">None</SelectItem>
+                                {managementEmployees.map(emp => (
+                                    <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
-            </APIProvider>
+                <LocationMap
+                    location={newLocationData}
+                    onLocationChange={handleLocationMapChange}
+                />
+            </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>Cancel</Button>
                 <Button onClick={handleSaveLocation}>Save Location</Button>
@@ -1354,6 +1355,7 @@ export default function HRDashboard() {
     </div>
   );
 }
+
 
 
 
