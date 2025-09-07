@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Input } from '../ui/input';
 import { Location } from '@/services/locationService';
 import { Label } from '../ui/label';
