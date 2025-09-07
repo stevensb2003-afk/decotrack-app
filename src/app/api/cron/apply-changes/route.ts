@@ -1,25 +1,86 @@
 
-import { applyScheduledChanges } from '@/services/scheduledChangeService';
 import { NextRequest, NextResponse } from 'next/server';
+import { collection, getDocs, query, where, Timestamp, doc, writeBatch, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Employee } from '@/services/employeeService';
+import { ScheduledChange } from '@/services/scheduledChangeService';
 
-// This endpoint is designed to be called by an external scheduler like Google Cloud Scheduler.
-// It does not contain complex time-checking logic, as that responsibility
-// should lie with the scheduler service for maximum reliability.
-// The scheduler should be configured to call this endpoint at the desired frequency (e.g., once per hour).
-// For added robustness, you could secure this endpoint with a secret token checked in the header.
+export const dynamic = 'force-dynamic'; // Ensures the route is not cached
 
 export const GET = async (req: NextRequest) => {
   try {
-    console.log('Cron job triggered. Applying scheduled changes...');
+    console.log(`Cron job triggered at ${new Date().toISOString()}. Applying scheduled changes...`);
+
+    const nowTimestamp = Timestamp.now();
     
-    const result = await applyScheduledChanges();
+    const q = query(
+      collection(db, 'scheduledChanges'),
+      where('status', '==', 'pending'),
+      where('effectiveDate', '<=', nowTimestamp)
+    );
+
+    const snapshot = await getDocs(q);
+    const changesToApply = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledChange));
+
+    if (changesToApply.length === 0) {
+        const message = "No pending changes to apply at this time.";
+        console.log(message);
+        return NextResponse.json({ success: true, message, appliedChangesCount: 0 });
+    }
+
+    console.log(`Found ${changesToApply.length} changes to apply.`);
+    const batch = writeBatch(db);
+
+    for (const change of changesToApply) {
+      const employeeDocRef = doc(db, 'employees', change.employeeId);
+      
+      let updateData: { [key: string]: any } = {
+        [change.fieldName]: change.newValue,
+      };
+      
+      // If location changes, also update locationName and managerName
+      if (change.fieldName === 'locationId' && typeof change.newValue === 'string') {
+        const locationDocRef = doc(db, 'locations', change.newValue);
+        try {
+            const locationDocSnapshot = await getDoc(locationDocRef);
+            if (locationDocSnapshot.exists()) {
+                const locationData = locationDocSnapshot.data();
+                if (locationData) {
+                    updateData.locationName = locationData.name;
+                    updateData.managerName = locationData.managerName || 'N/A';
+                }
+            }
+        } catch (e) {
+            console.error(`Could not fetch location ${change.newValue} for employee ${change.employeeId}. Location-dependent fields might be stale.`);
+        }
+      }
+      
+       // If firstName or lastName changes, update fullName
+      if (change.fieldName === 'firstName' || change.fieldName === 'lastName') {
+          const employeeDoc = await getDoc(employeeDocRef);
+          if (employeeDoc.exists()) {
+              const currentData = employeeDoc.data() as Employee;
+              const newFirstName = change.fieldName === 'firstName' ? change.newValue : currentData.firstName;
+              const newLastName = change.fieldName === 'lastName' ? change.newValue : currentData.lastName;
+              updateData.fullName = `${newFirstName} ${newLastName}`.trim();
+          }
+      }
+
+      batch.update(employeeDocRef, updateData);
+      
+      const changeDocRef = doc(db, 'scheduledChanges', change.id);
+      batch.update(changeDocRef, { status: 'applied' });
+    }
+
+    await batch.commit();
     
-    console.log(`Job finished. ${result.message}.`);
+    const successMessage = `Job finished. Successfully applied ${changesToApply.length} changes.`;
+    console.log(successMessage);
     
     return NextResponse.json({
       success: true,
-      message: result.message,
-      appliedChangesCount: result.appliedChangesCount,
+      message: successMessage,
+      appliedChangesCount: changesToApply.length,
     });
 
   } catch (error) {
