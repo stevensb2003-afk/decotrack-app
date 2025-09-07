@@ -2,7 +2,6 @@
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp, writeBatch } from 'firebase/firestore';
 import { updateEmployee, Employee } from './employeeService';
-import { applyScheduledChangesFlow } from '@/ai/flows/apply-scheduled-changes-flow';
 
 export type ScheduledChange = {
   id: string;
@@ -70,6 +69,19 @@ export const cancelScheduledChange = async (changeId: string) => {
 }
 
 export const applyScheduledChanges = async (): Promise<{ appliedChangesCount: number }> => {
-    const result = await applyScheduledChangesFlow();
-    return { appliedChangesCount: result.appliedChangesCount };
+    // This function now calls the same API endpoint as the cron job for consistency.
+    // The endpoint is responsible for the actual logic.
+    try {
+        const response = await fetch('/api/cron/apply-changes', { method: 'GET' });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to apply changes via API.');
+        }
+        const result = await response.json();
+        return { appliedChangesCount: result.appliedChangesCount || 0 };
+    } catch (error) {
+        console.error("Error calling apply-changes API from service:", error);
+        // Return 0 if the API call fails
+        return { appliedChangesCount: 0 };
+    }
 };
