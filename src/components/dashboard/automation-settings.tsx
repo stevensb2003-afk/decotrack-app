@@ -20,8 +20,8 @@ export default function AutomationSettings() {
     useEffect(() => {
         const fetchCurrentSettings = async () => {
             const settings = await getSettings();
-            setCronHour(settings.cronHour);
-            setCronMinute(settings.cronMinute);
+            setCronHour(settings.cronHour || 0);
+            setCronMinute(settings.cronMinute || 0);
         };
         fetchCurrentSettings();
     }, []);
@@ -50,10 +50,10 @@ export default function AutomationSettings() {
         <Card>
             <CardHeader>
                 <CardTitle>Automation Settings</CardTitle>
-                <CardDescription>Configure the schedule for automatic employee data updates.</CardDescription>
+                <CardDescription>Configure the schedule for automatic employee data updates using an external scheduler like Google Cloud Scheduler.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">Set the time of day (Costa Rica Time, UTC-6) for the system to automatically apply all pending scheduled changes.</p>
+                <p className="text-sm text-muted-foreground">Set the time of day (in Costa Rica Time, UTC-6) that you will configure in your external scheduler. This service will verify this time before applying changes.</p>
                 <div className="flex items-center gap-4 p-4 border rounded-lg">
                     <div className="flex-1">
                         <Label htmlFor="cron-hour">Hour (0-23)</Label>

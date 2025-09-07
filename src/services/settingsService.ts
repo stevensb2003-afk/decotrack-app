@@ -3,7 +3,8 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export type AppSettings = {
-    // Cron settings are no longer used.
+    cronHour?: number;
+    cronMinute?: number;
 };
 
 const settingsDocRef = doc(db, 'system', 'settings');
@@ -13,7 +14,10 @@ export const getSettings = async (): Promise<AppSettings> => {
     if (docSnap.exists()) {
         return docSnap.data() as AppSettings;
     } else {
-        const defaultSettings: AppSettings = {};
+        const defaultSettings: AppSettings = {
+            cronHour: 2, // Default to 2 AM
+            cronMinute: 0,
+        };
         await setDoc(settingsDocRef, defaultSettings);
         return defaultSettings;
     }
