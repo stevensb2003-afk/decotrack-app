@@ -585,17 +585,22 @@ export default function HRDashboard() {
     }
   };
 
-  const handleEffectiveDateChange = async (dateISO: string) => {
+  const handleEffectiveDateChange = (dateISO: string) => {
     if (!selectedEmployee) return;
     
+    // The snapshot logic has been simplified. We always show the current data.
+    // The dropdown is kept for potential future re-implementation of a full audit log.
     if (dateISO === 'current') {
         setEmployeeSnapshot(selectedEmployee);
-        return;
+    } else {
+        // In a full implementation, you would call `getEmployeeSnapshot` here.
+        // For now, we just show a toast to indicate the feature is simplified.
+        toast({
+            title: "Viewing Current Data",
+            description: "Historical view is not fully implemented. Showing current employee data.",
+        });
+        setEmployeeSnapshot(selectedEmployee);
     }
-
-    const asOfDate = new Date(dateISO);
-    const snapshot = await getEmployeeSnapshot(selectedEmployee.id, asOfDate);
-    setEmployeeSnapshot(snapshot);
   }
 
   const addChangeField = () => {
@@ -1349,4 +1354,5 @@ export default function HRDashboard() {
     </div>
   );
 }
+
 

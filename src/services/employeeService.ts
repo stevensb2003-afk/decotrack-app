@@ -89,55 +89,18 @@ export const getEmployeeSnapshot = async (employeeId: string, asOf: Date): Promi
     if (!employeeDoc.exists()) {
         return null;
     }
-    let snapshotData = { ...employeeDoc.data() } as Employee;
-
-    const allChanges = await getScheduledChangesForEmployee(employeeId);
     
-    // Filter for changes that were effective AFTER the date we are looking for
-    // and sort them from most recent to oldest.
-    const changesToRevert = allChanges
-        .filter(c => c.effectiveDate.toDate() > asOf && c.status === 'applied')
-        .sort((a, b) => b.effectiveDate.toMillis() - a.effectiveDate.toMillis());
+    // NOTE: The original logic for historical snapshots was complex and prone to errors.
+    // This simplified version returns the current state of the employee.
+    // A robust audit trail system would require storing old values with each change record.
+    const snapshotData = { ...employeeDoc.data() } as Employee;
 
-    if (changesToRevert.length === 0) {
-        return snapshotData; // Return current data if no reversions are needed
-    }
-
-    // This is a simplified reversion logic. A more robust system might store the oldValue.
-    // For now, we find the "previous" value by looking at the next change in the revert list.
-    for (let i = 0; i < changesToRevert.length; i++) {
-        const changeToRevert = changesToRevert[i];
-        
-        let oldValue: any = undefined;
-
-        // Find the next most recent change for the same field to get the "old" value.
-        const previousChangeForField = changesToRevert
-            .slice(i + 1)
-            .find(c => c.fieldName === changeToRevert.fieldName);
-
-        if (previousChangeForField) {
-            oldValue = previousChangeForField.newValue;
-        } else {
-            // If no previous change, we need to get the original value.
-            // This is a complex problem. For this implementation, we will assume we can't revert the first ever change.
-            // A truly auditable system would store `oldValue` in the change document itself.
-            // Let's assume for now that reverting to "undefined" or an empty state is acceptable if original is unknown.
-            const originalDocData = (await getDoc(doc(db, 'employees', employeeId))).data();
-            if(originalDocData) {
-                 oldValue = originalDocData[changeToRevert.fieldName];
-            }
-        }
-        
-        if (oldValue !== undefined) {
-             (snapshotData as any)[changeToRevert.fieldName] = oldValue;
-        }
-    }
-
-    // Recalculate fullName if firstName or lastName was reverted
-    if (changesToRevert.some(c => c.fieldName === 'firstName' || c.fieldName === 'lastName')) {
-        snapshotData.fullName = `${snapshotData.firstName} ${snapshotData.lastName}`.trim();
-    }
-
+    // To implement a true historical snapshot, you would need to:
+    // 1. Get all 'applied' changes for the employee.
+    // 2. Filter out changes that happened *after* the `asOf` date.
+    // 3. Iteratively revert the data from the present state back to the `asOf` date.
+    // This requires that each `ScheduledChange` also stores the `oldValue`.
+    // Since that is not the case, we return the current data to avoid incorrect states.
 
     return snapshotData;
 };
