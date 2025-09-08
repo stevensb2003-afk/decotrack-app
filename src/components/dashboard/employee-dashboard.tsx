@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { AttendanceRecord, markAttendance, getEmployeeAttendance, DailyAttendanceSummary, getDailyAttendanceSummary } from "@/services/attendanceService";
 import { getEmployeeByEmail, Employee } from "@/services/employeeService";
-import { Timestamp } from "firebase/firestore";
+import { Timestamp, getDoc, doc } from "firebase/firestore";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,7 @@ import { Badge } from "../ui/badge";
 import { getEmployeeScheduleAssignments, Shift, getShifts, EmployeeScheduleAssignment, RotationPattern, getRotationPatterns, Holiday, getHolidays } from "@/services/scheduleService";
 import { Switch } from "../ui/switch";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
+import { db } from "@/lib/firebase";
 
 
 const timeOffReasons: TimeOffReason[] = [
@@ -53,6 +54,7 @@ export default function EmployeeDashboard() {
   const [lastAction, setLastAction] = useState<'Entry' | 'Exit' | null>(null);
   const [timeWorked, setTimeWorked] = useState("0h 0m");
   const [isLoading, setIsLoading] = useState(true);
+  const [isMarking, setIsMarking] = useState(false);
   const [isTorDialogOpen, setTorDialogOpen] = useState(false);
   const [newRequest, setNewRequest] = useState<{
       reason: TimeOffReason | '',
@@ -161,19 +163,71 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     fetchEmployeeData();
   }, [user]);
+  
+  const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371e3; // metres
+      const φ1 = lat1 * Math.PI/180;
+      const φ2 = lat2 * Math.PI/180;
+      const Δφ = (lat2-lat1) * Math.PI/180;
+      const Δλ = (lon2-lon1) * Math.PI/180;
+
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+      return R * c;
+  }
+  
+  const getCurrentPosition = (): Promise<GeolocationPosition> => {
+      return new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+          });
+      });
+  }
 
   const handleMarking = async (type: 'Entry' | 'Exit') => {
-    if (!employee) {
-        toast({ title: "Error", description: "Employee data not found.", variant: "destructive" });
+    if (!employee || !employee.locationId) {
+        toast({ title: "Error", description: "Employee data or location not found.", variant: "destructive" });
         return;
     }
     
-    setIsLoading(true);
+    setIsMarking(true);
+
     try {
+        const position = await getCurrentPosition();
+        const { latitude, longitude } = position.coords;
+
+        const locationDocRef = doc(db, 'locations', employee.locationId);
+        const locationDoc = await getDoc(locationDocRef);
+
+        if (!locationDoc.exists() || !locationDoc.data().latitude) {
+            toast({ title: "Location Error", description: "Your assigned work location has no coordinates set.", variant: "destructive" });
+            setIsMarking(false);
+            return;
+        }
+
+        const locationData = locationDoc.data();
+        const distance = getDistance(latitude, longitude, locationData.latitude, locationData.longitude);
+        
+        if (distance > 100) { // 100 meters radius
+             toast({ 
+                title: "Too Far to Mark", 
+                description: `You must be within 100 meters of your work location. You are currently ${Math.round(distance)}m away.`, 
+                variant: "destructive",
+                duration: 5000,
+             });
+             setIsMarking(false);
+             return;
+        }
+        
         const newRecord: Omit<AttendanceRecord, 'id'> = {
             employeeId: employee.id,
             type,
             timestamp: Timestamp.now(),
+            latitude,
+            longitude,
         };
 
         await markAttendance(newRecord);
@@ -183,10 +237,14 @@ export default function EmployeeDashboard() {
             description: `Your ${type.toLowerCase()} at ${newRecord.timestamp.toDate().toLocaleTimeString()} has been recorded.`,
         });
     } catch (error) {
-        console.error("Error marking attendance:", error);
-        toast({ title: "Error", description: "Could not mark attendance.", variant: "destructive" });
+        let errorMessage = "Could not mark attendance.";
+        if (error instanceof GeolocationPositionError) {
+           errorMessage = "Could not get your location. Please enable location services.";
+        }
+        console.error(`Error marking ${type}:`, error);
+        toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
-        setIsLoading(false);
+        setIsMarking(false);
     }
   };
 
@@ -386,13 +444,13 @@ export default function EmployeeDashboard() {
             <CardDescription>Mark your daily entry and exit points.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col sm:flex-row gap-4">
-            <Button onClick={() => handleMarking('Entry')} disabled={lastAction === 'Entry' || isLoading} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90" size="lg">
+            <Button onClick={() => handleMarking('Entry')} disabled={lastAction === 'Entry' || isMarking} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90" size="lg">
               <ArrowRight className="mr-2 h-5 w-5" />
-              {isLoading && lastAction !== 'Exit' ? 'Validating...' : 'Mark Entry (Clock In)'}
+              {isMarking && lastAction !== 'Exit' ? 'Validating...' : 'Mark Entry (Clock In)'}
             </Button>
-            <Button onClick={() => handleMarking('Exit')} disabled={lastAction !== 'Entry' || isLoading} className="flex-1" size="lg" variant="destructive">
+            <Button onClick={() => handleMarking('Exit')} disabled={lastAction !== 'Entry' || isMarking} className="flex-1" size="lg" variant="destructive">
               <ArrowLeft className="mr-2 h-5 w-5" />
-              {isLoading && lastAction === 'Exit' ? 'Validating...' : 'Mark Exit (Clock Out)'}
+              {isMarking && lastAction === 'Entry' ? 'Validating...' : 'Mark Exit (Clock Out)'}
             </Button>
           </CardContent>
         </Card>
