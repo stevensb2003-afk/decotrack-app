@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -33,17 +32,16 @@ function PlaceAutocomplete({ onPlaceSelect }: { onPlaceSelect: (place: google.ma
             gmpAutocompleteContainer.appendChild(placeAutocompleteElement);
         }
 
-        const listener = placeAutocompleteElement.addEventListener('gmp-placeselect', async (ev) => {
+        const listener = placeAutocompleteElement.addEventListener('gmp-placeselect', async (ev: Event) => {
             const place = await (ev as any).place.fetchFields({
                 fields: ['displayName', 'formattedAddress', 'location']
             });
             onPlaceSelect(place);
         });
 
+        // The cleanup function for the new element is just to remove it from the DOM
         return () => {
             if (placeAutocompleteRef.current) {
-                // listener.remove() is not a function on the new element
-                // We just remove the element from the DOM
                 placeAutocompleteRef.current.remove();
                 placeAutocompleteRef.current = null;
             }
