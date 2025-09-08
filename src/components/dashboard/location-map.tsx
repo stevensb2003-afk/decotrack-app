@@ -1,83 +1,57 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { Location } from '@/services/locationService';
+import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import GooglePlacesAutocomplete, { geocodeByAddress, getLatLng } from 'react-google-places-autocomplete';
 
 interface LocationMapProps {
   initialLocation: Partial<Location>;
   onLocationChange: (location: Partial<Location>) => void;
 }
 
-
 export default function LocationMap({ onLocationChange, initialLocation }: LocationMapProps) {
-  const [address, setAddress] = useState<any>(null);
+  const map = useMap();
+  const places = useMapsLibrary('places');
+  const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Update internal state if initialLocation prop changes from outside
   useEffect(() => {
-    if (initialLocation.address) {
-        setAddress({ label: initialLocation.address, value: { description: initialLocation.address } });
-    } else {
-        setAddress(null);
-    }
-  }, [initialLocation]);
+    if (!places || !inputRef.current) return;
 
-  const handleSelect = async (selected: any) => {
-    setAddress(selected);
-    if (selected && selected.label) {
-        try {
-            const results = await geocodeByAddress(selected.label);
-            const { lat, lng } = await getLatLng(results[0]);
+    const ac = new places.Autocomplete(inputRef.current, {
+        fields: ["geometry.location", "formatted_address"],
+    });
+    
+    ac.addListener("place_changed", () => {
+        const place = ac.getPlace();
+        if (place.geometry?.location && place.formatted_address) {
+            const lat = place.geometry.location.lat();
+            const lng = place.geometry.location.lng();
+            
             onLocationChange({
-                address: selected.label,
+                address: place.formatted_address,
                 latitude: lat,
                 longitude: lng
             });
-        } catch (error) {
-            console.error('Error fetching coordinates: ', error);
+
+            if (map) {
+                map.moveCamera({ center: {lat, lng}, zoom: 15 });
+            }
         }
-    }
-  }
+    });
+
+    setAutocomplete(ac);
+
+  }, [places, map, onLocationChange]);
 
   return (
-    <div className="space-y-4">
+     <div className="space-y-4">
        <div>
             <Label htmlFor="location-search">Search for a location</Label>
-             <GooglePlacesAutocomplete
-                apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
-                selectProps={{
-                    value: address,
-                    onChange: handleSelect,
-                    placeholder: 'e.g., 123 Main St, Anytown',
-                    styles: {
-                        input: (provided) => ({
-                            ...provided,
-                            color: 'hsl(var(--foreground))',
-                            backgroundColor: 'hsl(var(--background))',
-                        }),
-                        option: (provided) => ({
-                            ...provided,
-                            backgroundColor: 'hsl(var(--background))',
-                             color: 'hsl(var(--foreground))',
-                        }),
-                        singleValue: (provided) => ({
-                            ...provided,
-                             color: 'hsl(var(--foreground))',
-                        }),
-                        control: (provided) => ({
-                            ...provided,
-                            backgroundColor: 'hsl(var(--background))',
-                            border: '1px solid hsl(var(--input))',
-                        }),
-                        menu: (provided) => ({
-                            ...provided,
-                             backgroundColor: 'hsl(var(--background))',
-                        }),
-                    }
-                }}
-            />
+            <Input ref={inputRef} id="location-search" placeholder="e.g., 123 Main St, Anytown" defaultValue={initialLocation?.address}/>
        </div>
 
       <div className="p-4 border rounded-lg space-y-2 bg-muted/50">
