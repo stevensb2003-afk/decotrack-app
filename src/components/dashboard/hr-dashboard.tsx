@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -1214,11 +1215,11 @@ export default function HRDashboard() {
                 <div className="grid grid-cols-2 gap-4 pt-4">
                     <div>
                         <Label htmlFor="latitude">Latitude</Label>
-                        <Input id="latitude" value={newLocationData.latitude || ''} disabled />
+                        <Input id="latitude" value={newLocationData.latitude?.toFixed(6) || ''} disabled />
                     </div>
                      <div>
                         <Label htmlFor="longitude">Longitude</Label>
-                        <Input id="longitude" value={newLocationData.longitude || ''} disabled />
+                        <Input id="longitude" value={newLocationData.longitude?.toFixed(6) || ''} disabled />
                     </div>
                 </div>
             </div>
@@ -1361,4 +1362,3 @@ export default function HRDashboard() {
     </div>
   );
 }
-
