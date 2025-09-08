@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useMapsLibrary } from '@vis.gl/react-google-maps';
 import { Input } from '../ui/input';
 import { Location } from '@/services/locationService';
@@ -12,28 +11,42 @@ interface LocationMapProps {
   onLocationChange: (location: Partial<Location>) => void;
 }
 
+
 // The new, correct implementation of the Places Autocomplete component
 function PlaceAutocomplete({ onPlaceSelect }: { onPlaceSelect: (place: google.maps.places.Place | null) => void }) {
     const places = useMapsLibrary('places');
     const inputRef = useRef<HTMLInputElement>(null);
-    const placeAutocompleteRef = useRef<google.maps.places.PlaceAutocompleteElement>(null);
+    // The ref for the PlaceAutocompleteElement is not strictly needed for it to function,
+    // but it's good practice if you needed to interact with it directly.
+    const placeAutocompleteRef = useRef<any>(null);
 
     useEffect(() => {
-        if (!places || !inputRef.current || !placeAutocompleteRef.current) {
+        if (!places || !inputRef.current) {
             return;
         }
 
-        const placeAutocomplete = new places.PlaceAutocompleteElement({
-            inputElement: inputRef.current,
-        });
-
-        const listener = placeAutocomplete.addListener('gmp-placeselect', async ({ place }) => {
+        // The PlaceAutocompleteElement is a web component, so we create it and
+        // can interact with it via its DOM properties and events.
+        const placeAutocomplete = new places.PlaceAutocompleteElement();
+        
+        // We assign the input element to the web component.
+        placeAutocomplete.inputElement = inputRef.current;
+        placeAutocompleteRef.current = placeAutocomplete;
+        
+        const listener = placeAutocomplete.addEventListener('gmp-placeselect', async ({ place }) => {
             await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location'] });
             onPlaceSelect(place);
         });
 
+        // Append the element to the DOM. It is not visible.
+        document.body.appendChild(placeAutocomplete);
+
         return () => {
-            listener.remove();
+            // It's important to remove the listener and the element on cleanup.
+            // listener.remove(); // The new web component doesn't have a remove() on the listener handle.
+            if (placeAutocompleteRef.current) {
+                document.body.removeChild(placeAutocompleteRef.current);
+            }
         }
 
     }, [places, onPlaceSelect]);
@@ -42,7 +55,6 @@ function PlaceAutocomplete({ onPlaceSelect }: { onPlaceSelect: (place: google.ma
         <div>
             <Label htmlFor="location-search">Search for a location</Label>
             <Input ref={inputRef} id="location-search" placeholder="e.g., 123 Main St, Anytown" />
-            <div ref={placeAutocompleteRef}></div>
         </div>
     );
 }
@@ -56,7 +68,7 @@ export default function LocationMap({ onLocationChange, initialLocation }: Locat
   });
   
 
-  const handlePlaceSelect = (place: google.maps.places.Place | null) => {
+  const handlePlaceSelect = useCallback((place: google.maps.places.Place | null) => {
     if (place && place.location && place.formattedAddress) {
       const lat = place.location.lat();
       const lng = place.location.lng();
@@ -69,7 +81,7 @@ export default function LocationMap({ onLocationChange, initialLocation }: Locat
         address: place.formattedAddress,
       });
     }
-  }
+  }, [onLocationChange]);
 
   // Update internal state if initialLocation prop changes from outside
   useEffect(() => {
