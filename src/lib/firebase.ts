@@ -1,9 +1,9 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp, getApps, getApp, FirebaseOptions } from "firebase/app";
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// Your web app's Firebase configuration
+// Your web app's Firebase configuration. This is safe to be public.
 const firebaseConfig = {
   "projectId": "decotrack-l9y8l",
   "appId": "1:602878187874:web:95bbedd4e76e455e99f43b",
@@ -20,15 +20,20 @@ const db = getFirestore(app);
 
 // Environment detection and database separation
 let dbPrefix = '';
-if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname.startsWith('develop--')) {
-        dbPrefix = 'dev_';
-        console.log("Running in DEV environment. Using 'dev_' prefix for collections.");
-    }
+if (process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' || (typeof window !== 'undefined' && window.location.hostname.includes('--'))) {
+    dbPrefix = 'dev_';
+    console.log("Running in DEV environment. Using 'dev_' prefix for collections.");
+} else if (process.env.NODE_ENV === 'development') {
+    dbPrefix = 'dev_';
+    console.log("Running in local DEV environment. Using 'dev_' prefix for collections.");
 }
 
 const applyDbPrefix = (collectionName: string) => {
+    // Ensure the original collection name is not prefixed if it's already a dev collection.
+    // This prevents double-prefixing like 'dev_dev_employees'.
+    if (collectionName.startsWith('dev_')) {
+        return collectionName;
+    }
     return `${dbPrefix}${collectionName}`;
 };
 
