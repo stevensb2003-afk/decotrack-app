@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -1212,6 +1211,16 @@ export default function HRDashboard() {
                     onLocationChange={handleLocationMapChange}
                     initialLocation={editingLocation || undefined}
                 />
+                <div className="grid grid-cols-2 gap-4 pt-4">
+                    <div>
+                        <Label htmlFor="latitude">Latitude</Label>
+                        <Input id="latitude" value={newLocationData.latitude || ''} disabled />
+                    </div>
+                     <div>
+                        <Label htmlFor="longitude">Longitude</Label>
+                        <Input id="longitude" value={newLocationData.longitude || ''} disabled />
+                    </div>
+                </div>
             </div>
              <DialogFooter>
                 <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>Cancel</Button>
@@ -1352,3 +1361,4 @@ export default function HRDashboard() {
     </div>
   );
 }
+
