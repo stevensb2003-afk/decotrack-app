@@ -1199,7 +1199,10 @@ export default function HRDashboard() {
         <DialogContent className="sm:max-w-xl">
             <DialogHeader>
                 <DialogTitle>{editingLocation ? "Edit Location" : "Add New Location"}</DialogTitle>
-                <DialogDescription>Enter the location details below. You can assign a manager from the list of employees with the 'Manager' role.</DialogDescription>
+                <DialogDescription>
+                    Enter the location details below. You can assign a manager from the list of employees with the 'Manager' role. 
+                    If the map does not work on the live site, please ensure the App Hosting URL (`https://decotrack-l9y8l.web.app/*`) is added to your Google Maps API key restrictions in the Google Cloud Console.
+                </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -1221,8 +1224,8 @@ export default function HRDashboard() {
                     </div>
                 </div>
                 <LocationMap
+                    location={newLocationData}
                     onLocationChange={handleLocationMapChange}
-                    initialLocation={newLocationData}
                 />
             </div>
              <DialogFooter>
@@ -1365,5 +1368,6 @@ export default function HRDashboard() {
     </div>
   );
 }
+
 
 

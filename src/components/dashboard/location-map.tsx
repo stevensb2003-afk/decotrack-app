@@ -1,71 +1,145 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { Location } from '@/services/locationService';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Map,
+  AdvancedMarker,
+  Pin,
+  useMap,
+  useAdvancedMarkerRef
+} from '@vis.gl/react-google-maps';
 import { Input } from '../ui/input';
+import { Location } from '@/services/locationService';
+import { useToast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
 
 interface LocationMapProps {
-  initialLocation: Partial<Location>;
+  location: Partial<Location>;
   onLocationChange: (location: Partial<Location>) => void;
 }
 
-export default function LocationMap({ onLocationChange, initialLocation }: LocationMapProps) {
+const INITIAL_POSITION = { lat: 9.9281, lng: -84.0907 }; // San Jose, Costa Rica
+
+export default function LocationMap({ location, onLocationChange }: LocationMapProps) {
+  const [position, setPosition] = useState(location.latitude && location.longitude ? { lat: location.latitude, lng: location.longitude } : INITIAL_POSITION);
+  const [markerRef, marker] = useAdvancedMarkerRef();
   const map = useMap();
-  const places = useMapsLibrary('places');
-  const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (!places || !inputRef.current) return;
+    if (location.latitude && location.longitude) {
+      const newPos = { lat: location.latitude, lng: location.longitude };
+      setPosition(newPos);
+      map?.moveCamera({ center: newPos, zoom: 15 });
+    }
+  }, [location, map]);
 
-    const ac = new places.Autocomplete(inputRef.current, {
-        fields: ["geometry.location", "formatted_address"],
-    });
-    
-    ac.addListener("place_changed", () => {
-        const place = ac.getPlace();
-        if (place.geometry?.location && place.formatted_address) {
-            const lat = place.geometry.location.lat();
-            const lng = place.geometry.location.lng();
-            
+  const handleMarkerDragEnd = (e: google.maps.MapMouseEvent) => {
+    if (e.latLng) {
+      const newLat = e.latLng.lat();
+      const newLng = e.latLng.lng();
+      setPosition({ lat: newLat, lng: newLng });
+
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ location: e.latLng }, (results, status) => {
+        if (status === 'OK' && results && results[0]) {
+          onLocationChange({
+            address: results[0].formatted_address,
+            latitude: newLat,
+            longitude: newLng,
+          });
+        } else {
             onLocationChange({
-                address: place.formatted_address,
-                latitude: lat,
-                longitude: lng
+              latitude: newLat,
+              longitude: newLng,
             });
-
-            if (map) {
-                map.moveCamera({ center: {lat, lng}, zoom: 15 });
-            }
+          console.error('Geocoder failed due to: ' + status);
+          toast({ title: "Reverse Geocoding Failed", description: "Could not fetch address for the selected point.", variant: "destructive"})
         }
-    });
-
-    setAutocomplete(ac);
-
-  }, [places, map, onLocationChange]);
+      });
+    }
+  };
 
   return (
-     <div className="space-y-4">
-       <div>
-            <Label htmlFor="location-search">Search for a location</Label>
-            <Input ref={inputRef} id="location-search" placeholder="e.g., 123 Main St, Anytown" defaultValue={initialLocation?.address}/>
-       </div>
+    <div className="space-y-4">
+      <PlacesAutocomplete onSelect={(details) => {
+        if (details) {
+            setPosition(details.position);
+            map?.moveCamera({ center: details.position, zoom: 15 });
+            onLocationChange({
+                address: details.address,
+                latitude: details.position.lat,
+                longitude: details.position.lng
+            });
+        }
+      }} />
 
-      <div className="p-4 border rounded-lg space-y-2 bg-muted/50">
-          <div>
-            <p className="text-sm font-medium">Selected Address:</p>
-            <p className="text-sm text-muted-foreground">{initialLocation.address || 'Search and select a location above'}</p>
-          </div>
-           <div>
-            <p className="text-sm font-medium mt-2">Coordinates:</p>
-            <p className="text-sm text-muted-foreground">
-                Lat: {initialLocation.latitude?.toFixed(6) || 'N/A'}, Lng: {initialLocation.longitude?.toFixed(6) || 'N/A'}
-            </p>
-          </div>
+      <div style={{ height: '300px', borderRadius: '0.5rem', overflow: 'hidden' }}>
+        <Map
+            defaultCenter={position}
+            defaultZoom={10}
+            center={position}
+            mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'}
+            gestureHandling={'greedy'}
+            disableDefaultUI={true}
+        >
+          <AdvancedMarker
+            ref={markerRef}
+            position={position}
+            draggable={true}
+            onDragEnd={handleMarkerDragEnd}
+          >
+            <Pin />
+          </AdvancedMarker>
+        </Map>
+      </div>
+      <div>
+        <p className="text-sm font-medium">Selected Address:</p>
+        <p className="text-sm text-muted-foreground">{location.address || 'Move the pin or search to set an address'}</p>
+        <p className="text-sm font-medium mt-2">Coordinates:</p>
+        <p className="text-sm text-muted-foreground">
+            Lat: {location.latitude?.toFixed(6) || 'N/A'}, Lng: {location.longitude?.toFixed(6) || 'N/A'}
+        </p>
       </div>
     </div>
   );
+}
+
+function PlacesAutocomplete({ onSelect }: { onSelect: (details: {position: google.maps.LatLngLiteral, address: string} | null) => void}) {
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (!window.google || !inputRef.current) return;
+
+        const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
+            fields: ['geometry.location', 'formatted_address']
+        });
+
+        const listener = autocomplete.addListener('place_changed', () => {
+            const place = autocomplete.getPlace();
+            if (place.geometry?.location) {
+                const position = {
+                    lat: place.geometry.location.lat(),
+                    lng: place.geometry.location.lng(),
+                };
+                onSelect({ position, address: place.formatted_address || '' });
+            } else {
+                onSelect(null);
+            }
+        });
+        return () => {
+            if (window.google) {
+                 google.maps.event.removeListener(listener);
+            }
+        }
+
+    }, [onSelect]);
+
+    return (
+        <div>
+            <Label htmlFor="location-search">Search for a location</Label>
+            <Input ref={inputRef} id="location-search" placeholder="e.g., 123 Main St, Anytown" />
+        </div>
+    )
 }
