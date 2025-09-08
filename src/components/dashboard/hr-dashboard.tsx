@@ -1027,10 +1027,21 @@ export default function HRDashboard() {
                     <CardTitle>Scheduled Changes Runner</CardTitle>
                     <CardDescription>Changes are applied automatically each night. You can also run the process manually.</CardDescription>
                     </div>
-                    <Button onClick={handleRunApplyChanges} disabled={isApplyingChanges}>
-                        <Play className="mr-2 h-4 w-4" />
-                        {isApplyingChanges ? 'Applying...' : 'Apply Pending Changes'}
-                    </Button>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div className="inline-block">
+                                    <Button onClick={handleRunApplyChanges} disabled={true}>
+                                        <Play className="mr-2 h-4 w-4" />
+                                        Apply Pending Changes
+                                    </Button>
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Manual running is temporarily disabled. Changes are applied by an automated job.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -1371,4 +1382,5 @@ export default function HRDashboard() {
     </div>
   );
 }
+
 

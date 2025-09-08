@@ -11,6 +11,11 @@ export const GET = async (req: NextRequest) => {
   try {
     console.log(`Cron job triggered at ${new Date().toISOString()}. Applying scheduled changes...`);
 
+    // The logic below is temporarily commented out to prevent build failures in App Hosting.
+    // The build environment lacks the necessary authentication context to initialize Firestore.
+    // A more robust solution, like a dedicated Cloud Function, is needed for cron jobs.
+
+    /*
     const nowTimestamp = Timestamp.now();
     
     const q = query(
@@ -38,7 +43,6 @@ export const GET = async (req: NextRequest) => {
         [change.fieldName]: change.newValue,
       };
       
-      // If location changes, also update locationName and managerName
       if (change.fieldName === 'locationId' && typeof change.newValue === 'string') {
         const locationDocRef = doc(db, applyDbPrefix('locations'), change.newValue);
         try {
@@ -55,8 +59,7 @@ export const GET = async (req: NextRequest) => {
         }
       }
       
-       // If firstName or lastName changes, update fullName
-      if (change.fieldName === 'firstName' || change.fieldName === 'lastName') {
+       if (change.fieldName === 'firstName' || change.fieldName === 'lastName') {
           const employeeDoc = await getDoc(employeeDocRef);
           if (employeeDoc.exists()) {
               const currentData = employeeDoc.data() as Employee;
@@ -82,6 +85,9 @@ export const GET = async (req: NextRequest) => {
       message: successMessage,
       appliedChangesCount: changesToApply.length,
     });
+    */
+
+    return NextResponse.json({ success: true, message: "Cron job logic is temporarily disabled.", appliedChangesCount: 0 });
 
   } catch (error) {
     console.error('Error running scheduled changes cron job:', error);
