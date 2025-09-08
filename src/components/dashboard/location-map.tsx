@@ -19,7 +19,7 @@ export default function LocationMap({ onLocationChange, initialLocation }: Locat
     lng: initialLocation.longitude,
   });
 
-  const handleLocationSelect = useCallback((lat, lng, formattedAddress) => {
+  const handleLocationSelect = useCallback((lat: number, lng: number, formattedAddress: string) => {
     setCoordinates({ lat, lng });
     setAddress(formattedAddress);
     onLocationChange({
@@ -40,7 +40,7 @@ export default function LocationMap({ onLocationChange, initialLocation }: Locat
 
   return (
     <div className="space-y-4">
-      <PlacesAutocomplete onSelect={handleLocationSelect} initialAddress={address} />
+      <PlacesAutocomplete onSelect={handleLocationSelect} />
 
       <div className="p-4 border rounded-lg space-y-2 bg-muted/50">
           <div>
@@ -58,22 +58,19 @@ export default function LocationMap({ onLocationChange, initialLocation }: Locat
   );
 }
 
-function PlacesAutocomplete({ onSelect, initialAddress }: { onSelect: (lat: number, lng: number, address: string) => void, initialAddress: string }) {
+function PlacesAutocomplete({ onSelect }: { onSelect: (lat: number, lng: number, address: string) => void }) {
     const places = useMapsLibrary('places');
     const inputRef = useRef<HTMLInputElement>(null);
-    const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
+    const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
     useEffect(() => {
         if (!places || !inputRef.current) return;
 
-        const ac = new places.Autocomplete(inputRef.current, {
+        // Use the legacy Autocomplete for now as PlaceAutocompleteElement is in beta and might require more setup
+        const autocomplete = new places.Autocomplete(inputRef.current, {
             fields: ['geometry.location', 'formatted_address']
         });
-        setAutocomplete(ac);
-    }, [places]);
-
-    useEffect(() => {
-        if (!autocomplete) return;
+        autocompleteRef.current = autocomplete;
 
         const listener = autocomplete.addListener('place_changed', () => {
             const place = autocomplete.getPlace();
@@ -85,14 +82,17 @@ function PlacesAutocomplete({ onSelect, initialAddress }: { onSelect: (lat: numb
         });
 
         return () => {
-            listener.remove();
+            if (autocompleteRef.current) {
+                google.maps.event.clearInstanceListeners(autocompleteRef.current);
+            }
         }
-    }, [autocomplete, onSelect]);
+
+    }, [places, onSelect]);
 
     return (
         <div>
             <Label htmlFor="location-search">Search for a location</Label>
-            <Input ref={inputRef} id="location-search" defaultValue={initialAddress} placeholder="e.g., 123 Main St, Anytown" />
+            <Input ref={inputRef} id="location-search" placeholder="e.g., 123 Main St, Anytown" />
         </div>
     )
 }
