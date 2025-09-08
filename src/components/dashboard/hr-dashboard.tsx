@@ -435,13 +435,10 @@ export default function HRDashboard() {
         managerId: manager?.id || '',
         managerName: manager?.fullName || '',
         address: newLocationData.address || '',
+        latitude: newLocationData.latitude || 0,
+        longitude: newLocationData.longitude || 0,
     };
     
-    if (newLocationData.latitude && newLocationData.longitude) {
-        locationPayload.latitude = newLocationData.latitude;
-        locationPayload.longitude = newLocationData.longitude;
-    }
-
     if (editingLocation) {
         await updateLocation(editingLocation.id, locationPayload);
         toast({title: "Location Updated"});
@@ -1191,9 +1188,6 @@ export default function HRDashboard() {
         <DialogContent className="sm:max-w-xl">
             <DialogHeader>
                 <DialogTitle>{editingLocation ? "Edit Location" : "Add New Location"}</DialogTitle>
-                <DialogDescription>
-                    Enter the location details below. You can assign a manager from the list of employees with the 'Manager' role.
-                </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -1216,16 +1210,8 @@ export default function HRDashboard() {
                 </div>
                 <LocationMap
                     onLocationChange={handleLocationMapChange}
+                    initialLocation={editingLocation || undefined}
                 />
-                 <div>
-                    <Label htmlFor="address-manual">Address</Label>
-                    <Input 
-                        id="address-manual" 
-                        value={newLocationData.address || ''}
-                        onChange={e => setNewLocationData({...newLocationData, address: e.target.value})}
-                        placeholder="Address will be auto-filled by search"
-                    />
-                 </div>
             </div>
              <DialogFooter>
                 <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>Cancel</Button>
