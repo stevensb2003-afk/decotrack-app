@@ -34,6 +34,7 @@ import { getEmployeeScheduleAssignments, Shift, getShifts, EmployeeScheduleAssig
 import { Switch } from "../ui/switch";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import { db } from "@/lib/firebase";
+import { getSettings } from "@/services/settingsService";
 
 
 const timeOffReasons: TimeOffReason[] = [
@@ -75,6 +76,7 @@ export default function EmployeeDashboard() {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [geofenceRadius, setGeofenceRadius] = useState(100);
 
 
   const fetchEmployeeData = async () => {
@@ -151,10 +153,12 @@ export default function EmployeeDashboard() {
          const allPatterns = await getRotationPatterns();
          const allAssignments = await getEmployeeScheduleAssignments();
          const allHolidays = await getHolidays();
+         const settings = await getSettings();
          setShifts(allShifts);
          setRotationPatterns(allPatterns);
          setAssignments(allAssignments);
          setHolidays(allHolidays);
+         setGeofenceRadius(settings.geofenceRadius || 100);
       }
       setIsLoading(false);
     }
@@ -211,10 +215,10 @@ export default function EmployeeDashboard() {
         const locationData = locationDoc.data();
         const distance = getDistance(latitude, longitude, locationData.latitude, locationData.longitude);
         
-        if (distance > 100) { // 100 meters radius
+        if (distance > geofenceRadius) { 
              toast({ 
                 title: "Too Far to Mark", 
-                description: `You must be within 100 meters of your work location. You are currently ${Math.round(distance)}m away.`, 
+                description: `You must be within ${geofenceRadius} meters of your work location. You are currently ${Math.round(distance)}m away.`, 
                 variant: "destructive",
                 duration: 5000,
              });

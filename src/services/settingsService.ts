@@ -5,6 +5,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 export type AppSettings = {
     cronHour?: number;
     cronMinute?: number;
+    geofenceRadius?: number;
 };
 
 const settingsDocRef = doc(db, 'system', 'settings');
@@ -17,6 +18,7 @@ export const getSettings = async (): Promise<AppSettings> => {
         const defaultSettings: AppSettings = {
             cronHour: 2, // Default to 2 AM
             cronMinute: 0,
+            geofenceRadius: 100, // Default to 100 meters
         };
         await setDoc(settingsDocRef, defaultSettings);
         return defaultSettings;
