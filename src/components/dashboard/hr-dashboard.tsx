@@ -37,7 +37,7 @@ import { Location, createLocation, getAllLocations, updateLocation } from '@/ser
 import { Benefit, createBenefit, getAllBenefits, updateBenefit, deleteBenefit, BenefitApplicability } from '@/services/benefitService';
 import { Textarea } from '../ui/textarea';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '../ui/dropdown-menu';
-import LocationMap from './location-map';
+import { PlacesAutocomplete } from './location-map';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const initialNewEmployeeData: Omit<Employee, 'id' | 'fullName'> = {
@@ -327,8 +327,15 @@ export default function HRDashboard() {
 
   const { toast } = useToast();
 
-  const handleLocationMapChange = useCallback((loc: Partial<Location>) => {
-    setNewLocationData(prev => ({...prev, ...loc}));
+  const handleLocationSearchSelect = useCallback((details: { address: string; latitude: number; longitude: number; } | null) => {
+    if (details) {
+      setNewLocationData(prev => ({
+        ...prev,
+        address: details.address,
+        latitude: details.latitude,
+        longitude: details.longitude,
+      }));
+    }
   }, []);
 
   const fetchData = async () => {
@@ -1208,18 +1215,25 @@ export default function HRDashboard() {
                         </Select>
                     </div>
                 </div>
-                <LocationMap
-                    onLocationChange={handleLocationMapChange}
-                    initialLocation={editingLocation || undefined}
+                
+                <PlacesAutocomplete 
+                    onSelect={handleLocationSearchSelect} 
+                    initialAddress={editingLocation?.address}
                 />
+                
+                <div className="mt-4">
+                    <Label htmlFor="address-display">Full Address</Label>
+                    <Input id="address-display" value={newLocationData.address || ''} readOnly disabled />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4 pt-4">
                     <div>
                         <Label htmlFor="latitude">Latitude</Label>
-                        <Input id="latitude" value={newLocationData.latitude?.toFixed(6) || ''} disabled />
+                        <Input id="latitude" value={newLocationData.latitude?.toFixed(6) || ''} readOnly disabled />
                     </div>
                      <div>
                         <Label htmlFor="longitude">Longitude</Label>
-                        <Input id="longitude" value={newLocationData.longitude?.toFixed(6) || ''} disabled />
+                        <Input id="longitude" value={newLocationData.longitude?.toFixed(6) || ''} readOnly disabled />
                     </div>
                 </div>
             </div>
@@ -1362,3 +1376,4 @@ export default function HRDashboard() {
     </div>
   );
 }
+
