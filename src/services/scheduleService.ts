@@ -1,5 +1,5 @@
 
-import { db } from '@/lib/firebase';
+import { db, applyDbPrefix } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp, writeBatch, getDoc, deleteDoc } from 'firebase/firestore';
 
 // --- Data Models ---
@@ -54,12 +54,12 @@ export type Holiday = {
 
 // --- Collections ---
 
-const shiftsCollection = collection(db, 'shifts');
-const rotationPatternsCollection = collection(db, 'rotationPatterns');
-const scheduleCollection = collection(db, 'schedule');
-const holidaysCollection = collection(db, 'holidays');
-const assignmentsCollection = collection(db, 'employeeScheduleAssignments');
-const gracePoliciesCollection = collection(db, 'gracePolicies');
+const shiftsCollection = collection(db, applyDbPrefix('shifts'));
+const rotationPatternsCollection = collection(db, applyDbPrefix('rotationPatterns'));
+const scheduleCollection = collection(db, applyDbPrefix('schedule'));
+const holidaysCollection = collection(db, applyDbPrefix('holidays'));
+const assignmentsCollection = collection(db, applyDbPrefix('employeeScheduleAssignments'));
+const gracePoliciesCollection = collection(db, applyDbPrefix('gracePolicies'));
 
 
 // --- Shift Management ---
@@ -86,7 +86,7 @@ export const getShifts = async (): Promise<Shift[]> => {
 };
 
 export const updateShift = async (shiftId: string, shiftData: Omit<Shift, 'id'>) => {
-    const shiftDoc = doc(db, 'shifts', shiftId);
+    const shiftDoc = doc(db, applyDbPrefix('shifts'), shiftId);
     return await updateDoc(shiftDoc, {
         ...shiftData,
         startTime: Timestamp.fromDate(shiftData.startTime),
@@ -106,12 +106,12 @@ export const getGracePolicies = async (): Promise<GracePolicy[]> => {
 };
 
 export const updateGracePolicy = async (policyId: string, policyData: Partial<Omit<GracePolicy, 'id'>>) => {
-    const policyDoc = doc(db, 'gracePolicies', policyId);
+    const policyDoc = doc(db, applyDbPrefix('gracePolicies'), policyId);
     return await updateDoc(policyDoc, policyData);
 };
 
 export const deleteGracePolicy = async (policyId: string) => {
-    const policyDoc = doc(db, 'gracePolicies', policyId);
+    const policyDoc = doc(db, applyDbPrefix('gracePolicies'), policyId);
     return await deleteDoc(policyDoc);
 };
 
@@ -128,12 +128,12 @@ export const getRotationPatterns = async (): Promise<RotationPattern[]> => {
 };
 
 export const updateRotationPattern = async (patternId: string, patternData: Omit<RotationPattern, 'id'>) => {
-    const patternDoc = doc(db, 'rotationPatterns', patternId);
+    const patternDoc = doc(db, applyDbPrefix('rotationPatterns'), patternId);
     return await updateDoc(patternDoc, patternData);
 };
 
 export const deleteRotationPattern = async (patternId: string) => {
-    const patternDoc = doc(db, 'rotationPatterns', patternId);
+    const patternDoc = doc(db, applyDbPrefix('rotationPatterns'), patternId);
     return await deleteDoc(patternDoc);
 };
 
@@ -149,7 +149,7 @@ export const getEmployeeScheduleAssignments = async (): Promise<EmployeeSchedule
 }
 
 export const deleteEmployeeScheduleAssignment = async (assignmentId: string) => {
-    const assignmentDoc = doc(db, 'employeeScheduleAssignments', assignmentId);
+    const assignmentDoc = doc(db, applyDbPrefix('employeeScheduleAssignments'), assignmentId);
     return await deleteDoc(assignmentDoc);
 }
 
@@ -166,12 +166,12 @@ export const getHolidays = async (): Promise<Holiday[]> => {
 }
 
 export const updateHoliday = async (holidayId: string, holidayData: Omit<Holiday, 'id'>) => {
-    const holidayDoc = doc(db, 'holidays', holidayId);
+    const holidayDoc = doc(db, applyDbPrefix('holidays'), holidayId);
     return await updateDoc(holidayDoc, holidayData);
 };
 
 export const deleteHoliday = async (holidayId: string) => {
-    const holidayDoc = doc(db, 'holidays', holidayId);
+    const holidayDoc = doc(db, applyDbPrefix('holidays'), holidayId);
     return await deleteDoc(holidayDoc);
 };
 

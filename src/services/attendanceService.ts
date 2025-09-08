@@ -1,5 +1,5 @@
 
-import { db } from '@/lib/firebase';
+import { db, applyDbPrefix } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, doc, setDoc, getDoc, limit } from 'firebase/firestore';
 import { Employee, getAllEmployees } from './employeeService';
 import { format, differenceInMilliseconds, isSameDay, differenceInDays } from 'date-fns';
@@ -33,8 +33,8 @@ export type DailyAttendanceSummary = {
   mealBreakTaken: boolean;
 };
 
-const attendanceCollection = collection(db, 'attendance');
-const attendanceDetailsCollection = collection(db, 'attendanceDetails');
+const attendanceCollection = collection(db, applyDbPrefix('attendance'));
+const attendanceDetailsCollection = collection(db, applyDbPrefix('attendanceDetails'));
 
 export const markAttendance = async (record: Omit<AttendanceRecord, 'id'>) => {
   await addDoc(attendanceCollection, record);
@@ -57,7 +57,7 @@ export const getEmployeeAttendance = async (employeeId: string, recordLimit: num
 };
 
 export const updateAttendanceDetail = async (detailId: string, data: Partial<Omit<AttendanceDetail, 'employeeId' | 'date'>>) => {
-    const detailDoc = doc(db, 'attendanceDetails', detailId);
+    const detailDoc = doc(db, applyDbPrefix('attendanceDetails'), detailId);
     await setDoc(detailDoc, data, { merge: true });
 };
 
@@ -130,7 +130,7 @@ export const getDailyAttendanceSummary = async (daysLimit: number = 10, employee
         const scheduled = wasEmployeeScheduled(firstRecord.employeeId, date, assignments, patterns, holidays);
 
         // Fetch meal break override
-        const detailDocRef = doc(db, 'attendanceDetails', summaryId);
+        const detailDocRef = doc(db, applyDbPrefix('attendanceDetails'), summaryId);
         const detailDoc = await getDoc(detailDocRef);
         const mealBreakTaken = detailDoc.exists() ? detailDoc.data().mealBreakTaken : true;
 

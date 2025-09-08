@@ -1,4 +1,4 @@
-import { db } from '@/lib/firebase';
+import { db, applyDbPrefix } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 
 export type BenefitApplicability = 'Employee' | 'Manager' | 'HR' | 'All';
@@ -12,7 +12,7 @@ export type Benefit = {
     appliesTo: BenefitApplicability;
 };
 
-const benefitsCollection = collection(db, 'benefits');
+const benefitsCollection = collection(db, applyDbPrefix('benefits'));
 
 export const createBenefit = async (data: Omit<Benefit, 'id'>) => {
     return await addDoc(benefitsCollection, data);
@@ -24,11 +24,11 @@ export const getAllBenefits = async (): Promise<Benefit[]> => {
 };
 
 export const updateBenefit = async (id: string, data: Partial<Omit<Benefit, 'id'>>) => {
-    const benefitDoc = doc(db, 'benefits', id);
+    const benefitDoc = doc(db, applyDbPrefix('benefits'), id);
     return await updateDoc(benefitDoc, data);
 };
 
 export const deleteBenefit = async (id: string) => {
-    const benefitDoc = doc(db, 'benefits', id);
+    const benefitDoc = doc(db, applyDbPrefix('benefits'), id);
     return await deleteDoc(benefitDoc);
 };

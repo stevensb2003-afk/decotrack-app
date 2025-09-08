@@ -1,6 +1,6 @@
 
 'use server';
-import { db } from '@/lib/firebase';
+import { db, applyDbPrefix } from '@/lib/firebase';
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, query, where, deleteDoc, Timestamp } from 'firebase/firestore';
 import { createEmployee, Employee } from './employeeService';
 
@@ -15,7 +15,7 @@ export type SystemUser = {
   password?: string; // Should be handled securely, this is for demo
 };
 
-const usersCollection = collection(db, 'systemUsers');
+const usersCollection = collection(db, applyDbPrefix('systemUsers'));
 
 const toSystemUser = (doc: any): SystemUser => {
     const data = doc.data();
@@ -123,16 +123,16 @@ export const createUser = async (userData: Omit<SystemUser, 'id'>) => {
 };
 
 export const updateUserRole = async (userId: string, newRole: Role) => {
-  const userDoc = doc(db, 'systemUsers', userId);
+  const userDoc = doc(db, applyDbPrefix('systemUsers'), userId);
   await updateDoc(userDoc, { role: newRole });
 };
 
 export const updateUserPassword = async (userId: string, newPassword: string) => {
-    const userDoc = doc(db, 'systemUsers', userId);
+    const userDoc = doc(db, applyDbPrefix('systemUsers'), userId);
     await updateDoc(userDoc, { password: newPassword });
 }
 
 export const deleteUser = async (userId: string) => {
-  const userDoc = doc(db, 'systemUsers', userId);
+  const userDoc = doc(db, applyDbPrefix('systemUsers'), userId);
   await deleteDoc(userDoc);
 };

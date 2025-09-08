@@ -1,5 +1,5 @@
 
-import { db } from '@/lib/firebase';
+import { db, applyDbPrefix } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp, writeBatch } from 'firebase/firestore';
 import { updateEmployee, Employee } from './employeeService';
 
@@ -13,7 +13,7 @@ export type ScheduledChange = {
   batchId?: string; // To group changes with the same effective date
 };
 
-const scheduledChangesCollection = collection(db, 'scheduledChanges');
+const scheduledChangesCollection = collection(db, applyDbPrefix('scheduledChanges'));
 
 export const createScheduledChange = async (employeeId: string, change: {fieldName: keyof Employee, newValue: any}, effectiveDate: Date) => {
   const changeData: Omit<ScheduledChange, 'id'> = {
@@ -32,7 +32,7 @@ export const createScheduledChanges = async (employeeId: string, changes: {field
   const effectiveTimestamp = Timestamp.fromDate(effectiveDate);
 
   changes.forEach(change => {
-    const changeDocRef = doc(collection(db, 'scheduledChanges'));
+    const changeDocRef = doc(collection(db, applyDbPrefix('scheduledChanges')));
     const changeData: Omit<ScheduledChange, 'id'> = {
       employeeId,
       fieldName: change.fieldName,
@@ -64,7 +64,7 @@ export const getScheduledChangesForEmployee = async (employeeId: string): Promis
 };
 
 export const cancelScheduledChange = async (changeId: string) => {
-    const changeDoc = doc(db, 'scheduledChanges', changeId);
+    const changeDoc = doc(db, applyDbPrefix('scheduledChanges'), changeId);
     await updateDoc(changeDoc, { status: 'cancelled' });
 }
 

@@ -1,5 +1,5 @@
 
-import { db } from '@/lib/firebase';
+import { db, applyDbPrefix } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export type AppSettings = {
@@ -8,7 +8,7 @@ export type AppSettings = {
     geofenceRadius?: number;
 };
 
-const settingsDocRef = doc(db, 'system', 'settings');
+const settingsDocRef = doc(db, applyDbPrefix('system'), 'settings');
 
 export const getSettings = async (): Promise<AppSettings> => {
     const docSnap = await getDoc(settingsDocRef);

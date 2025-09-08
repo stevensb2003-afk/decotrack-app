@@ -1,5 +1,5 @@
 
-import { db } from '@/lib/firebase';
+import { db, applyDbPrefix } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp } from 'firebase/firestore';
 import { getEmployeeByEmail } from './employeeService';
 
@@ -35,8 +35,8 @@ export type VacationBank = {
     lastAccrualMonth: number;
 };
 
-const requestsCollection = collection(db, 'timeOffRequests');
-const vacationBankCollection = collection(db, 'vacationBank');
+const requestsCollection = collection(db, applyDbPrefix('timeOffRequests'));
+const vacationBankCollection = collection(db, applyDbPrefix('vacationBank'));
 
 
 export const createTimeOffRequest = async (requestData: Omit<TimeOffRequest, 'id' | 'requestedAt' | 'status'>) => {
@@ -64,7 +64,7 @@ export const getEmployeeTimeOffRequests = async (employeeId: string): Promise<Ti
 };
 
 export const updateTimeOffRequestStatus = async (requestId: string, status: 'approved' | 'rejected') => {
-    const requestDoc = doc(db, 'timeOffRequests', requestId);
+    const requestDoc = doc(db, applyDbPrefix('timeOffRequests'), requestId);
     await updateDoc(requestDoc, { status });
 };
 
@@ -73,13 +73,13 @@ export const getVacationBank = async (employeeId: string): Promise<VacationBank 
     const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
-        const employeeQuery = query(collection(db, 'employees'), where('id', '==', employeeId));
+        const employeeQuery = query(collection(db, applyDbPrefix('employees')), where('id', '==', employeeId));
         const employeeSnapshot = await getDocs(employeeQuery);
 
         // Fallback to fetching all employees if direct query fails (might happen if ID is not a field)
         let employee = null;
         if (employeeSnapshot.empty) {
-            const allEmployees = await getDocs(collection(db, 'employees'));
+            const allEmployees = await getDocs(collection(db, applyDbPrefix('employees')));
             const doc = allEmployees.docs.find(d => d.id === employeeId);
             if(doc) employee = {id: doc.id, ...doc.data()};
         } else {
@@ -106,6 +106,6 @@ export const getVacationBank = async (employeeId: string): Promise<VacationBank 
 };
 
 export const updateVacationBank = async (bankId: string, data: Partial<Omit<VacationBank, 'id'>>) => {
-    const bankDoc = doc(db, 'vacationBank', bankId);
+    const bankDoc = doc(db, applyDbPrefix('vacationBank'), bankId);
     await updateDoc(bankDoc, data);
 };

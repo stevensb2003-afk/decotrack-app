@@ -1,5 +1,5 @@
 
-import { db } from '@/lib/firebase';
+import { db, applyDbPrefix } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, doc, query, where, getDoc, Timestamp } from 'firebase/firestore';
 import { ScheduledChange, getScheduledChangesForEmployee } from './scheduledChangeService';
 
@@ -38,7 +38,7 @@ export type Employee = {
     profileComplete?: boolean;
 };
 
-const employeesCollection = collection(db, 'employees');
+const employeesCollection = collection(db, applyDbPrefix('employees'));
 
 export const getAllEmployees = async (): Promise<Employee[]> => {
     const snapshot = await getDocs(employeesCollection);
@@ -69,7 +69,7 @@ export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'fullNa
 };
 
 export const updateEmployee = async (employeeId: string, data: Partial<Omit<Employee, 'id'>>) => {
-    const employeeDoc = doc(db, 'employees', employeeId);
+    const employeeDoc = doc(db, applyDbPrefix('employees'), employeeId);
     
     const updateData = {...data};
     if ('firstName' in data || 'lastName' in data) {
@@ -84,7 +84,7 @@ export const updateEmployee = async (employeeId: string, data: Partial<Omit<Empl
 };
 
 export const getEmployeeSnapshot = async (employeeId: string, asOf: Date): Promise<Employee | null> => {
-    const employeeDocRef = doc(db, 'employees', employeeId);
+    const employeeDocRef = doc(db, applyDbPrefix('employees'), employeeId);
     const employeeDoc = await getDoc(employeeDocRef);
     if (!employeeDoc.exists()) {
         return null;

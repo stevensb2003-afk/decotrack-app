@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { collection, getDocs, query, where, Timestamp, doc, writeBatch, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, applyDbPrefix } from '@/lib/firebase';
 import { Employee } from '@/services/employeeService';
 import { ScheduledChange } from '@/services/scheduledChangeService';
 
@@ -14,7 +14,7 @@ export const GET = async (req: NextRequest) => {
     const nowTimestamp = Timestamp.now();
     
     const q = query(
-      collection(db, 'scheduledChanges'),
+      collection(db, applyDbPrefix('scheduledChanges')),
       where('status', '==', 'pending'),
       where('effectiveDate', '<=', nowTimestamp)
     );
@@ -32,7 +32,7 @@ export const GET = async (req: NextRequest) => {
     const batch = writeBatch(db);
 
     for (const change of changesToApply) {
-      const employeeDocRef = doc(db, 'employees', change.employeeId);
+      const employeeDocRef = doc(db, applyDbPrefix('employees'), change.employeeId);
       
       let updateData: { [key: string]: any } = {
         [change.fieldName]: change.newValue,
@@ -40,7 +40,7 @@ export const GET = async (req: NextRequest) => {
       
       // If location changes, also update locationName and managerName
       if (change.fieldName === 'locationId' && typeof change.newValue === 'string') {
-        const locationDocRef = doc(db, 'locations', change.newValue);
+        const locationDocRef = doc(db, applyDbPrefix('locations'), change.newValue);
         try {
             const locationDocSnapshot = await getDoc(locationDocRef);
             if (locationDocSnapshot.exists()) {
@@ -68,7 +68,7 @@ export const GET = async (req: NextRequest) => {
 
       batch.update(employeeDocRef, updateData);
       
-      const changeDocRef = doc(db, 'scheduledChanges', change.id);
+      const changeDocRef = doc(db, applyDbPrefix('scheduledChanges'), change.id);
       batch.update(changeDocRef, { status: 'applied' });
     }
 

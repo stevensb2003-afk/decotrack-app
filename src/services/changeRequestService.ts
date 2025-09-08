@@ -2,7 +2,7 @@
 // This file is being kept for potential future use but is currently not used
 // by the main application flow, which now uses scheduledChangeService.
 // If you need to re-enable a manual approval flow, you can integrate this service again.
-import { db } from '@/lib/firebase';
+import { db, applyDbPrefix } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc, query, where } from 'firebase/firestore';
 
 export type ChangeRequest = {
@@ -15,7 +15,7 @@ export type ChangeRequest = {
   status: 'pending' | 'approved' | 'rejected';
 };
 
-const requestsCollection = collection(db, 'changeRequests');
+const requestsCollection = collection(db, applyDbPrefix('changeRequests'));
 
 export const createChangeRequest = async (requestData: Omit<ChangeRequest, 'id'>) => {
   await addDoc(requestsCollection, requestData);
@@ -28,7 +28,7 @@ export const getPendingChangeRequests = async (): Promise<ChangeRequest[]> => {
 };
 
 export const updateChangeRequestStatus = async (requestId: string, status: 'approved' | 'rejected') => {
-  const requestDoc = doc(db, 'changeRequests', requestId);
+  const requestDoc = doc(db, applyDbPrefix('changeRequests'), requestId);
   await updateDoc(requestDoc, { status });
 };
 

@@ -1,6 +1,6 @@
 
 
-import { db } from '@/lib/firebase';
+import { db, applyDbPrefix } from '@/lib/firebase';
 import { collection, addDoc, getDocs, updateDoc, doc } from 'firebase/firestore';
 
 export type Location = {
@@ -13,7 +13,7 @@ export type Location = {
     longitude?: number;
 };
 
-const locationsCollection = collection(db, 'locations');
+const locationsCollection = collection(db, applyDbPrefix('locations'));
 
 export const createLocation = async (locationData: Omit<Location, 'id'>) => {
     return await addDoc(locationsCollection, locationData);
@@ -25,6 +25,6 @@ export const getAllLocations = async (): Promise<Location[]> => {
 };
 
 export const updateLocation = async (locationId: string, data: Partial<Omit<Location, 'id'>>) => {
-    const locationDoc = doc(db, 'locations', locationId);
+    const locationDoc = doc(db, applyDbPrefix('locations'), locationId);
     await updateDoc(locationDoc, data);
 };
