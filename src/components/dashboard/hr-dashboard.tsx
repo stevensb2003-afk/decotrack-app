@@ -1221,11 +1221,6 @@ export default function HRDashboard() {
                     initialAddress={editingLocation?.address}
                 />
                 
-                <div className="mt-4">
-                    <Label htmlFor="address-display">Full Address</Label>
-                    <Input id="address-display" value={newLocationData.address || ''} readOnly disabled />
-                </div>
-
                 <div className="grid grid-cols-2 gap-4 pt-4">
                     <div>
                         <Label htmlFor="latitude">Latitude</Label>
