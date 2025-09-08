@@ -805,10 +805,7 @@ export default function HRDashboard() {
                             <Button><UserPlus className="mr-2 h-4 w-4" /> Add Employee</Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-lg">
-                            <DialogHeader>
-                                <DialogTitle>Add New Employee</DialogTitle>
-                                <DialogDescription>Fill in the basic details to create a new employee profile.</DialogDescription>
-                            </DialogHeader>
+                            <DialogHeader><DialogTitle>Add New Employee</DialogTitle></DialogHeader>
                             <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
@@ -1072,12 +1069,7 @@ export default function HRDashboard() {
                     <AvatarImage src={employeeSnapshot?.avatarUrl || ''} alt={employeeSnapshot?.fullName} />
                     <AvatarFallback>{getInitials(employeeSnapshot?.fullName)}</AvatarFallback>
                 </Avatar>
-                <div>
-                    <DialogTitle>Details for {employeeSnapshot?.fullName}</DialogTitle>
-                    <DialogDescription>
-                        View and manage employee details and scheduled changes.
-                    </DialogDescription>
-                </div>
+                <DialogTitle>Details for {employeeSnapshot?.fullName}</DialogTitle>
             </div>
              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1200,8 +1192,7 @@ export default function HRDashboard() {
             <DialogHeader>
                 <DialogTitle>{editingLocation ? "Edit Location" : "Add New Location"}</DialogTitle>
                 <DialogDescription>
-                    Enter the location details below. You can assign a manager from the list of employees with the 'Manager' role. 
-                    If the map does not work on the live site, please ensure the App Hosting URL (`https://decotrack-l9y8l.web.app/*`) is added to your Google Maps API key restrictions in the Google Cloud Console.
+                    Enter the location details below. You can assign a manager from the list of employees with the 'Manager' role.
                 </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -1224,9 +1215,17 @@ export default function HRDashboard() {
                     </div>
                 </div>
                 <LocationMap
-                    location={newLocationData}
                     onLocationChange={handleLocationMapChange}
                 />
+                 <div>
+                    <Label htmlFor="address-manual">Address</Label>
+                    <Input 
+                        id="address-manual" 
+                        value={newLocationData.address || ''}
+                        onChange={e => setNewLocationData({...newLocationData, address: e.target.value})}
+                        placeholder="Address will be auto-filled by search"
+                    />
+                 </div>
             </div>
              <DialogFooter>
                 <Button variant="outline" onClick={() => setIsLocationDialogOpen(false)}>Cancel</Button>
@@ -1239,7 +1238,6 @@ export default function HRDashboard() {
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>{editingBenefit ? 'Edit Benefit' : 'Create New Benefit'}</DialogTitle>
-                <DialogDescription>Define the benefit details and specify which roles it applies to.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
                 <div>
@@ -1368,6 +1366,3 @@ export default function HRDashboard() {
     </div>
   );
 }
-
-
-
