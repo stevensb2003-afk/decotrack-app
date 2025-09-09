@@ -9,11 +9,14 @@ runConfig:
 
 # Declaración de tus variables de entorno
 env:
-  - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "un_valor_de_ejemplo_firebase"  # <-- CAMBIO IMPORTANTE
     availability:
       - BUILD
       - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+
+  - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    value: "un_valor_de_ejemplo_maps"      # <-- CAMBIO IMPORTANTE
     availability:
       - BUILD
       - RUNTIME
