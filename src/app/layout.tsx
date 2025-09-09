@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from '@/components/providers';
 
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'DecoTrack',
