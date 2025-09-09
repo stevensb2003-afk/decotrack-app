@@ -9,7 +9,7 @@ const firebaseConfig = {
   "projectId": "decotrack-l9y8l",
   "appId": "1:602878187874:web:95bbedd4e76e455e99f43b",
   "storageBucket": "decotrack-l9y8l.appspot.com",
-  "apiKey": process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+  "apiKey": process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   "authDomain": "decotrack-l9y8l.firebaseapp.com",
   "messagingSenderId": "602878187874"
 };
@@ -19,7 +19,8 @@ let app: FirebaseApp;
 if (getApps().length === 0) {
   // In the App Hosting environment, FIREBASE_CONFIG will be automatically populated.
   // In other environments, we'll fall back to our local config.
-  app = initializeApp(process.env.FIREBASE_CONFIG ? JSON.parse(process.env.FIREBASE_CONFIG) : firebaseConfig);
+  const config = process.env.FIREBASE_CONFIG ? JSON.parse(process.env.FIREBASE_CONFIG) : firebaseConfig;
+  app = initializeApp(config);
 } else {
   app = getApp();
 }
