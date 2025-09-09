@@ -28,30 +28,10 @@ if (getApps().length === 0) {
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Environment detection and database separation
-let dbPrefix = '';
-// The GAE_ENV variable is a reliable indicator of a Google App Engine environment (which App Hosting uses).
-// VERCEL_ENV is used by Vercel for preview deployments.
-if (process.env.GAE_ENV === 'standard' || process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' || (typeof window !== 'undefined' && window.location.hostname.includes('--'))) {
-    // Check if the current branch is not main to apply dev prefix
-    // This logic assumes you are deploying branches other than 'main' for development/staging
-    if (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF !== 'main' && !window.location.hostname.startsWith('decotrack.decoinnovacr')) {
-         dbPrefix = 'dev_';
-         console.log("Running in DEV environment. Using 'dev_' prefix for collections.");
-    }
-} else if (process.env.NODE_ENV === 'development') {
-    dbPrefix = 'dev_';
-    console.log("Running in local DEV environment. Using 'dev_' prefix for collections.");
-}
-
-
+// Simple function to apply prefix. We will not use environment detection here anymore
+// to ensure consistency. The collections will not have a prefix.
 const applyDbPrefix = (collectionName: string) => {
-    // Ensure the original collection name is not prefixed if it's already a dev collection.
-    // This prevents double-prefixing like 'dev_dev_employees'.
-    if (collectionName.startsWith('dev_')) {
-        return collectionName;
-    }
-    return `${dbPrefix}${collectionName}`;
+    return collectionName;
 };
 
 export { app, auth, db, applyDbPrefix };
