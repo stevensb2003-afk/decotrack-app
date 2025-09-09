@@ -52,7 +52,7 @@ export default function DashboardHeader() {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:px-6 w-full shrink-0">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-card px-4 md:px-6 w-full shrink-0">
         <div className="flex items-center gap-4">
             <div className="md:hidden">
             {user?.role === 'admin' && (
@@ -79,7 +79,7 @@ export default function DashboardHeader() {
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <Button
             variant="outline"
             size="icon"

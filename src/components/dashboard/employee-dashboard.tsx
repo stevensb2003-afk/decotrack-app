@@ -561,7 +561,7 @@ export default function EmployeeDashboard() {
                 </DialogContent>
             </Dialog>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-7 gap-2">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-2">
             {weekDays.map(day => {
                 const shiftInfo = getShiftForDate(day);
                 return (
@@ -657,24 +657,26 @@ export default function EmployeeDashboard() {
             </Dialog>
         </CardHeader>
         <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Reason</TableHead>
-                        <TableHead>Dates</TableHead>
-                        <TableHead>Status</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {timeOffRequests.slice(0,5).map(req => (
-                        <TableRow key={req.id}>
-                            <TableCell>{req.reason}</TableCell>
-                            <TableCell>{format(req.startDate.toDate(), "PPP")} - {format(req.endDate.toDate(), "PPP")}</TableCell>
-                            <TableCell><Badge variant={getStatusVariant(req.status)}>{req.status}</Badge></TableCell>
+            <div className="overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Reason</TableHead>
+                            <TableHead>Dates</TableHead>
+                            <TableHead>Status</TableHead>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+                    </TableHeader>
+                    <TableBody>
+                        {timeOffRequests.slice(0,5).map(req => (
+                            <TableRow key={req.id}>
+                                <TableCell>{req.reason}</TableCell>
+                                <TableCell>{format(req.startDate.toDate(), "PPP")} - {format(req.endDate.toDate(), "PPP")}</TableCell>
+                                <TableCell><Badge variant={getStatusVariant(req.status)}>{req.status}</Badge></TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
             {timeOffRequests.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">You have no time off requests.</p>
             )}
@@ -686,40 +688,42 @@ export default function EmployeeDashboard() {
               <CardDescription>Your attendance summary for the last 5 days.</CardDescription>
           </CardHeader>
           <CardContent>
-          <Table>
-              <TableHeader>
-                <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Clock In</TableHead>
-                    <TableHead>Clock Out</TableHead>
-                    <TableHead>Scheduled</TableHead>
-                    <TableHead>Meal Break</TableHead>
-                    <TableHead>Total Hours</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-              {dailySummary.map((summaryItem) => (
-                  <TableRow key={summaryItem.id}>
-                    <TableCell>{summaryItem.date}</TableCell>
-                    <TableCell className="text-primary">{summaryItem.clockIn || 'N/A'}</TableCell>
-                    <TableCell className="text-destructive">{summaryItem.clockOut || 'N/A'}</TableCell>
-                    <TableCell>
-                        <Badge variant={summaryItem.wasScheduled ? 'default' : 'destructive'}>
-                            {summaryItem.wasScheduled ? 'Yes' : 'No'}
-                        </Badge>
-                    </TableCell>
-                    <TableCell>
-                        <Switch
-                            checked={summaryItem.mealBreakTaken}
-                            disabled={true}
-                            aria-label="Meal Break Taken"
-                        />
-                    </TableCell>
-                    <TableCell className="font-mono">{calculateTotalHours(summaryItem)}</TableCell>
-                  </TableRow>
-              ))}
-              </TableBody>
-          </Table>
+            <div className="overflow-x-auto">
+              <Table>
+                  <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Clock In</TableHead>
+                        <TableHead>Clock Out</TableHead>
+                        <TableHead>Scheduled</TableHead>
+                        <TableHead>Meal Break</TableHead>
+                        <TableHead>Total Hours</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                  {dailySummary.map((summaryItem) => (
+                      <TableRow key={summaryItem.id}>
+                        <TableCell>{summaryItem.date}</TableCell>
+                        <TableCell className="text-primary">{summaryItem.clockIn || 'N/A'}</TableCell>
+                        <TableCell className="text-destructive">{summaryItem.clockOut || 'N/A'}</TableCell>
+                        <TableCell>
+                            <Badge variant={summaryItem.wasScheduled ? 'default' : 'destructive'}>
+                                {summaryItem.wasScheduled ? 'Yes' : 'No'}
+                            </Badge>
+                        </TableCell>
+                        <TableCell>
+                            <Switch
+                                checked={summaryItem.mealBreakTaken}
+                                disabled={true}
+                                aria-label="Meal Break Taken"
+                            />
+                        </TableCell>
+                        <TableCell className="font-mono">{calculateTotalHours(summaryItem)}</TableCell>
+                      </TableRow>
+                  ))}
+                  </TableBody>
+              </Table>
+            </div>
            {dailySummary.length === 0 && (
                 <p className="text-sm text-center text-muted-foreground py-4">No recent activity found.</p>
             )}

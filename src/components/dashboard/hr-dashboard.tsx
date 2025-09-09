@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter, FileText, Gift, Upload, CalendarClock, Play, PlusCircle } from 'lucide-react';
+import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter, FileText, Gift, Upload, CalendarClock, Play, PlusCircle, ChevronsUpDown } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -296,6 +296,7 @@ export default function HRDashboard() {
   const [scheduledChanges, setScheduledChanges] = useState<ScheduledChange[]>([]);
   const [allPendingChanges, setAllPendingChanges] = useState<ScheduledChange[]>([]);
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
+  const [currentTab, setCurrentTab] = useState('employees');
 
   const [isCreateDialogOpen, setCreateIsDialogOpen] = useState(false);
   
@@ -759,17 +760,35 @@ export default function HRDashboard() {
     }
   }
 
+  const tabs = [
+    { value: 'employees', label: 'Employees' },
+    { value: 'locations', label: 'Locations' },
+    { value: 'contracts', label: 'Contracts' },
+    { value: 'requests', label: 'Change Requests' },
+    { value: 'scheduledChanges', label: 'Scheduled Changes' },
+  ];
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="employees" className="space-y-4">
-        <TabsList>
-            <TabsTrigger value="employees">Employees</TabsTrigger>
-            <TabsTrigger value="locations">Locations</TabsTrigger>
-            <TabsTrigger value="contracts">Contracts</TabsTrigger>
-            <TabsTrigger value="requests">Change Requests</TabsTrigger>
-            <TabsTrigger value="scheduledChanges">Scheduled Changes</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="employees" value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
+        {/* Desktop Tabs */}
+        <div className="hidden sm:block">
+            <TabsList>
+                {tabs.map(tab => <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>)}
+            </TabsList>
+        </div>
+        {/* Mobile Dropdown */}
+        <div className="sm:hidden px-4">
+             <Select value={currentTab} onValueChange={setCurrentTab}>
+                <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a view" />
+                </SelectTrigger>
+                <SelectContent>
+                    {tabs.map(tab => <SelectItem key={tab.value} value={tab.value}>{tab.label}</SelectItem>)}
+                </SelectContent>
+            </Select>
+        </div>
+
         <TabsContent value="employees">
             <Card>
                 <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -777,11 +796,11 @@ export default function HRDashboard() {
                     <CardTitle>Employee Management</CardTitle>
                     <CardDescription>View and manage employee records.</CardDescription>
                     </div>
-                    <div className="flex flex-col md:flex-row gap-2">
-                        <div className="flex items-center gap-2">
-                            <Filter className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <Filter className="h-4 w-4 text-muted-foreground hidden sm:block" />
                             <Select value={filterLocation} onValueChange={setFilterLocation}>
-                                <SelectTrigger className="w-full md:w-[180px]">
+                                <SelectTrigger className="w-full sm:w-[180px]">
                                     <SelectValue placeholder="Filter by Location" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -792,7 +811,7 @@ export default function HRDashboard() {
                                 </SelectContent>
                             </Select>
                             <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-                                <SelectTrigger className="w-full md:w-[180px]">
+                                <SelectTrigger className="w-full sm:w-[180px]">
                                     <SelectValue placeholder="Filter by Employee" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -832,40 +851,70 @@ export default function HRDashboard() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>Status</TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                {/* Desktop Table View */}
+                <div className="hidden md:block">
+                    <Table>
+                        <TableHeader>
+                        <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>Location</TableHead>
+                            <TableHead>Status</TableHead>
+                        </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {filteredEmployees.map((employee) => (
+                            <TableRow key={employee.id} className="cursor-pointer" onClick={() => handleViewDetailsClick(employee)}>
+                            <TableCell className="font-medium">
+                                <div className="flex items-center gap-3">
+                                    <Avatar>
+                                        <AvatarImage src={employee.avatarUrl || ''} alt={employee.fullName} />
+                                        <AvatarFallback>{getInitials(employee.fullName)}</AvatarFallback>
+                                    </Avatar>
+                                    {employee.fullName}
+                                </div>
+                            </TableCell>
+                            <TableCell>{employee.email}</TableCell>
+                            <TableCell>{employee.role}</TableCell>
+                            <TableCell>{employee.locationName || 'N/A'}</TableCell>
+                            <TableCell>
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(employee.status)}`}>
+                                    {employee.status}
+                                </span>
+                            </TableCell>
+                            </TableRow>
+                        ))}
+                        </TableBody>
+                    </Table>
+                </div>
+                {/* Mobile Card View */}
+                <div className="grid gap-4 md:hidden">
                     {filteredEmployees.map((employee) => (
-                        <TableRow key={employee.id} className="cursor-pointer" onClick={() => handleViewDetailsClick(employee)}>
-                        <TableCell className="font-medium">
-                            <div className="flex items-center gap-3">
-                                <Avatar>
+                        <Card key={employee.id} className="cursor-pointer" onClick={() => handleViewDetailsClick(employee)}>
+                            <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-2">
+                                 <Avatar>
                                     <AvatarImage src={employee.avatarUrl || ''} alt={employee.fullName} />
                                     <AvatarFallback>{getInitials(employee.fullName)}</AvatarFallback>
                                 </Avatar>
-                                {employee.fullName}
-                            </div>
-                        </TableCell>
-                        <TableCell>{employee.email}</TableCell>
-                        <TableCell>{employee.role}</TableCell>
-                        <TableCell>{employee.locationName || 'N/A'}</TableCell>
-                        <TableCell>
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(employee.status)}`}>
-                                {employee.status}
-                            </span>
-                        </TableCell>
-                        </TableRow>
+                                <div>
+                                    <CardTitle className="text-base">{employee.fullName}</CardTitle>
+                                    <CardDescription>{employee.role}</CardDescription>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="text-sm space-y-2">
+                                <p><span className="font-semibold">Email:</span> {employee.email}</p>
+                                <p><span className="font-semibold">Location:</span> {employee.locationName || 'N/A'}</p>
+                                <div className="flex items-center">
+                                    <span className="font-semibold mr-2">Status:</span>
+                                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(employee.status)}`}>
+                                        {employee.status}
+                                    </span>
+                                </div>
+                            </CardContent>
+                        </Card>
                     ))}
-                    </TableBody>
-                </Table>
+                </div>
                 </CardContent>
             </Card>
         </TabsContent>
@@ -883,17 +932,20 @@ export default function HRDashboard() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Location Name</TableHead>
-                                <TableHead>Address</TableHead>
-                                <TableHead>Manager</TableHead>
+                                <TableHead className="hidden sm:table-cell">Address</TableHead>
+                                <TableHead className="hidden sm:table-cell">Manager</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {locations.map(loc => (
                                 <TableRow key={loc.id}>
-                                    <TableCell>{loc.name}</TableCell>
-                                    <TableCell>{loc.address || 'N/A'}</TableCell>
-                                    <TableCell>{loc.managerName || 'Not Assigned'}</TableCell>
+                                    <TableCell>
+                                        <div className="font-medium">{loc.name}</div>
+                                        <div className="text-muted-foreground text-xs sm:hidden">{loc.managerName || 'Not Assigned'}</div>
+                                    </TableCell>
+                                    <TableCell className="hidden sm:table-cell">{loc.address || 'N/A'}</TableCell>
+                                    <TableCell className="hidden sm:table-cell">{loc.managerName || 'Not Assigned'}</TableCell>
                                     <TableCell className="text-right">
                                         <Button variant="ghost" size="icon" onClick={() => handleOpenLocationDialog(loc)}>
                                             <Pencil className="h-4 w-4" />
@@ -952,6 +1004,7 @@ export default function HRDashboard() {
                     <Button onClick={() => handleOpenBenefitDialog(null)}><Gift className="mr-2 h-4 w-4" /> Add Benefit</Button>
                 </CardHeader>
                 <CardContent>
+                  <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -981,6 +1034,7 @@ export default function HRDashboard() {
                             ))}
                         </TableBody>
                     </Table>
+                  </div>
                 </CardContent>
             </Card>
         </TabsContent>
@@ -991,6 +1045,7 @@ export default function HRDashboard() {
                     <CardDescription>Approve or reject data change requests submitted by employees.</CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -1016,6 +1071,7 @@ export default function HRDashboard() {
                             ))}
                         </TableBody>
                     </Table>
+                    </div>
                     {changeRequests.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">No pending change requests.</p>}
                 </CardContent>
             </Card>
@@ -1044,6 +1100,7 @@ export default function HRDashboard() {
                     </TooltipProvider>
                 </CardHeader>
                 <CardContent>
+                    <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -1070,6 +1127,7 @@ export default function HRDashboard() {
                             ))}
                         </TableBody>
                     </Table>
+                    </div>
                     {allPendingChanges.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">No pending changes for any employee.</p>}
                 </CardContent>
             </Card>
@@ -1135,6 +1193,7 @@ export default function HRDashboard() {
                         {employeeSnapshot.licensePermission && employeeSnapshot.licenses && employeeSnapshot.licenses.length > 0 && (
                             <div className="space-y-2 pt-4">
                                 <h4 className="text-base font-semibold text-muted-foreground">Driver's Licenses</h4>
+                                <div className="overflow-x-auto">
                                 <Table className="mt-2">
                                     <TableHeader>
                                         <TableRow>
@@ -1155,6 +1214,7 @@ export default function HRDashboard() {
                                         ))}
                                     </TableBody>
                                 </Table>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1164,6 +1224,7 @@ export default function HRDashboard() {
                         <div className="flex justify-end">
                             <Button onClick={() => setIsSchedulingChange(true)}><CalendarClock className="mr-2 h-4 w-4"/>Schedule a Change</Button>
                         </div>
+                        <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -1194,6 +1255,7 @@ export default function HRDashboard() {
                                 ))}
                             </TableBody>
                         </Table>
+                        </div>
                          {scheduledChanges.filter(c => c.status === 'pending').length === 0 && <p className="text-center text-sm text-muted-foreground py-4">No scheduled changes for this employee.</p>}
                     </div>
                 </TabsContent>
@@ -1382,5 +1444,3 @@ export default function HRDashboard() {
     </div>
   );
 }
-
-
