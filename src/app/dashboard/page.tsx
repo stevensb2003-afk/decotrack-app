@@ -9,6 +9,8 @@ import ManagementDashboard from '@/components/dashboard/management-dashboard';
 import DashboardSidebar from '@/components/dashboard/sidebar';
 import DashboardHeader from '@/components/dashboard/header';
 
+export const dynamic = 'force-dynamic';
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [adminView, setAdminView] = useState('overview');
