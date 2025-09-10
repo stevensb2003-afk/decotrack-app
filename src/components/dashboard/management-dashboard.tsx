@@ -153,27 +153,30 @@ export default function ManagementDashboard() {
                     <TableHeader>
                     <TableRow>
                         <TableHead>Employee</TableHead>
-                        <TableHead>Date</TableHead>
+                        <TableHead className="hidden sm:table-cell">Date</TableHead>
                         <TableHead>Clock In</TableHead>
                         <TableHead>Clock Out</TableHead>
-                        <TableHead>Scheduled</TableHead>
-                        <TableHead>Meal Break</TableHead>
-                        <TableHead>Total Hours</TableHead>
+                        <TableHead className="hidden sm:table-cell">Scheduled</TableHead>
+                        <TableHead className="hidden sm:table-cell">Meal Break</TableHead>
+                        <TableHead>Total</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
                     {summary.map((item) => (
                         <TableRow key={item.id}>
-                            <TableCell className="font-medium">{item.employeeName}</TableCell>
-                            <TableCell>{item.date}</TableCell>
+                            <TableCell className="font-medium">
+                                <div>{item.employeeName}</div>
+                                <div className="text-muted-foreground text-xs sm:hidden">{item.date}</div>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell">{item.date}</TableCell>
                             <TableCell className="text-primary">{item.clockIn || 'N/A'}</TableCell>
                             <TableCell className="text-destructive">{item.clockOut || 'N/A'}</TableCell>
-                            <TableCell>
+                            <TableCell className="hidden sm:table-cell">
                                 <Badge variant={item.wasScheduled ? 'default' : 'destructive'}>
                                     {item.wasScheduled ? 'Yes' : 'No'}
                                 </Badge>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="hidden sm:table-cell">
                                 <Switch
                                     checked={item.mealBreakTaken}
                                     onCheckedChange={() => handleMealBreakToggle(item.id, item.mealBreakTaken)}
@@ -195,3 +198,5 @@ export default function ManagementDashboard() {
     </div>
   );
 }
+
+    

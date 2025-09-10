@@ -75,13 +75,13 @@ export default function TimeOffDashboard() {
           <CardDescription>Review and manage employee time off requests.</CardDescription>
            <div className="flex flex-col md:flex-row gap-2 pt-2">
               <div className="flex gap-2">
-                <Button variant={filterStatus === 'pending' ? 'secondary' : 'ghost'} onClick={() => setFilterStatus('pending')}>Pending</Button>
-                <Button variant={filterStatus === 'approved' ? 'secondary' : 'ghost'} onClick={() => setFilterStatus('approved')}>Approved</Button>
-                <Button variant={filterStatus === 'rejected' ? 'secondary' : 'ghost'} onClick={() => setFilterStatus('rejected')}>Rejected</Button>
+                <Button className="flex-1 md:flex-initial" variant={filterStatus === 'pending' ? 'secondary' : 'ghost'} onClick={() => setFilterStatus('pending')}>Pending</Button>
+                <Button className="flex-1 md:flex-initial" variant={filterStatus === 'approved' ? 'secondary' : 'ghost'} onClick={() => setFilterStatus('approved')}>Approved</Button>
+                <Button className="flex-1 md:flex-initial" variant={filterStatus === 'rejected' ? 'secondary' : 'ghost'} onClick={() => setFilterStatus('rejected')}>Rejected</Button>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Filter by Employee" />
                     </SelectTrigger>
                     <SelectContent>
@@ -93,7 +93,7 @@ export default function TimeOffDashboard() {
                 </Select>
                  <Popover>
                     <PopoverTrigger asChild>
-                        <Button variant={"outline"} className={cn("w-[240px] justify-start text-left font-normal", !filterDate && "text-muted-foreground")}>
+                        <Button variant={"outline"} className={cn("w-full sm:w-[240px] justify-start text-left font-normal", !filterDate && "text-muted-foreground")}>
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {filterDate ? format(filterDate, "PPP") : <span>Filter by date...</span>}
                         </Button>
@@ -118,19 +118,26 @@ export default function TimeOffDashboard() {
             <TableHeader>
               <TableRow>
                 <TableHead>Employee</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Dates</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="hidden sm:table-cell">Reason</TableHead>
+                <TableHead className="hidden md:table-cell">Dates</TableHead>
+                <TableHead className="hidden sm:table-cell">Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRequests.map((req) => (
                 <TableRow key={req.id}>
-                  <TableCell className="font-medium">{employeeMap.get(req.employeeId) || req.employeeName}</TableCell>
-                  <TableCell>{req.reason}</TableCell>
-                  <TableCell>{format(req.startDate.toDate(), "PPP")} - {format(req.endDate.toDate(), "PPP")}</TableCell>
-                  <TableCell>
+                  <TableCell className="font-medium">
+                      <div>{employeeMap.get(req.employeeId) || req.employeeName}</div>
+                      <div className="text-xs text-muted-foreground sm:hidden">
+                          <p>{req.reason}</p>
+                          <p>{format(req.startDate.toDate(), "d MMM")} - {format(req.endDate.toDate(), "d MMM")}</p>
+                           <Badge variant={getStatusVariant(req.status)} className="mt-1">{req.status}</Badge>
+                      </div>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">{req.reason}</TableCell>
+                  <TableCell className="hidden md:table-cell">{format(req.startDate.toDate(), "PPP")} - {format(req.endDate.toDate(), "PPP")}</TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <Badge variant={getStatusVariant(req.status)}>{req.status}</Badge>
                   </TableCell>
                   <TableCell className="text-right space-x-2">
@@ -189,3 +196,5 @@ export default function TimeOffDashboard() {
     </div>
   );
 }
+
+    

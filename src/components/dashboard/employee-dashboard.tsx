@@ -35,6 +35,7 @@ import { Switch } from "../ui/switch";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import { db } from "@/lib/firebase";
 import { getSettings } from "@/services/settingsService";
+import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 
 
 const timeOffReasons: TimeOffReason[] = [
@@ -447,15 +448,17 @@ export default function EmployeeDashboard() {
             <CardTitle>My Attendance</CardTitle>
             <CardDescription>Mark your daily entry and exit points.</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col sm:flex-row gap-4">
-            <Button onClick={() => handleMarking('Entry')} disabled={lastAction === 'Entry' || isMarking} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90" size="lg">
-              <ArrowRight className="mr-2 h-5 w-5" />
-              {isMarking && lastAction !== 'Exit' ? 'Validating...' : 'Mark Entry (Clock In)'}
-            </Button>
-            <Button onClick={() => handleMarking('Exit')} disabled={lastAction !== 'Entry' || isMarking} className="flex-1" size="lg" variant="destructive">
-              <ArrowLeft className="mr-2 h-5 w-5" />
-              {isMarking && lastAction === 'Entry' ? 'Validating...' : 'Mark Exit (Clock Out)'}
-            </Button>
+          <CardContent className="flex items-center justify-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md">
+                <Button onClick={() => handleMarking('Entry')} disabled={lastAction === 'Entry' || isMarking} className="bg-primary text-primary-foreground hover:bg-primary/90" size="lg">
+                <ArrowRight className="mr-2 h-5 w-5" />
+                {isMarking && lastAction !== 'Exit' ? 'Validating...' : 'Mark Entry (Clock In)'}
+                </Button>
+                <Button onClick={() => handleMarking('Exit')} disabled={lastAction !== 'Entry' || isMarking} size="lg" variant="destructive">
+                <ArrowLeft className="mr-2 h-5 w-5" />
+                {isMarking && lastAction === 'Entry' ? 'Validating...' : 'Mark Exit (Clock Out)'}
+                </Button>
+            </div>
           </CardContent>
         </Card>
         <div className="grid grid-cols-2 gap-6">
@@ -561,19 +564,24 @@ export default function EmployeeDashboard() {
                 </DialogContent>
             </Dialog>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-2">
-            {weekDays.map(day => {
-                const shiftInfo = getShiftForDate(day);
-                return (
-                    <div key={day.toString()} className={`rounded-lg border p-3 text-center ${shiftInfo.isHoliday ? 'bg-accent/20' : ''}`}>
-                        <p className="text-sm font-semibold">{format(day, 'EEE')}</p>
-                        <p className="text-xs text-muted-foreground">{format(day, 'MMM d')}</p>
-                        {shiftInfo.isHoliday && <PartyPopper className="mx-auto mt-2 h-5 w-5 text-accent" />}
-                        <p className={`text-xs mt-2 ${shiftInfo.isHoliday ? 'font-bold text-accent' : ''}`}>{shiftInfo.name}</p>
-                        <p className="text-xs font-mono text-primary">{shiftInfo.time}</p>
-                    </div>
-                );
-            })}
+        <CardContent>
+            <ScrollArea className="w-full whitespace-nowrap">
+                <div className="flex w-max space-x-2 pb-4">
+                    {weekDays.map(day => {
+                        const shiftInfo = getShiftForDate(day);
+                        return (
+                            <div key={day.toString()} className={cn("rounded-lg border p-3 text-center min-w-[120px]", shiftInfo.isHoliday ? 'bg-accent/20' : '')}>
+                                <p className="text-sm font-semibold">{format(day, 'EEE')}</p>
+                                <p className="text-xs text-muted-foreground">{format(day, 'MMM d')}</p>
+                                {shiftInfo.isHoliday && <PartyPopper className="mx-auto mt-2 h-5 w-5 text-accent" />}
+                                <p className={`text-xs mt-2 ${shiftInfo.isHoliday ? 'font-bold text-accent' : ''}`}>{shiftInfo.name}</p>
+                                <p className="text-xs font-mono text-primary">{shiftInfo.time}</p>
+                            </div>
+                        );
+                    })}
+                </div>
+                <ScrollBar orientation="horizontal" />
+            </ScrollArea>
         </CardContent>
       </Card>
       <Card>
@@ -732,3 +740,5 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
+    

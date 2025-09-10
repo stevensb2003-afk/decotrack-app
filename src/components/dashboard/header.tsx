@@ -54,30 +54,36 @@ export default function DashboardHeader() {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-card px-4 md:px-6 w-full shrink-0">
         <div className="flex items-center gap-4">
-            <div className="md:hidden">
-            {user?.role === 'admin' && (
-            <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-                <SheetTrigger asChild>
-                <Button size="icon" variant="outline">
-                    <PanelLeft className="h-5 w-5" />
-                    <span className="sr-only">Toggle Menu</span>
-                </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-64 p-0">
-                    <DashboardSidebar onNavigate={(view) => {
-                    setAdminView(view);
-                    setMobileSidebarOpen(false);
-                    }} />
-                </SheetContent>
-            </Sheet>
+            {user?.role === 'admin' ? (
+                <div className="md:hidden">
+                    <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+                        <SheetTrigger asChild>
+                        <Button size="icon" variant="outline">
+                            <PanelLeft className="h-5 w-5" />
+                            <span className="sr-only">Toggle Menu</span>
+                        </Button>
+                        </SheetTrigger>
+                        <SheetContent side="left" className="w-64 p-0">
+                            <DashboardSidebar onNavigate={(view) => {
+                            setAdminView(view);
+                            setMobileSidebarOpen(false);
+                            }} />
+                        </SheetContent>
+                    </Sheet>
+                </div>
+             ) : (
+                <div className="flex items-center gap-2 font-semibold text-foreground">
+                    <Image src="/favicon_azul.png" alt="DecoTrack Logo" width={24} height={24} className="dark:hidden" />
+                    <Image src="/favicon_blanco.png" alt="DecoTrack Logo" width={24} height={24} className="hidden dark:block" />
+                    <span>DecoTrack</span>
+                </div>
             )}
+             <div className="hidden md:flex items-center gap-2 font-semibold text-foreground">
+                <Image src="/favicon_azul.png" alt="DecoTrack Logo" width={24} height={24} className="dark:hidden" />
+                <Image src="/favicon_blanco.png" alt="DecoTrack Logo" width={24} height={24} className="hidden dark:block" />
+                <span>DecoTrack</span>
+            </div>
         </div>
-        <div className="hidden md:flex items-center gap-2 font-semibold text-foreground">
-            <Image src="/favicon_azul.png" alt="DecoTrack Logo" width={24} height={24} className="dark:hidden" />
-            <Image src="/favicon_blanco.png" alt="DecoTrack Logo" width={24} height={24} className="hidden dark:block" />
-            <span>DecoTrack</span>
-        </div>
-      </div>
 
       <div className="flex items-center gap-2 sm:gap-4">
         <Button
@@ -123,3 +129,5 @@ export default function DashboardHeader() {
     </header>
   );
 }
+
+    
