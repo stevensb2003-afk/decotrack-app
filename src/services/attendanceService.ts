@@ -119,7 +119,7 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
         const [employeeId, dateKey] = groupKey.split('-');
         if (!employeeMap.has(employeeId)) return null;
 
-        const date = parseISO(dateKey);
+        const date = parse(dateKey, 'yyyy-MM-dd', new Date());
         if (!isValid(date)) return null;
         
         const entries = group.filter(r => r.type === 'Entry').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
@@ -157,8 +157,8 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
     const summaries = (await Promise.all(summaryPromises)).filter((s): s is DailyAttendanceSummary => s !== null);
 
     summaries.sort((a, b) => {
-        const dateB = parseISO(b.dateKey);
-        const dateA = parseISO(a.dateKey);
+        const dateB = parse(b.dateKey, 'yyyy-MM-dd', new Date());
+        const dateA = parse(a.dateKey, 'yyyy-MM-dd', new Date());
         if (dateB.getTime() !== dateA.getTime()) {
             return dateB.getTime() - dateA.getTime();
         }
