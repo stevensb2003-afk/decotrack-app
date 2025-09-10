@@ -143,6 +143,8 @@ export const wasEmployeeScheduled = (employeeId: string, date: Date, assignments
 
 export const getDailyAttendanceSummary = async (daysLimit: number, employeesData?: Employee[]): Promise<DailyAttendanceSummary[]> => {
     const employees = employeesData || await getAllEmployees();
+    if (employees.length === 0) return [];
+
     const assignments = await getEmployeeScheduleAssignments();
     const patterns = await getRotationPatterns();
     const shifts = await getShifts();
@@ -161,7 +163,7 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employeesData
         orderBy("timestamp", "asc")
     );
     const snapshot = await getDocs(q);
-    const records = snapshot.docs.map(doc => doc.data() as AttendanceRecord & {employeeId: string});
+    const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord & {employeeId: string}));
 
     const dailyGroups: { [key: string]: AttendanceRecord[] } = {};
 
@@ -293,4 +295,3 @@ export const getDailySummariesByFilter = async (filters: { employeeId?: string, 
     
     return summary;
 }
-
