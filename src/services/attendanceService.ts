@@ -3,7 +3,7 @@
 import { db, applyDbPrefix } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, doc, setDoc, getDoc, limit, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Employee, getAllEmployees } from './employeeService';
-import { format, parse, differenceInMilliseconds, isSameDay, differenceInDays, startOfDay, endOfDay, isValid } from 'date-fns';
+import { format, parse, differenceInMilliseconds, isSameDay, differenceInDays, startOfDay, endOfDay, isValid, parseISO } from 'date-fns';
 import { EmployeeScheduleAssignment, getEmployeeScheduleAssignments, getHolidays, getRotationPatterns, getShifts, Holiday, RotationPattern, Shift } from './scheduleService';
 
 export type AttendanceRecord = {
@@ -145,7 +145,6 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
     if (employees.length === 0) return [];
 
     const employeeMap = new Map(employees.map(e => [e.id, e.fullName]));
-    const employeeIds = Array.from(employeeMap.keys());
     
     const [assignments, patterns, shifts, holidays] = await Promise.all([
         getEmployeeScheduleAssignments(),
@@ -180,35 +179,13 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
         dailyGroups[groupKey].push(record);
     });
     
-    const allSummaries: { [key: string]: DailyAttendanceSummary } = {};
-
-    // Initialize with all employees for today to ensure they appear
-    const todayKey = format(today, 'yyyy-MM-dd');
-    for (const emp of employees) {
-        const groupKey = `${emp.id}-${todayKey}`;
-        allSummaries[groupKey] = {
-            id: groupKey,
-            employeeId: emp.id,
-            employeeName: emp.fullName,
-            date: format(today, "MMM d, yyyy"),
-            dateKey: todayKey,
-            clockIn: null,
-            clockOut: null,
-            clockInTimestamp: null,
-            clockOutTimestamp: null,
-            wasScheduled: wasEmployeeScheduled(emp.id, today, assignments, patterns, shifts, holidays),
-            mealBreakTaken: true, // Default value
-        };
-    }
-
-
     const summaryPromises = Object.entries(dailyGroups).map(async ([groupKey, group]) => {
         const [employeeId, dateKey] = groupKey.split('-');
         if (!employeeMap.has(employeeId)) return null;
-        
+
         const date = parse(dateKey, 'yyyy-MM-dd', new Date());
         if (!isValid(date)) return null;
-
+        
         const entries = group.filter(r => r.type === 'Entry').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
         const exits = group.filter(r => r.type === 'Exit').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
 
@@ -226,7 +203,7 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
         const defaultMealBreak = !!(clockIn && !clockOut) ? false : true;
         const mealBreakTaken = detailDoc.exists() ? detailDoc.data().mealBreakTaken : defaultMealBreak;
 
-        allSummaries[groupKey] = {
+        return {
             id: groupKey,
             employeeId: employeeId,
             employeeName: employeeMap.get(employeeId)!,
@@ -241,20 +218,17 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
         };
     });
 
-    await Promise.all(summaryPromises);
+    const summaries = (await Promise.all(summaryPromises)).filter((s): s is DailyAttendanceSummary => s !== null);
 
-    const summaryArray = Object.values(allSummaries);
-
-    summaryArray.sort((a, b) => {
+    summaries.sort((a, b) => {
         if (b.date !== a.date) {
             return new Date(b.date).getTime() - new Date(a.date).getTime();
         }
         return a.employeeName.localeCompare(b.employeeName);
     });
 
-    // We only want to show today's summary in the management dashboard view
     const todayString = format(today, "MMM d, yyyy");
-    return summaryArray.filter(s => s.date === todayString);
+    return summaries.filter(s => s.date === todayString);
 };
 
 export const getDailySummariesByFilter = async (filters: { employeeId?: string, startDate?: Date, endDate?: Date }): Promise<DailyAttendanceSummary[]> => {
