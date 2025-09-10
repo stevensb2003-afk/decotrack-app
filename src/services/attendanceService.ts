@@ -221,14 +221,15 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
     const summaries = (await Promise.all(summaryPromises)).filter((s): s is DailyAttendanceSummary => s !== null);
 
     summaries.sort((a, b) => {
-        if (b.date !== a.date) {
-            return new Date(b.date).getTime() - new Date(a.date).getTime();
+        const dateB = new Date(b.date);
+        const dateA = new Date(a.date);
+        if (dateB.getTime() !== dateA.getTime()) {
+            return dateB.getTime() - dateA.getTime();
         }
         return a.employeeName.localeCompare(b.employeeName);
     });
 
-    const todayString = format(today, "MMM d, yyyy");
-    return summaries.filter(s => s.date === todayString);
+    return summaries;
 };
 
 export const getDailySummariesByFilter = async (filters: { employeeId?: string, startDate?: Date, endDate?: Date }): Promise<DailyAttendanceSummary[]> => {
@@ -289,8 +290,10 @@ export const getDailySummariesByFilter = async (filters: { employeeId?: string, 
     }).filter((s): s is DailyAttendanceSummary => s !== null);
 
      summary.sort((a, b) => {
-        if (b.date !== a.date) {
-            return new Date(b.date).getTime() - new Date(a.date).getTime();
+        const dateB = new Date(b.date);
+        const dateA = new Date(a.date);
+        if (dateB.getTime() !== dateA.getTime()) {
+            return dateB.getTime() - dateA.getTime();
         }
         return a.employeeName.localeCompare(b.employeeName);
     });
