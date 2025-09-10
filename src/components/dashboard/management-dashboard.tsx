@@ -25,9 +25,11 @@ export default function ManagementDashboard() {
     const fetchData = async () => {
         const emps = await getAllEmployees();
         setEmployees(emps);
-        
-        const summaryData = await getDailyAttendanceSummary(10);
-        setSummary(summaryData);
+
+        if (emps.length > 0) {
+            const summaryData = await getDailyAttendanceSummary(10, emps);
+            setSummary(summaryData);
+        }
     };
 
     useEffect(() => {
@@ -35,7 +37,13 @@ export default function ManagementDashboard() {
         
         const q = query(collection(db, 'attendance'), orderBy('timestamp', 'desc'));
         const unsubscribe = onSnapshot(q, async () => {
-            fetchData();
+            // Refetch all data on any attendance change
+            const emps = await getAllEmployees();
+            setEmployees(emps);
+            if (emps.length > 0) {
+                const summaryData = await getDailyAttendanceSummary(10, emps);
+                setSummary(summaryData);
+            }
         });
 
         return () => unsubscribe();
@@ -53,7 +61,11 @@ export default function ManagementDashboard() {
 
             const unsubscribe = onSnapshot(attendanceQuery, (snapshot) => {
                 const latestActions = new Map<string, 'Entry' | 'Exit'>();
-                snapshot.docs.forEach(doc => {
+                
+                // Get the most recent action for each employee today
+                const sortedDocs = snapshot.docs.sort((a,b) => b.data().timestamp.toMillis() - a.data().timestamp.toMillis());
+
+                sortedDocs.forEach(doc => {
                     const record = doc.data() as { employeeId: string; type: 'Entry' | 'Exit'; timestamp: Timestamp };
                     if (!latestActions.has(record.employeeId)) {
                         latestActions.set(record.employeeId, record.type);
@@ -198,5 +210,3 @@ export default function ManagementDashboard() {
     </div>
   );
 }
-
-    

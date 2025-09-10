@@ -141,8 +141,7 @@ export const wasEmployeeScheduled = (employeeId: string, date: Date, assignments
     return !!shiftId;
 };
 
-export const getDailyAttendanceSummary = async (daysLimit: number, employeesData?: Employee[]): Promise<DailyAttendanceSummary[]> => {
-    const employees = employeesData || await getAllEmployees();
+export const getDailyAttendanceSummary = async (daysLimit: number, employees: Employee[]): Promise<DailyAttendanceSummary[]> => {
     if (employees.length === 0) return [];
 
     const assignments = await getEmployeeScheduleAssignments();
