@@ -73,7 +73,7 @@ export default function ClockManager() {
         } else {
              // Creating a new record
             setEditingSummary({
-                employeeId: filters.employeeId !== 'all' ? filters.employeeId : (employees[0]?.id || ''),
+                employeeId: filters.employeeId !== 'all' ? (employees.find(e => e.id === filters.employeeId)?.id || '') : (employees[0]?.id || ''),
                 dateKey: format(new Date(), 'yyyy-MM-dd'),
                 newClockInTime: '',
                 newClockOutTime: '',
@@ -276,7 +276,13 @@ export default function ClockManager() {
                                         {editingSummary.dateKey ? format(parse(editingSummary.dateKey, 'yyyy-MM-dd', new Date()), "PPP") : "Select a date"}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={editingSummary.dateKey ? parse(editingSummary.dateKey, 'yyyy-MM-dd', new Date()) : undefined} onSelect={(d) => d && setEditingSummary(p => p ? {...p, dateKey: format(d, 'yyyy-MM-dd')} : null)} /></PopoverContent>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar 
+                                        mode="single" 
+                                        selected={editingSummary.dateKey ? parse(editingSummary.dateKey, 'yyyy-MM-dd', new Date()) : undefined} 
+                                        onSelect={(d) => d && setEditingSummary(p => p ? {...p, dateKey: format(d, 'yyyy-MM-dd')} : null)}
+                                     />
+                                </PopoverContent>
                             </Popover>
                         </div>
                          <div className="grid grid-cols-2 gap-4">
@@ -292,7 +298,7 @@ export default function ClockManager() {
                         <div className="flex items-center space-x-2">
                             <Switch
                                 id="meal-break-toggle"
-                                checked={editingSummary.mealBreakTaken}
+                                checked={!!editingSummary.mealBreakTaken}
                                 onCheckedChange={val => setEditingSummary(p => p ? {...p, mealBreakTaken: val} : null)}
                             />
                             <Label htmlFor="meal-break-toggle">Meal Break Taken</Label>
