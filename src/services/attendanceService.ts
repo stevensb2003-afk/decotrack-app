@@ -145,7 +145,6 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
     if (employees.length === 0) return [];
 
     const employeeMap = new Map(employees.map(e => [e.id, e.fullName]));
-    const employeeIds = Array.from(employeeMap.keys());
     
     const [assignments, patterns, shifts, holidays] = await Promise.all([
         getEmployeeScheduleAssignments(),
@@ -161,7 +160,6 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
 
     const q = query(
         attendanceCollection,
-        where("employeeId", "in", employeeIds),
         where("timestamp", ">=", startDate),
         orderBy("timestamp", "asc")
     );
@@ -171,9 +169,12 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
 
     snapshot.docs.forEach(doc => {
         const record = { id: doc.id, ...doc.data() } as AttendanceRecord;
-        // Robustness check: Ensure record has a valid timestamp.
         if (!record.timestamp || !record.timestamp.toDate) {
             console.warn(`Skipping invalid record: ${record.id}`);
+            return;
+        }
+        // Only process records for the employees provided
+        if (!employeeMap.has(record.employeeId)) {
             return;
         }
         const dateKey = format(record.timestamp.toDate(), 'yyyy-MM-dd');
