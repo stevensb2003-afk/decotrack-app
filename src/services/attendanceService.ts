@@ -144,13 +144,16 @@ export const wasEmployeeScheduled = (employeeId: string, date: Date, assignments
 export const getDailyAttendanceSummary = async (daysLimit: number, employees: Employee[]): Promise<DailyAttendanceSummary[]> => {
     if (employees.length === 0) return [];
 
-    const assignments = await getEmployeeScheduleAssignments();
-    const patterns = await getRotationPatterns();
-    const shifts = await getShifts();
-    const holidays = await getHolidays();
-    
     const employeeMap = new Map(employees.map(e => [e.id, e.fullName]));
-
+    const employeeIds = Array.from(employeeMap.keys());
+    
+    const [assignments, patterns, shifts, holidays] = await Promise.all([
+        getEmployeeScheduleAssignments(),
+        getRotationPatterns(),
+        getShifts(),
+        getHolidays()
+    ]);
+    
     const today = new Date();
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - (daysLimit -1));
@@ -158,16 +161,21 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
 
     const q = query(
         attendanceCollection,
+        where("employeeId", "in", employeeIds),
         where("timestamp", ">=", startDate),
         orderBy("timestamp", "asc")
     );
     const snapshot = await getDocs(q);
-    const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord & {employeeId: string}));
-
+    
     const dailyGroups: { [key: string]: AttendanceRecord[] } = {};
 
-    records.forEach(record => {
-        if(!record.timestamp) return; // Skip records with no timestamp
+    snapshot.docs.forEach(doc => {
+        const record = { id: doc.id, ...doc.data() } as AttendanceRecord;
+        // Robustness check: Ensure record has a valid timestamp.
+        if (!record.timestamp || !record.timestamp.toDate) {
+            console.warn(`Skipping invalid record: ${record.id}`);
+            return;
+        }
         const dateKey = format(record.timestamp.toDate(), 'yyyy-MM-dd');
         const groupKey = `${record.employeeId}-${dateKey}`;
         if (!dailyGroups[groupKey]) {
@@ -178,9 +186,12 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
 
     const summaryPromises = Object.entries(dailyGroups).map(async ([groupKey, group]) => {
         const [employeeId, dateKey] = groupKey.split('-');
+        
         const date = parse(dateKey, 'yyyy-MM-dd', new Date());
-
-        if (!isValid(date)) return null; // Add a validity check here
+        if (!isValid(date)) {
+             console.warn(`Skipping invalid date key: ${dateKey}`);
+             return null;
+        };
 
         const entries = group.filter(r => r.type === 'Entry').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
         const exits = group.filter(r => r.type === 'Exit').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
@@ -193,11 +204,9 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
         
         const scheduled = wasEmployeeScheduled(employeeId, date, assignments, patterns, shifts, holidays);
 
-        // Fetch meal break override
         const detailDocRef = doc(db, applyDbPrefix('attendanceDetails'), groupKey);
         const detailDoc = await getDoc(detailDocRef);
         
-        // If there is an entry but no exit, default meal break to false. Otherwise, default to true.
         const defaultMealBreak = clockIn && !clockOut ? false : true;
         const mealBreakTaken = detailDoc.exists() ? detailDoc.data().mealBreakTaken : defaultMealBreak;
 
