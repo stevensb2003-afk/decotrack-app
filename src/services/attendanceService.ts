@@ -2,7 +2,7 @@
 import { db, applyDbPrefix } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, doc, setDoc, getDoc, limit, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Employee, getAllEmployees } from './employeeService';
-import { format, differenceInMilliseconds, isSameDay, differenceInDays, startOfDay, endOfDay } from 'date-fns';
+import { format, parse, differenceInMilliseconds, isSameDay, differenceInDays, startOfDay, endOfDay } from 'date-fns';
 import { EmployeeScheduleAssignment, getEmployeeScheduleAssignments, getHolidays, getRotationPatterns, getShifts, Holiday, RotationPattern, Shift } from './scheduleService';
 
 export type AttendanceRecord = {
@@ -175,9 +175,7 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employeesData
 
     const summaryPromises = Object.entries(dailyGroups).map(async ([groupKey, group]) => {
         const [employeeId, dateKey] = groupKey.split('-');
-        const date = new Date(dateKey); // Treats date as UTC, add timezone offset if needed
-        date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
-
+        const date = parse(dateKey, 'yyyy-MM-dd', new Date());
 
         const entries = group.filter(r => r.type === 'Entry').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
         const exits = group.filter(r => r.type === 'Exit').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
@@ -250,8 +248,7 @@ export const getDailySummariesByFilter = async (filters: { employeeId?: string, 
 
     const summary: DailyAttendanceSummary[] = Object.entries(dailyGroups).map(([groupKey, group]) => {
         const [employeeId, dateKey] = groupKey.split('-');
-        const date = new Date(dateKey);
-        date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+        const date = parse(dateKey, 'yyyy-MM-dd', new Date());
         
         const employee = employeeMap.get(employeeId);
         if(!employee) return null;
