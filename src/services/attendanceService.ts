@@ -104,11 +104,13 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
 
     snapshot.docs.forEach(doc => {
         const record = { id: doc.id, ...doc.data() } as AttendanceRecord;
+        // Ensure record has a valid timestamp and belongs to a listed employee
         if (!record.timestamp || !record.timestamp.toDate || !employeeIds.includes(record.employeeId)) {
             return;
         }
         const dateKey = format(record.timestamp.toDate(), 'yyyy-MM-dd');
         const groupKey = `${record.employeeId}-${dateKey}`;
+
         if (!dailyGroups[groupKey]) {
             dailyGroups[groupKey] = [];
         }
@@ -117,7 +119,9 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
     
     const summaryPromises = Object.entries(dailyGroups).map(async ([groupKey, group]) => {
         const [employeeId, dateKey] = groupKey.split('-');
-        if (!employeeMap.has(employeeId)) return null;
+        
+        // Safety check for valid group key
+        if (!employeeId || !dateKey || !employeeMap.has(employeeId)) return null;
 
         const date = parse(dateKey, 'yyyy-MM-dd', new Date());
         if (!isValid(date)) return null;
