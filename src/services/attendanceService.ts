@@ -143,7 +143,7 @@ export const wasEmployeeScheduled = (employeeId: string, date: Date, assignments
 
 export const getDailyAttendanceSummary = async (daysLimit: number, employees: Employee[]): Promise<DailyAttendanceSummary[]> => {
     if (employees.length === 0) return [];
-
+    
     const employeeMap = new Map(employees.map(e => [e.id, e.fullName]));
     
     const [assignments, patterns, shifts, holidays] = await Promise.all([
@@ -249,16 +249,21 @@ export const getDailySummariesByFilter = async (filters: { employeeId?: string, 
 
     const dailyGroups: { [key: string]: AttendanceRecord[] } = {};
     allRecords.forEach(record => {
-        const dateKey = format(record.timestamp.toDate(), 'yyyy-MM-dd');
-        const groupKey = `${record.employeeId}-${dateKey}`;
-        if (!dailyGroups[groupKey]) dailyGroups[groupKey] = [];
-        dailyGroups[groupKey].push(record);
+        if (record.timestamp && record.timestamp.toDate) {
+            const dateKey = format(record.timestamp.toDate(), 'yyyy-MM-dd');
+            const groupKey = `${record.employeeId}-${dateKey}`;
+            if (!dailyGroups[groupKey]) dailyGroups[groupKey] = [];
+            dailyGroups[groupKey].push(record);
+        }
     });
 
-    const summary: DailyAttendanceSummary[] = Object.entries(dailyGroups).map(([groupKey, group]) => {
+    const summary: DailyAttendanceSummary[] = Object.keys(dailyGroups).map(groupKey => {
+        const group = dailyGroups[groupKey];
         const [employeeId, dateKey] = groupKey.split('-');
-        const date = parse(dateKey, 'yyyy-MM-dd', new Date());
+        const date = parseISO(dateKey);
         
+        if (!isValid(date)) return null;
+
         const employee = employeeMap.get(employeeId);
         if(!employee) return null;
 
