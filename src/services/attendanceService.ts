@@ -145,6 +145,7 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
     if (employees.length === 0) return [];
 
     const employeeMap = new Map(employees.map(e => [e.id, e.fullName]));
+    const employeeIds = Array.from(employeeMap.keys());
     
     const [assignments, patterns, shifts, holidays] = await Promise.all([
         getEmployeeScheduleAssignments(),
@@ -160,8 +161,7 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
 
     const q = query(
         attendanceCollection,
-        where("timestamp", ">=", startDate),
-        orderBy("timestamp", "asc")
+        where("timestamp", ">=", startDate)
     );
     const snapshot = await getDocs(q);
     
@@ -169,12 +169,7 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
 
     snapshot.docs.forEach(doc => {
         const record = { id: doc.id, ...doc.data() } as AttendanceRecord;
-        if (!record.timestamp || !record.timestamp.toDate) {
-            console.warn(`Skipping invalid record: ${record.id}`);
-            return;
-        }
-        // Only process records for the employees provided
-        if (!employeeMap.has(record.employeeId)) {
+        if (!record.timestamp || !record.timestamp.toDate || !employeeMap.has(record.employeeId)) {
             return;
         }
         const dateKey = format(record.timestamp.toDate(), 'yyyy-MM-dd');
@@ -184,15 +179,35 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
         }
         dailyGroups[groupKey].push(record);
     });
+    
+    const allSummaries: { [key: string]: DailyAttendanceSummary } = {};
+
+    // Initialize with all employees for today to ensure they appear
+    const todayKey = format(today, 'yyyy-MM-dd');
+    for (const emp of employees) {
+        const groupKey = `${emp.id}-${todayKey}`;
+        allSummaries[groupKey] = {
+            id: groupKey,
+            employeeId: emp.id,
+            employeeName: emp.fullName,
+            date: format(today, "MMM d, yyyy"),
+            dateKey: todayKey,
+            clockIn: null,
+            clockOut: null,
+            clockInTimestamp: null,
+            clockOutTimestamp: null,
+            wasScheduled: wasEmployeeScheduled(emp.id, today, assignments, patterns, shifts, holidays),
+            mealBreakTaken: true, // Default value
+        };
+    }
+
 
     const summaryPromises = Object.entries(dailyGroups).map(async ([groupKey, group]) => {
         const [employeeId, dateKey] = groupKey.split('-');
+        if (!employeeMap.has(employeeId)) return null;
         
         const date = parse(dateKey, 'yyyy-MM-dd', new Date());
-        if (!isValid(date)) {
-             console.warn(`Skipping invalid date key: ${dateKey}`);
-             return null;
-        };
+        if (!isValid(date)) return null;
 
         const entries = group.filter(r => r.type === 'Entry').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
         const exits = group.filter(r => r.type === 'Exit').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
@@ -208,13 +223,13 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
         const detailDocRef = doc(db, applyDbPrefix('attendanceDetails'), groupKey);
         const detailDoc = await getDoc(detailDocRef);
         
-        const defaultMealBreak = clockIn && !clockOut ? false : true;
+        const defaultMealBreak = !!(clockIn && !clockOut) ? false : true;
         const mealBreakTaken = detailDoc.exists() ? detailDoc.data().mealBreakTaken : defaultMealBreak;
 
-        return {
+        allSummaries[groupKey] = {
             id: groupKey,
             employeeId: employeeId,
-            employeeName: employeeMap.get(employeeId) || `Employee ${employeeId.substring(0,5)}`,
+            employeeName: employeeMap.get(employeeId)!,
             date: format(date, "MMM d, yyyy"),
             dateKey: dateKey,
             clockIn: clockIn ? format(clockIn.toDate(), 'p') : null,
@@ -226,16 +241,20 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
         };
     });
 
-    let summary = (await Promise.all(summaryPromises)).filter((s): s is DailyAttendanceSummary => s !== null);
+    await Promise.all(summaryPromises);
 
-    summary.sort((a, b) => {
+    const summaryArray = Object.values(allSummaries);
+
+    summaryArray.sort((a, b) => {
         if (b.date !== a.date) {
             return new Date(b.date).getTime() - new Date(a.date).getTime();
         }
         return a.employeeName.localeCompare(b.employeeName);
     });
 
-    return summary;
+    // We only want to show today's summary in the management dashboard view
+    const todayString = format(today, "MMM d, yyyy");
+    return summaryArray.filter(s => s.date === todayString);
 };
 
 export const getDailySummariesByFilter = async (filters: { employeeId?: string, startDate?: Date, endDate?: Date }): Promise<DailyAttendanceSummary[]> => {
