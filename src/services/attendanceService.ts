@@ -1,12 +1,12 @@
 
 import { db, applyDbPrefix } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, doc, setDoc, getDoc, limit } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, doc, setDoc, getDoc, limit, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Employee, getAllEmployees } from './employeeService';
 import { format, differenceInMilliseconds, isSameDay, differenceInDays } from 'date-fns';
 import { EmployeeScheduleAssignment, getEmployeeScheduleAssignments, getHolidays, getRotationPatterns, Holiday, RotationPattern } from './scheduleService';
 
 export type AttendanceRecord = {
-  id?: string;
+  id: string;
   employeeId: string;
   type: 'Entry' | 'Exit';
   timestamp: Timestamp;
@@ -44,7 +44,6 @@ export const getEmployeeAttendance = async (employeeId: string, recordLimit: num
   const q = query(
     attendanceCollection, 
     where("employeeId", "==", employeeId),
-    // orderBy("timestamp", "desc"), // This requires a composite index. We will sort on the client.
     limit(recordLimit)
   );
   const snapshot = await getDocs(q);
@@ -55,6 +54,41 @@ export const getEmployeeAttendance = async (employeeId: string, recordLimit: num
   
   return records;
 };
+
+export const getAttendanceRecordsByFilter = async (filters: { employeeId?: string, startDate?: Date, endDate?: Date }): Promise<AttendanceRecord[]> => {
+    let q = query(attendanceCollection, orderBy("timestamp", "desc"));
+    
+    if (filters.employeeId && filters.employeeId !== 'all') {
+        q = query(q, where("employeeId", "==", filters.employeeId));
+    }
+    if (filters.startDate) {
+        q = query(q, where("timestamp", ">=", Timestamp.fromDate(filters.startDate)));
+    }
+    if (filters.endDate) {
+        const endOfDay = new Date(filters.endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        q = query(q, where("timestamp", "<=", Timestamp.fromDate(endOfDay)));
+    }
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+};
+
+
+export const updateAttendanceRecord = async (recordId: string, data: Partial<Omit<AttendanceRecord, 'id'>>) => {
+    const recordDoc = doc(db, applyDbPrefix('attendance'), recordId);
+    return await updateDoc(recordDoc, data);
+};
+
+export const createAttendanceRecord = async (data: Omit<AttendanceRecord, 'id'>) => {
+    return await addDoc(attendanceCollection, data);
+};
+
+export const deleteAttendanceRecord = async (recordId: string) => {
+    const recordDoc = doc(db, applyDbPrefix('attendance'), recordId);
+    return await deleteDoc(recordDoc);
+};
+
 
 export const updateAttendanceDetail = async (detailId: string, data: Partial<Omit<AttendanceDetail, 'employeeId' | 'date'>>) => {
     const detailDoc = doc(db, applyDbPrefix('attendanceDetails'), detailId);

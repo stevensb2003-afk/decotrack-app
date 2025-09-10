@@ -1,22 +1,15 @@
-# Settings to manage and configure a Firebase App Hosting backend.
-# https://firebase.google.com/docs/app-hosting/configure
+# apphosting.yaml
 
-# Configuración de los recursos del servidor (puedes ajustar esto en el futuro)
-runConfig:
-  cpu: 1
-  memoryMiB: 512
-  maxInstances: 1
-
-# Declaración de tus variables de entorno
+# Declara las variables de entorno que tu aplicación necesita.
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: "un_valor_de_ejemplo_firebase"  # <-- CAMBIO IMPORTANTE
+    value: "placeholder_firebase_api_key"
     availability:
       - BUILD
       - RUNTIME
 
   - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    value: "un_valor_de_ejemplo_maps"      # <-- CAMBIO IMPORTANTE
+    value: "placeholder_google_maps_api_key"
     availability:
       - BUILD
       - RUNTIME
