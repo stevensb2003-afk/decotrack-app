@@ -2,8 +2,8 @@
 import { db, applyDbPrefix } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, doc, setDoc, getDoc, limit, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Employee, getAllEmployees } from './employeeService';
-import { format, differenceInMilliseconds, isSameDay, differenceInDays } from 'date-fns';
-import { EmployeeScheduleAssignment, getEmployeeScheduleAssignments, getHolidays, getRotationPatterns, Holiday, RotationPattern } from './scheduleService';
+import { format, differenceInMilliseconds, isSameDay, differenceInDays, startOfDay, endOfDay } from 'date-fns';
+import { EmployeeScheduleAssignment, getEmployeeScheduleAssignments, getHolidays, getRotationPatterns, getShifts, Holiday, RotationPattern, Shift } from './scheduleService';
 
 export type AttendanceRecord = {
   id: string;
@@ -24,7 +24,8 @@ export type DailyAttendanceSummary = {
   id: string; // employeeId-date(YYYY-MM-DD)
   employeeId: string;
   employeeName: string;
-  date: string; // "PPP" format
+  date: string; // "PPP" format, e.g. "Sep 10, 2025"
+  dateKey: string; // "yyyy-MM-dd" format
   clockIn: string | null; // "p" format
   clockOut: string | null; // "p" format
   clockInTimestamp: Timestamp | null;
@@ -56,20 +57,19 @@ export const getEmployeeAttendance = async (employeeId: string, recordLimit: num
 };
 
 export const getAttendanceRecordsByFilter = async (filters: { employeeId?: string, startDate?: Date, endDate?: Date }): Promise<AttendanceRecord[]> => {
-    let q = query(attendanceCollection, orderBy("timestamp", "desc"));
-    
+    let conditions = [];
     if (filters.employeeId && filters.employeeId !== 'all') {
-        q = query(q, where("employeeId", "==", filters.employeeId));
+        conditions.push(where("employeeId", "==", filters.employeeId));
     }
     if (filters.startDate) {
-        q = query(q, where("timestamp", ">=", Timestamp.fromDate(filters.startDate)));
+        conditions.push(where("timestamp", ">=", Timestamp.fromDate(startOfDay(filters.startDate))));
     }
     if (filters.endDate) {
-        const endOfDay = new Date(filters.endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        q = query(q, where("timestamp", "<=", Timestamp.fromDate(endOfDay)));
+        conditions.push(where("timestamp", "<=", Timestamp.fromDate(endOfDay(filters.endDate))));
     }
 
+    const q = query(attendanceCollection, ...conditions, orderBy("timestamp", "desc"));
+    
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
 };
@@ -89,13 +89,39 @@ export const deleteAttendanceRecord = async (recordId: string) => {
     return await deleteDoc(recordDoc);
 };
 
+export const updateOrCreateAttendanceRecord = async (employeeId: string, date: Date, type: 'Entry' | 'Exit', newTime: Date | null) => {
+    const q = query(attendanceCollection, 
+        where('employeeId', '==', employeeId),
+        where('type', '==', type),
+        where('timestamp', '>=', Timestamp.fromDate(startOfDay(date))),
+        where('timestamp', '<=', Timestamp.fromDate(endOfDay(date)))
+    );
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        if (newTime) {
+            // Create new record
+            await createAttendanceRecord({ employeeId, type, timestamp: Timestamp.fromDate(newTime) });
+        }
+    } else {
+        const recordDocRef = snapshot.docs[0].ref;
+        if (newTime) {
+            // Update existing record
+            await updateDoc(recordDocRef, { timestamp: Timestamp.fromDate(newTime) });
+        } else {
+            // Delete existing record if time is cleared
+            await deleteDoc(recordDocRef);
+        }
+    }
+}
+
 
 export const updateAttendanceDetail = async (detailId: string, data: Partial<Omit<AttendanceDetail, 'employeeId' | 'date'>>) => {
     const detailDoc = doc(db, applyDbPrefix('attendanceDetails'), detailId);
     await setDoc(detailDoc, data, { merge: true });
 };
 
-const wasEmployeeScheduled = (employeeId: string, date: Date, assignments: EmployeeScheduleAssignment[], patterns: RotationPattern[], holidays: Holiday[]): boolean => {
+export const wasEmployeeScheduled = (employeeId: string, date: Date, assignments: EmployeeScheduleAssignment[], patterns: RotationPattern[], shifts: Shift[], holidays: Holiday[]): boolean => {
     const holiday = holidays.find(h => isSameDay(h.date.toDate(), date));
     if (holiday) return false;
 
@@ -114,10 +140,11 @@ const wasEmployeeScheduled = (employeeId: string, date: Date, assignments: Emplo
     return !!shiftId;
 };
 
-export const getDailyAttendanceSummary = async (daysLimit: number = 10, employeesData?: Employee[]): Promise<DailyAttendanceSummary[]> => {
+export const getDailyAttendanceSummary = async (daysLimit: number, employeesData?: Employee[]): Promise<DailyAttendanceSummary[]> => {
     const employees = employeesData || await getAllEmployees();
     const assignments = await getEmployeeScheduleAssignments();
     const patterns = await getRotationPatterns();
+    const shifts = await getShifts();
     const holidays = await getHolidays();
     
     const employeeMap = new Map(employees.map(e => [e.id, e.fullName]));
@@ -146,14 +173,14 @@ export const getDailyAttendanceSummary = async (daysLimit: number = 10, employee
         dailyGroups[groupKey].push(record);
     });
 
-    const summaryPromises = Object.values(dailyGroups).map(async (group) => {
-        const firstRecord = group[0];
-        const date = firstRecord.timestamp.toDate();
-        const dateKey = format(date, 'yyyy-MM-dd');
-        const summaryId = `${firstRecord.employeeId}-${dateKey}`;
+    const summaryPromises = Object.entries(dailyGroups).map(async ([groupKey, group]) => {
+        const [employeeId, dateKey] = groupKey.split('-');
+        const date = new Date(dateKey); // Treats date as UTC, add timezone offset if needed
+        date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
 
-        const entries = group.filter(r => r.type === 'Entry');
-        const exits = group.filter(r => r.type === 'Exit');
+
+        const entries = group.filter(r => r.type === 'Entry').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
+        const exits = group.filter(r => r.type === 'Exit').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
 
         const firstEntry = entries[0];
         const lastExit = exits[exits.length - 1];
@@ -161,18 +188,22 @@ export const getDailyAttendanceSummary = async (daysLimit: number = 10, employee
         const clockIn = firstEntry ? firstEntry.timestamp : null;
         const clockOut = lastExit ? lastExit.timestamp : null;
         
-        const scheduled = wasEmployeeScheduled(firstRecord.employeeId, date, assignments, patterns, holidays);
+        const scheduled = wasEmployeeScheduled(employeeId, date, assignments, patterns, shifts, holidays);
 
         // Fetch meal break override
-        const detailDocRef = doc(db, applyDbPrefix('attendanceDetails'), summaryId);
+        const detailDocRef = doc(db, applyDbPrefix('attendanceDetails'), groupKey);
         const detailDoc = await getDoc(detailDocRef);
-        const mealBreakTaken = detailDoc.exists() ? detailDoc.data().mealBreakTaken : true;
+        
+        // If there is an entry but no exit, default meal break to false. Otherwise, default to true.
+        const defaultMealBreak = clockIn && !clockOut ? false : true;
+        const mealBreakTaken = detailDoc.exists() ? detailDoc.data().mealBreakTaken : defaultMealBreak;
 
         return {
-            id: summaryId,
-            employeeId: firstRecord.employeeId,
-            employeeName: employeeMap.get(firstRecord.employeeId) || `Employee ${firstRecord.employeeId.substring(0,5)}`,
+            id: groupKey,
+            employeeId: employeeId,
+            employeeName: employeeMap.get(employeeId) || `Employee ${employeeId.substring(0,5)}`,
             date: format(date, "MMM d, yyyy"),
+            dateKey: dateKey,
             clockIn: clockIn ? format(clockIn.toDate(), 'p') : null,
             clockOut: clockOut ? format(clockOut.toDate(), 'p') : null,
             clockInTimestamp: clockIn,
@@ -184,16 +215,6 @@ export const getDailyAttendanceSummary = async (daysLimit: number = 10, employee
 
     let summary = await Promise.all(summaryPromises);
 
-    // This handles multiple entries/exits in a day by taking the first and last
-    const uniqueSummaryMap = new Map<string, DailyAttendanceSummary>();
-     summary.forEach(item => {
-        if (!uniqueSummaryMap.has(item.id)) {
-            uniqueSummaryMap.set(item.id, item);
-        }
-    });
-    summary = Array.from(uniqueSummaryMap.values());
-
-
     summary.sort((a, b) => {
         if (b.date !== a.date) {
             return new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -203,3 +224,71 @@ export const getDailyAttendanceSummary = async (daysLimit: number = 10, employee
 
     return summary;
 };
+
+export const getDailySummariesByFilter = async (filters: { employeeId?: string, startDate?: Date, endDate?: Date }): Promise<DailyAttendanceSummary[]> => {
+    
+    const [employees, allRecords, assignments, patterns, shifts, holidays, detailsSnapshot] = await Promise.all([
+        getAllEmployees(),
+        getAttendanceRecordsByFilter(filters),
+        getEmployeeScheduleAssignments(),
+        getRotationPatterns(),
+        getShifts(),
+        getHolidays(),
+        getDocs(collection(db, applyDbPrefix('attendanceDetails')))
+    ]);
+
+    const employeeMap = new Map(employees.map(e => [e.id, e]));
+    const detailsMap = new Map(detailsSnapshot.docs.map(d => [d.id, d.data() as AttendanceDetail]));
+
+    const dailyGroups: { [key: string]: AttendanceRecord[] } = {};
+    allRecords.forEach(record => {
+        const dateKey = format(record.timestamp.toDate(), 'yyyy-MM-dd');
+        const groupKey = `${record.employeeId}-${dateKey}`;
+        if (!dailyGroups[groupKey]) dailyGroups[groupKey] = [];
+        dailyGroups[groupKey].push(record);
+    });
+
+    const summary: DailyAttendanceSummary[] = Object.entries(dailyGroups).map(([groupKey, group]) => {
+        const [employeeId, dateKey] = groupKey.split('-');
+        const date = new Date(dateKey);
+        date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+        
+        const employee = employeeMap.get(employeeId);
+        if(!employee) return null;
+
+        const entries = group.filter(r => r.type === 'Entry').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
+        const exits = group.filter(r => r.type === 'Exit').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
+
+        const clockIn = entries[0]?.timestamp || null;
+        const clockOut = exits[exits.length - 1]?.timestamp || null;
+        
+        const scheduled = wasEmployeeScheduled(employeeId, date, assignments, patterns, shifts, holidays);
+        const detail = detailsMap.get(groupKey);
+
+        const defaultMealBreak = clockIn && !clockOut ? false : true;
+        const mealBreakTaken = detail ? detail.mealBreakTaken : defaultMealBreak;
+
+        return {
+            id: groupKey,
+            employeeId,
+            employeeName: employee.fullName,
+            date: format(date, "MMM d, yyyy"),
+            dateKey,
+            clockIn: clockIn ? format(clockIn.toDate(), 'p') : null,
+            clockOut: clockOut ? format(clockOut.toDate(), 'p') : null,
+            clockInTimestamp: clockIn,
+            clockOutTimestamp: clockOut,
+            wasScheduled: scheduled,
+            mealBreakTaken
+        };
+    }).filter((s): s is DailyAttendanceSummary => s !== null);
+
+     summary.sort((a, b) => {
+        if (b.date !== a.date) {
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+        }
+        return a.employeeName.localeCompare(b.employeeName);
+    });
+    
+    return summary;
+}

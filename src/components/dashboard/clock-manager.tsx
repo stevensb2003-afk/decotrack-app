@@ -1,35 +1,40 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Filter, PlusCircle, Pencil, Trash2, CalendarIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Employee, getAllEmployees } from '@/services/employeeService';
-import { AttendanceRecord, getAttendanceRecordsByFilter, createAttendanceRecord, updateAttendanceRecord, deleteAttendanceRecord } from '@/services/attendanceService';
+import { DailyAttendanceSummary, getDailySummariesByFilter, updateAttendanceDetail, updateOrCreateAttendanceRecord } from '@/services/attendanceService';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, parse } from 'date-fns';
+import { format, parse, startOfDay, differenceInMilliseconds } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Timestamp } from 'firebase/firestore';
+import { Switch } from '../ui/switch';
+import { Badge } from '../ui/badge';
+
+type EditableSummary = Partial<DailyAttendanceSummary> & {
+    newClockInTime?: string; // HH:mm
+    newClockOutTime?: string; // HH:mm
+    isNew?: boolean;
+};
 
 export default function ClockManager() {
     const [employees, setEmployees] = useState<Employee[]>([]);
-    const [records, setRecords] = useState<AttendanceRecord[]>([]);
+    const [summaries, setSummaries] = useState<DailyAttendanceSummary[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     
     const [filters, setFilters] = useState<{ employeeId: string, startDate?: Date, endDate?: Date }>({ employeeId: 'all' });
 
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [editingRecord, setEditingRecord] = useState<Partial<AttendanceRecord> | null>(null);
-    const [recordDate, setRecordDate] = useState<Date>(new Date());
-    const [recordTime, setRecordTime] = useState<string>('00:00');
+    const [editingSummary, setEditingSummary] = useState<EditableSummary | null>(null);
 
     const { toast } = useToast();
 
@@ -41,8 +46,8 @@ export default function ClockManager() {
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(endDate.getDate() - 7);
-        const initialRecords = await getAttendanceRecordsByFilter({ startDate, endDate });
-        setRecords(initialRecords);
+        const initialSummaries = await getDailySummariesByFilter({ startDate, endDate });
+        setSummaries(initialSummaries);
         setFilters({ employeeId: 'all', startDate, endDate });
         setIsLoading(false);
     };
@@ -53,64 +58,95 @@ export default function ClockManager() {
 
     const handleFilterSearch = async () => {
         setIsLoading(true);
-        const filteredRecords = await getAttendanceRecordsByFilter(filters);
-        setRecords(filteredRecords);
+        const filteredSummaries = await getDailySummariesByFilter(filters);
+        setSummaries(filteredSummaries);
         setIsLoading(false);
     };
     
-    const handleOpenEditDialog = (record: AttendanceRecord | null) => {
-        if(record) {
-            setEditingRecord(record);
-            const recordTimestamp = record.timestamp.toDate();
-            setRecordDate(recordTimestamp);
-            setRecordTime(format(recordTimestamp, 'HH:mm'));
+    const handleOpenEditDialog = (summary: DailyAttendanceSummary | null) => {
+        if(summary) {
+            setEditingSummary({
+                ...summary,
+                newClockInTime: summary.clockIn ? format(summary.clockInTimestamp!.toDate(), 'HH:mm') : '',
+                newClockOutTime: summary.clockOut ? format(summary.clockOutTimestamp!.toDate(), 'HH:mm') : '',
+            });
         } else {
-            // Creating a new record
-            const defaultEmployee = filters.employeeId !== 'all' ? filters.employeeId : (employees[0]?.id || '');
-            setEditingRecord({ employeeId: defaultEmployee, type: 'Entry' });
-            setRecordDate(new Date());
-            setRecordTime(format(new Date(), 'HH:mm'));
+             // Creating a new record
+            setEditingSummary({
+                employeeId: filters.employeeId !== 'all' ? filters.employeeId : (employees[0]?.id || ''),
+                dateKey: format(new Date(), 'yyyy-MM-dd'),
+                newClockInTime: '',
+                newClockOutTime: '',
+                mealBreakTaken: true,
+                isNew: true,
+            })
         }
         setIsEditDialogOpen(true);
     };
 
-    const handleSaveRecord = async () => {
-        if (!editingRecord || !editingRecord.employeeId || !editingRecord.type) {
-            toast({ title: "Missing Information", variant: "destructive" });
+    const handleSaveSummary = async () => {
+        if (!editingSummary?.employeeId || !editingSummary.dateKey) {
+            toast({ title: "Error", description: "Employee and date are required.", variant: "destructive" });
             return;
         }
 
-        const [hours, minutes] = recordTime.split(':').map(Number);
-        const newTimestamp = new Date(recordDate);
-        newTimestamp.setHours(hours, minutes, 0, 0);
+        setIsLoading(true);
 
-        const payload = {
-            employeeId: editingRecord.employeeId,
-            type: editingRecord.type,
-            timestamp: Timestamp.fromDate(newTimestamp),
-        };
+        try {
+            const { employeeId, dateKey, newClockInTime, newClockOutTime, mealBreakTaken, isNew } = editingSummary;
+            const summaryId = `${employeeId}-${dateKey}`;
+            const targetDate = parse(dateKey, 'yyyy-MM-dd', new Date());
 
-        if (editingRecord.id) {
-            await updateAttendanceRecord(editingRecord.id, payload);
-            toast({ title: "Record Updated" });
-        } else {
-            await createAttendanceRecord(payload);
-            toast({ title: "Record Created" });
+            // Check if a record for this day and employee already exists if creating new
+            if (isNew && summaries.some(s => s.id === summaryId)) {
+                toast({ title: "Record Exists", description: "A record for this employee on this day already exists. Please edit the existing record.", variant: "destructive"});
+                setIsLoading(false);
+                return;
+            }
+
+            // Update Clock In
+            const clockInDate = newClockInTime ? parse(newClockInTime, 'HH:mm', targetDate) : null;
+            await updateOrCreateAttendanceRecord(employeeId, targetDate, 'Entry', clockInDate);
+
+            // Update Clock Out
+            const clockOutDate = newClockOutTime ? parse(newClockOutTime, 'HH:mm', targetDate) : null;
+            await updateOrCreateAttendanceRecord(employeeId, targetDate, 'Exit', clockOutDate);
+            
+            // Update Meal Break
+            if (mealBreakTaken !== undefined) {
+                 await updateAttendanceDetail(summaryId, { mealBreakTaken });
+            }
+
+            toast({ title: "Record Saved", description: "The attendance record has been successfully updated." });
+            setIsEditDialogOpen(false);
+            setEditingSummary(null);
+            await handleFilterSearch(); // Refresh data
+
+        } catch (error) {
+            console.error("Failed to save summary:", error);
+            toast({ title: "Save Failed", description: "An error occurred while saving.", variant: "destructive" });
+        } finally {
+             setIsLoading(false);
         }
+    };
+    
+    const calculateTotalHours = (item: DailyAttendanceSummary) => {
+        if (!item.clockInTimestamp || !item.clockOutTimestamp) return 'N/A';
         
-        setIsEditDialogOpen(false);
-        setEditingRecord(null);
-        handleFilterSearch(); // Refresh the list
+        let diff = differenceInMilliseconds(item.clockOutTimestamp.toDate(), item.clockInTimestamp.toDate());
+        
+        if (item.mealBreakTaken) {
+            diff -= 3600000;
+        }
+
+        if (diff < 0) diff = 0;
+        
+        const hours = Math.floor(diff / 3600000);
+        const minutes = Math.floor((diff % 3600000) / 60000);
+
+        return `${hours}h ${minutes}m`;
     };
-
-    const handleDeleteRecord = async (recordId: string) => {
-        await deleteAttendanceRecord(recordId);
-        toast({ title: "Record Deleted", variant: "destructive" });
-        handleFilterSearch();
-    };
-
-    const employeeMap = useMemo(() => new Map(employees.map(e => [e.id, e.fullName])), [employees]);
-
+    
     return (
         <Card>
             <CardHeader>
@@ -167,30 +203,41 @@ export default function ClockManager() {
                             <TableRow>
                                 <TableHead>Employee</TableHead>
                                 <TableHead>Date</TableHead>
-                                <TableHead>Time</TableHead>
-                                <TableHead>Type</TableHead>
+                                <TableHead>Clock In</TableHead>
+                                <TableHead>Clock Out</TableHead>
+                                <TableHead>Scheduled</TableHead>
+                                <TableHead>Meal Break</TableHead>
+                                <TableHead>Total Hours</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
-                                <TableRow><TableCell colSpan={5} className="text-center">Loading records...</TableCell></TableRow>
-                            ) : records.length === 0 ? (
-                                <TableRow><TableCell colSpan={5} className="text-center">No records found for the selected filters.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={8} className="text-center">Loading records...</TableCell></TableRow>
+                            ) : summaries.length === 0 ? (
+                                <TableRow><TableCell colSpan={8} className="text-center">No records found for the selected filters.</TableCell></TableRow>
                             ) : (
-                                records.map(rec => (
-                                    <TableRow key={rec.id}>
-                                        <TableCell>{employeeMap.get(rec.employeeId) || 'Unknown'}</TableCell>
-                                        <TableCell>{format(rec.timestamp.toDate(), 'PPP')}</TableCell>
-                                        <TableCell>{format(rec.timestamp.toDate(), 'p')}</TableCell>
+                                summaries.map(summary => (
+                                    <TableRow key={summary.id}>
+                                        <TableCell>{summary.employeeName}</TableCell>
+                                        <TableCell>{summary.date}</TableCell>
+                                        <TableCell>{summary.clockIn || 'N/A'}</TableCell>
+                                        <TableCell>{summary.clockOut || 'N/A'}</TableCell>
                                         <TableCell>
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${rec.type === 'Entry' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
-                                                {rec.type}
-                                            </span>
+                                             <Badge variant={summary.wasScheduled ? 'default' : 'destructive'}>
+                                                {summary.wasScheduled ? 'Yes' : 'No'}
+                                            </Badge>
                                         </TableCell>
+                                        <TableCell>
+                                             <Switch
+                                                checked={summary.mealBreakTaken}
+                                                disabled={true} // Display only
+                                                aria-label="Meal Break Taken"
+                                            />
+                                        </TableCell>
+                                        <TableCell className="font-mono">{calculateTotalHours(summary)}</TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(rec)}><Pencil className="h-4 w-4"/></Button>
-                                            <Button variant="ghost" size="icon" onClick={() => handleDeleteRecord(rec.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(summary)}><Pencil className="h-4 w-4"/></Button>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -203,15 +250,16 @@ export default function ClockManager() {
              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{editingRecord?.id ? 'Edit' : 'Add'} Attendance Record</DialogTitle>
+                        <DialogTitle>{editingSummary?.isNew ? 'Add' : 'Edit'} Attendance Record</DialogTitle>
                     </DialogHeader>
+                    {editingSummary && (
                     <div className="grid gap-4 py-4">
-                         <div>
+                        <div>
                             <Label>Employee</Label>
                             <Select 
-                                value={editingRecord?.employeeId || ''} 
-                                onValueChange={(val) => setEditingRecord(p => ({...p, employeeId: val}))}
-                                disabled={!!editingRecord?.id} // Disable if editing existing record
+                                value={editingSummary.employeeId || ''} 
+                                onValueChange={(val) => setEditingSummary(p => ({...p, employeeId: val}))}
+                                disabled={!editingSummary.isNew}
                             >
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
@@ -220,37 +268,43 @@ export default function ClockManager() {
                             </Select>
                         </div>
                         <div>
-                            <Label>Type</Label>
-                            <Select value={editingRecord?.type || 'Entry'} onValueChange={(val: 'Entry' | 'Exit') => setEditingRecord(p => ({...p, type: val}))}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Entry">Entry (Clock In)</SelectItem>
-                                    <SelectItem value="Exit">Exit (Clock Out)</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Label>Date</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-full justify-start text-left font-normal" disabled={!editingSummary.isNew}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {format(parse(editingSummary.dateKey!, 'yyyy-MM-dd', new Date()), "PPP")}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={parse(editingSummary.dateKey!, 'yyyy-MM-dd', new Date())} onSelect={(d) => d && setEditingSummary(p => ({...p, dateKey: format(d, 'yyyy-MM-dd')}))} /></PopoverContent>
+                            </Popover>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                         <div className="grid grid-cols-2 gap-4">
                            <div>
-                                <Label>Date</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-start text-left font-normal">
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {format(recordDate, "PPP")}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={recordDate} onSelect={(d) => d && setRecordDate(d)} /></PopoverContent>
-                                </Popover>
+                               <Label>Clock In Time</Label>
+                               <Input type="time" value={editingSummary.newClockInTime} onChange={e => setEditingSummary(p => ({...p, newClockInTime: e.target.value}))} />
                            </div>
                            <div>
-                               <Label>Time</Label>
-                               <Input type="time" value={recordTime} onChange={e => setRecordTime(e.target.value)} />
+                               <Label>Clock Out Time</Label>
+                               <Input type="time" value={editingSummary.newClockOutTime} onChange={e => setEditingSummary(p => ({...p, newClockOutTime: e.target.value}))} />
                            </div>
                         </div>
+                        <div className="flex items-center space-x-2">
+                            <Switch
+                                id="meal-break-toggle"
+                                checked={editingSummary.mealBreakTaken}
+                                onCheckedChange={val => setEditingSummary(p => ({...p, mealBreakTaken: val}))}
+                            />
+                            <Label htmlFor="meal-break-toggle">Meal Break Taken</Label>
+                        </div>
+
                     </div>
+                    )}
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSaveRecord}>Save Record</Button>
+                        <Button onClick={handleSaveSummary} disabled={isLoading}>
+                            {isLoading ? 'Saving...' : 'Save Record'}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
