@@ -22,17 +22,11 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<SystemUser | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setLoading(true);
       if (fbUser) {
         setFirebaseUser(fbUser);
         const systemUser = await getUserByEmail(fbUser.email!);
@@ -54,9 +48,6 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
     return () => unsubscribe();
   }, [pathname, router]);
 
-  if (!isMounted) {
-    return null;
-  }
 
   const login = async (email: string, pass: string) => {
     setLoading(true);
@@ -72,12 +63,11 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{ user, firebaseUser, login, logout, loading }}>
-        {loading && (
+        {loading ? (
              <div className="fixed inset-0 z-50 flex h-screen w-full items-center justify-center bg-background">
                 <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
             </div>
-        )}
-        {children}
+        ) : children}
     </AuthContext.Provider>
   );
 };

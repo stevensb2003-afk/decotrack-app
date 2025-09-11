@@ -27,21 +27,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 return;
             }
             
-            const emp = await getEmployeeByEmail(user.email);
+            // This logic runs only for authenticated users
+            try {
+                const emp = await getEmployeeByEmail(user.email);
 
-            if (emp) {
-                const isSetupPage = pathname === '/dashboard/setup-profile';
-                if (!emp.profileComplete && emp.role !== 'Manager' && emp.role !== 'admin' && !isSetupPage) {
-                    router.replace('/dashboard/setup-profile');
-                } 
-                else if (emp.profileComplete && isSetupPage) {
-                    router.replace('/dashboard');
+                if (emp) {
+                    const isSetupPage = pathname === '/dashboard/setup-profile';
+                    if (!emp.profileComplete && emp.role !== 'Manager' && emp.role !== 'admin' && !isSetupPage) {
+                        router.replace('/dashboard/setup-profile');
+                    } 
+                    else if (emp.profileComplete && isSetupPage) {
+                        router.replace('/dashboard');
+                    }
+                } else if (user.role !== 'admin') {
+                    console.error("Employee profile not found for authenticated user:", user.email);
                 }
-            } else if (user.role !== 'admin') {
-                console.error("Employee profile not found for authenticated user:", user.email);
+            } catch (error) {
+                console.error("Error fetching employee profile in layout:", error);
+            } finally {
+                setIsCheckingProfile(false);
             }
-            
-            setIsCheckingProfile(false);
         };
 
         checkAuthAndProfile();
