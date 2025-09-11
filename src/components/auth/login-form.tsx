@@ -30,7 +30,7 @@ const formSchema = z.object({
 
 
 export function LoginForm() {
-  const { login } = useAuth();
+  const { login, loading } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -48,10 +48,22 @@ export function LoginForm() {
           title: "Login Successful",
           description: "Redirecting to your dashboard...",
       });
-    } catch (error) {
+    } catch (error: any) {
+      let description = "An unknown error occurred.";
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/user-not-found':
+          case 'auth/wrong-password':
+          case 'auth/invalid-credential':
+            description = "Invalid email or password.";
+            break;
+          default:
+            description = `Login failed: ${error.message}`;
+        }
+      }
       toast({
           title: "Login Failed",
-          description: "Invalid email or password.",
+          description: description,
           variant: "destructive"
       });
     }
@@ -69,7 +81,7 @@ export function LoginForm() {
               <FormControl>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="name@example.com" {...field} className="pl-10" />
+                  <Input placeholder="name@example.com" {...field} className="pl-10" disabled={loading} />
                 </div>
               </FormControl>
               <FormMessage />
@@ -85,7 +97,7 @@ export function LoginForm() {
               <FormControl>
                 <div className="relative">
                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input type="password" placeholder="••••••••" {...field} className="pl-10" />
+                  <Input type="password" placeholder="••••••••" {...field} className="pl-10" disabled={loading} />
                 </div>
               </FormControl>
               <FormMessage />
@@ -97,8 +109,8 @@ export function LoginForm() {
                 Forgot Password?
             </Link>
         </div>
-        <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
-          Sign In
+        <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={loading}>
+          {loading ? 'Signing In...' : 'Sign In'}
         </Button>
       </form>
     </Form>

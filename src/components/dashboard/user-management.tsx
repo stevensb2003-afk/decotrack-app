@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MoreHorizontal, UserPlus, Eye, Trash2 } from 'lucide-react';
+import { MoreHorizontal, UserPlus, Mail, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,12 +36,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { SystemUser, Role, getAllUsers, createUser, updateUserRole, deleteUser } from '@/services/userService';
+import { SystemUser, Role, getAllUsers, createUser, updateUserRole, deleteUser, sendPasswordReset } from '@/services/userService';
 import { Employee, getAllEmployees } from '@/services/employeeService';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-
-const SECURITY_CODE = process.env.NEXT_PUBLIC_ADMIN_SECURITY_CODE;
 
 export default function UserManagement() {
   const { user: authUser } = useAuth();
@@ -49,12 +46,8 @@ export default function UserManagement() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isEditing, setIsEditing] = useState<SystemUser | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [isCodePromptOpen, setIsCodePromptOpen] = useState(false);
-  const [isPasswordViewOpen, setIsPasswordViewOpen] = useState(false);
-  const [selectedUserForPassword, setSelectedUserForPassword] = useState<SystemUser | null>(null);
   const [userToDelete, setUserToDelete] = useState<SystemUser | null>(null);
-  const [securityCodeInput, setSecurityCodeInput] = useState("");
-  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: '' as Role | ''});
+  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', role: '' as Role | ''});
   
   const { toast } = useToast();
 
@@ -79,49 +72,42 @@ export default function UserManagement() {
   };
   
   const handleCreateUser = async () => {
-    if(!newUser.email || !newUser.firstName || !newUser.password || !newUser.role) {
+    if(!newUser.email || !newUser.firstName || !newUser.role) {
         toast({ title: "Error", description: "Please fill all fields.", variant: "destructive" });
         return;
     }
 
-    const newUserEntry = {
-        ...newUser,
-    } as Omit<SystemUser, 'id'>;
-    
-    await createUser(newUserEntry);
-
-    toast({ title: "User Created", description: "New user has been created successfully." });
-
-    setIsCreating(false);
-    setNewUser({ firstName: '', lastName: '', email: '', password: '', role: ''});
-    fetchData();
-  };
-
-  const handleViewPasswordClick = (user: SystemUser) => {
-    setSelectedUserForPassword(user);
-    setIsCodePromptOpen(true);
-    setSecurityCodeInput("");
-  };
-
-  const handleSecurityCodeSubmit = () => {
-    if (securityCodeInput === SECURITY_CODE) {
-      setIsCodePromptOpen(false);
-      setIsPasswordViewOpen(true);
-    } else {
-      toast({
-        title: "Incorrect Security Code",
-        description: "The code you entered is invalid.",
-        variant: "destructive",
-      });
+    try {
+        await createUser(newUser);
+        toast({ title: "User Created", description: "New user has been created and a welcome email sent." });
+        setIsCreating(false);
+        setNewUser({ firstName: '', lastName: '', email: '', role: ''});
+        fetchData();
+    } catch (error: any) {
+        console.error("Error creating user:", error);
+        toast({ title: "Creation Failed", description: error.message || "Could not create user.", variant: "destructive" });
     }
   };
 
+  const handleSendPasswordReset = async (email: string) => {
+      try {
+        await sendPasswordReset(email);
+        toast({ title: "Email Sent", description: `A password reset email has been sent to ${email}.`});
+      } catch (error: any) {
+        toast({ title: "Error", description: `Could not send reset email: ${error.message}`, variant: "destructive"});
+      }
+  }
+
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
-    await deleteUser(userToDelete.id);
-    toast({ title: "User Deleted", description: `User ${userToDelete.email} has been deleted.` });
-    setUserToDelete(null);
-    fetchData();
+    try {
+      await deleteUser(userToDelete.id);
+      toast({ title: "User Deleted", description: `User ${userToDelete.email} has been deleted.` });
+      setUserToDelete(null);
+      fetchData();
+    } catch (error: any) {
+      toast({ title: "Deletion Failed", description: error.message, variant: "destructive"});
+    }
   };
 
   return (
@@ -140,7 +126,7 @@ export default function UserManagement() {
                   <DialogHeader>
                     <DialogTitle>Create New User</DialogTitle>
                     <DialogDescription>
-                      Non-admin users will automatically have an employee profile created.
+                      A welcome email with a link to set their password will be sent.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
@@ -156,8 +142,6 @@ export default function UserManagement() {
                       </div>
                       <Label htmlFor="email-create">Email</Label>
                       <Input id="email-create" type="email" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} placeholder="name@example.com" />
-                      <Label htmlFor="password-create">Password</Label>
-                      <Input id="password-create" type="password" value={newUser.password} onChange={(e) => setNewUser({...newUser, password: e.target.value})} />
                       <Label htmlFor="role-create">Role</Label>
                       <Select onValueChange={(value: Role) => setNewUser({...newUser, role: value})}>
                           <SelectTrigger id="role-create"><SelectValue placeholder="Select a role" /></SelectTrigger>
@@ -181,8 +165,8 @@ export default function UserManagement() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Password</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>UID</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -191,8 +175,8 @@ export default function UserManagement() {
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{employeeNameMap.get(user.email) || `${user.firstName} ${user.lastName}`}</TableCell>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell className="font-mono">****</TableCell>
                   <TableCell className="capitalize">{user.role}</TableCell>
+                  <TableCell className="font-mono text-xs">{user.id}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -205,9 +189,9 @@ export default function UserManagement() {
                         {authUser?.role === 'admin' && (
                           <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleViewPasswordClick(user)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Password
+                             <DropdownMenuItem onClick={() => handleSendPasswordReset(user.email)}>
+                                <Mail className="mr-2 h-4 w-4" />
+                                Send Password Reset
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setUserToDelete(user)} className="text-destructive">
                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -245,58 +229,12 @@ export default function UserManagement() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isCodePromptOpen} onOpenChange={setIsCodePromptOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Enter Security Code</DialogTitle>
-            <DialogDescription>
-              To view this user's password, please enter the administrator security code.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <Label htmlFor="security-code">Security Code</Label>
-            <Input
-              id="security-code"
-              type="password"
-              value={securityCodeInput}
-              onChange={(e) => setSecurityCodeInput(e.target.value)}
-              placeholder="••••••••"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCodePromptOpen(false)}>Cancel</Button>
-            <Button onClick={handleSecurityCodeSubmit}>Submit</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={isPasswordViewOpen} onOpenChange={setIsPasswordViewOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>User Credentials</DialogTitle>
-            <DialogDescription>
-              These are the credentials for {employeeNameMap.get(selectedUserForPassword?.email || '')}.
-            </DialogDescription>
-          </DialogHeader>
-            <Alert>
-              <AlertTitle>{employeeNameMap.get(selectedUserForPassword?.email || '')}</AlertTitle>
-              <AlertDescription>
-                <p className="mt-2"><strong>Email:</strong> {selectedUserForPassword?.email}</p>
-                <p><strong>Password:</strong> {selectedUserForPassword?.password}</p>
-              </AlertDescription>
-            </Alert>
-          <DialogFooter>
-            <Button onClick={() => setIsPasswordViewOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
         <AlertDialogContent>
             <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the user account for <span className="font-semibold">{userToDelete?.email}</span> and remove their data from our servers.
+                This action cannot be undone. This will permanently delete the user account for <span className="font-semibold">{userToDelete?.email}</span> from both Firebase Authentication and Firestore.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

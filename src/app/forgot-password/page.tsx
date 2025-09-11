@@ -7,47 +7,39 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { resetPassword } from '@/ai/flows/reset-password-flow';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal } from 'lucide-react';
+import { MailCheck } from 'lucide-react';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [newPassword, setNewPassword] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email) {
+        toast({ title: "Email required", description: "Please enter your email address.", variant: "destructive" });
+        return;
+    }
     setIsLoading(true);
-    setNewPassword(null);
-    setError(null);
 
     try {
-      const result = await resetPassword({ email });
-      if (result.success && result.newPassword) {
-        setNewPassword(result.newPassword);
-        toast({
-          title: "Password Reset Successful",
-          description: "Your new temporary password is shown below.",
-        });
-      } else {
-        setError(result.message);
-        toast({
-          title: "Password Reset Failed",
-          description: result.message,
-          variant: "destructive",
-        });
+      await sendPasswordResetEmail(auth, email);
+      setEmailSent(true);
+    } catch (error: any) {
+      console.error("Password reset error:", error);
+      let message = "An unexpected error occurred. Please try again.";
+      if (error.code === 'auth/user-not-found') {
+        message = "No user found with this email address.";
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred.";
-      setError(errorMessage);
       toast({
         title: "Error",
-        description: errorMessage,
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -66,11 +58,14 @@ export default function ForgotPasswordPage() {
             </div>
             <CardTitle className="text-3xl font-bold">Forgot Password</CardTitle>
             <CardDescription>
-                Enter your email and we'll generate a new temporary password for you.
+                {emailSent 
+                    ? "Check your inbox for the next steps." 
+                    : "Enter your email to receive a password reset link."
+                }
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {!newPassword ? (
+            {!emailSent ? (
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
                   <Label htmlFor="email">Email Address</Label>
@@ -85,18 +80,15 @@ export default function ForgotPasswordPage() {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Resetting...' : 'Reset Password'}
+                  {isLoading ? 'Sending...' : 'Send Reset Link'}
                 </Button>
               </form>
             ) : (
-                <Alert>
-                    <Terminal className="h-4 w-4" />
-                    <AlertTitle>Your New Temporary Password:</AlertTitle>
-                    <AlertDescription className="font-mono text-lg text-center p-4 bg-muted rounded-md my-2">
-                        {newPassword}
-                    </AlertDescription>
+                <Alert variant="default" className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
+                    <MailCheck className="h-4 w-4 text-green-600" />
+                    <AlertTitle>Email Sent!</AlertTitle>
                     <AlertDescription>
-                        Please copy this password. We recommend you log in and change it immediately from your profile page.
+                        A password reset link has been sent to <strong>{email}</strong>. Please check your inbox (and spam folder).
                     </AlertDescription>
                 </Alert>
             )}
