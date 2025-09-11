@@ -13,21 +13,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const router = useRouter();
     const pathname = usePathname();
     const [isCheckingProfile, setIsCheckingProfile] = useState(true);
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isMounted) return;
+
         const checkAuthAndProfile = async () => {
             if (authLoading) {
                 return;
             }
 
             if (!user) {
-                // AuthProvider will handle redirect, but as a safeguard:
                 router.replace('/login');
                 setIsCheckingProfile(false);
                 return;
             }
             
-            // This logic runs only for authenticated users
             try {
                 const emp = await getEmployeeByEmail(user.email);
 
@@ -50,9 +55,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         };
 
         checkAuthAndProfile();
-    }, [user, authLoading, router, pathname]);
+    }, [user, authLoading, router, pathname, isMounted]);
 
-    if (authLoading || isCheckingProfile) {
+    if (!isMounted || authLoading || isCheckingProfile) {
         return (
              <div className="flex h-screen w-full items-center justify-center bg-background">
                 <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
