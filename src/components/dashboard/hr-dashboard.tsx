@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter, FileText, Gift, Upload, CalendarClock, Play, PlusCircle, ChevronsUpDown } from 'lucide-react';
+import { UserPlus, Check, X, Pencil, Trash2, CalendarIcon, Camera, Building, Filter, FileText, Gift, Upload, CalendarClock, Play, PlusCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -1363,4 +1363,3 @@ export default function HRDashboard() {
     </div>
   );
 }
-
