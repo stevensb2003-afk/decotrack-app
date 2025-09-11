@@ -28,19 +28,22 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         setFirebaseUser(fbUser);
         const systemUser = await getUserByEmail(fbUser.email!);
         setUser(systemUser);
         
-        if (pathname === '/login' || pathname === '/forgot-password' || pathname === '/') {
+        if (isMounted && (pathname === '/login' || pathname === '/forgot-password' || pathname === '/')) {
           router.replace('/dashboard');
         }
       } else {
         setFirebaseUser(null);
         setUser(null);
-        if (pathname !== '/login' && pathname !== '/forgot-password') {
+        if (isMounted && pathname !== '/login' && pathname !== '/forgot-password') {
           router.replace('/login');
         }
       }
@@ -48,7 +51,7 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pathname, router]);
+  }, [pathname, router, isMounted]);
 
   const login = async (email: string, pass: string) => {
     setLoading(true);
