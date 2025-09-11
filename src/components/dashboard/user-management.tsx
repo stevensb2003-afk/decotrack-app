@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MoreHorizontal, UserPlus, Mail, Trash2 } from 'lucide-react';
+import { MoreHorizontal, UserPlus, Mail, Trash2, Search } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +44,7 @@ export default function UserManagement() {
   const { user: authUser } = useAuth();
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [filter, setFilter] = useState('');
   const [isEditing, setIsEditing] = useState<SystemUser | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [userToDelete, setUserToDelete] = useState<SystemUser | null>(null);
@@ -62,7 +63,21 @@ export default function UserManagement() {
     fetchData();
   }, []);
 
-  const employeeNameMap = new Map(employees.map(emp => [emp.email, emp.fullName]));
+  const employeeNameMap = useMemo(() => new Map(employees.map(emp => [emp.email, emp.fullName])), [employees]);
+
+  const filteredUsers = useMemo(() => {
+    const lowercasedFilter = filter.toLowerCase();
+    if (!lowercasedFilter) return users;
+
+    return users.filter(user => {
+        const name = employeeNameMap.get(user.email) || `${user.firstName} ${user.lastName}`;
+        return (
+            name.toLowerCase().includes(lowercasedFilter) ||
+            user.email.toLowerCase().includes(lowercasedFilter) ||
+            user.role.toLowerCase().includes(lowercasedFilter)
+        );
+    });
+  }, [filter, users, employeeNameMap]);
   
   const handleRoleChange = async (userId: string, newRole: Role) => {
     await updateUserRole(userId, newRole);
@@ -79,7 +94,7 @@ export default function UserManagement() {
 
     try {
         await createUser(newUser);
-        toast({ title: "User Created", description: "New user has been created and a welcome email sent." });
+        toast({ title: "User Created", description: "New user has been created and a password reset email has been sent." });
         setIsCreating(false);
         setNewUser({ firstName: '', lastName: '', email: '', role: ''});
         fetchData();
@@ -113,53 +128,62 @@ export default function UserManagement() {
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <CardTitle>System Users</CardTitle>
-            <CardDescription>Create users and manage their roles within the system.</CardDescription>
-          </div>
-          <Dialog open={isCreating} onOpenChange={setIsCreating}>
-              <DialogTrigger asChild>
-                  <Button><UserPlus className="mr-2 h-4 w-4" /> Create User</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Create New User</DialogTitle>
-                    <DialogDescription>
-                      A welcome email with a link to set their password will be sent.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                      <div className='grid grid-cols-2 gap-4'>
-                          <div>
-                            <Label htmlFor="firstName-create">First Name</Label>
-                            <Input id="firstName-create" value={newUser.firstName} onChange={(e) => setNewUser({...newUser, firstName: e.target.value})} placeholder="John" />
-                          </div>
-                          <div>
-                            <Label htmlFor="lastName-create">Last Name</Label>
-                            <Input id="lastName-create" value={newUser.lastName} onChange={(e) => setNewUser({...newUser, lastName: e.target.value})} placeholder="Doe" />
-                          </div>
-                      </div>
-                      <Label htmlFor="email-create">Email</Label>
-                      <Input id="email-create" type="email" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} placeholder="name@example.com" />
-                      <Label htmlFor="role-create">Role</Label>
-                      <Select onValueChange={(value: Role) => setNewUser({...newUser, role: value})}>
-                          <SelectTrigger id="role-create"><SelectValue placeholder="Select a role" /></SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="employee">Employee</SelectItem>
-                              <SelectItem value="hr">HR</SelectItem>
-                              <SelectItem value="Manager">Manager</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                      </Select>
-                  </div>
-                  <DialogFooter>
-                      <Button onClick={handleCreateUser}>Create User</Button>
-                  </DialogFooter>
-              </DialogContent>
-          </Dialog>
+        <CardHeader>
+          <CardTitle>System Users</CardTitle>
+          <CardDescription>Create users and manage their roles within the system.</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+              <div className="relative w-full md:max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                      placeholder="Filter by name, email, or role..." 
+                      className="pl-10"
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                  />
+              </div>
+              <Dialog open={isCreating} onOpenChange={setIsCreating}>
+                  <DialogTrigger asChild>
+                      <Button className="w-full md:w-auto"><UserPlus className="mr-2 h-4 w-4" /> Create User</Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Create New User</DialogTitle>
+                        <DialogDescription>
+                          A password reset email will be sent for the user to set their password.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                          <div className='grid grid-cols-2 gap-4'>
+                              <div>
+                                <Label htmlFor="firstName-create">First Name</Label>
+                                <Input id="firstName-create" value={newUser.firstName} onChange={(e) => setNewUser({...newUser, firstName: e.target.value})} placeholder="John" />
+                              </div>
+                              <div>
+                                <Label htmlFor="lastName-create">Last Name</Label>
+                                <Input id="lastName-create" value={newUser.lastName} onChange={(e) => setNewUser({...newUser, lastName: e.target.value})} placeholder="Doe" />
+                              </div>
+                          </div>
+                          <Label htmlFor="email-create">Email</Label>
+                          <Input id="email-create" type="email" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} placeholder="name@example.com" />
+                          <Label htmlFor="role-create">Role</Label>
+                          <Select onValueChange={(value: Role) => setNewUser({...newUser, role: value})}>
+                              <SelectTrigger id="role-create"><SelectValue placeholder="Select a role" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="employee">Employee</SelectItem>
+                                  <SelectItem value="hr">HR</SelectItem>
+                                  <SelectItem value="Manager">Manager</SelectItem>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                      <DialogFooter>
+                          <Button onClick={handleCreateUser}>Create User</Button>
+                      </DialogFooter>
+                  </DialogContent>
+              </Dialog>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -171,7 +195,7 @@ export default function UserManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{employeeNameMap.get(user.email) || `${user.firstName} ${user.lastName}`}</TableCell>
                   <TableCell>{user.email}</TableCell>
@@ -206,6 +230,7 @@ export default function UserManagement() {
               ))}
             </TableBody>
           </Table>
+           {filteredUsers.length === 0 && <p className="text-center py-4 text-sm text-muted-foreground">No users match the current filter.</p>}
         </CardContent>
       </Card>
       
