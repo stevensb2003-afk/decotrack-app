@@ -6,6 +6,7 @@ export type AppSettings = {
     cronHour?: number;
     cronMinute?: number;
     geofenceRadius?: number;
+    authorizedDomains?: string[];
 };
 
 const settingsDocRef = doc(db, applyDbPrefix('system'), 'settings');
@@ -19,6 +20,7 @@ export const getSettings = async (): Promise<AppSettings> => {
             cronHour: 2, // Default to 2 AM
             cronMinute: 0,
             geofenceRadius: 100, // Default to 100 meters
+            authorizedDomains: ['localhost'],
         };
         await setDoc(settingsDocRef, defaultSettings);
         return defaultSettings;
