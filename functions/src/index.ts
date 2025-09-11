@@ -6,8 +6,9 @@ import * as admin from "firebase-admin";
 admin.initializeApp();
 
 /**
- * A callable function to migrate Firestore user documents to use Firebase Auth UIDs as document IDs.
- * It also creates users in Firebase Auth if they don't exist.
+ * A callable function to migrate Firestore user documents to use Firebase Auth
+ * UIDs as document IDs. It also creates users in Firebase Auth if they do not
+ * already exist.
  */
 export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => {
   const db = admin.firestore();
@@ -43,15 +44,18 @@ export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => 
         // 1. Get user from Auth or create them if they don't exist.
         try {
           userRecord = await auth.getUserByEmail(email);
-        } catch (error: any) {
-          if (error.code === "auth/user-not-found") {
-            const displayName = `${userData.firstName || ""} ${userData.lastName || ""}`.trim();
+        } catch (error: unknown) {
+          if (error instanceof Error && (error as any).code === "auth/user-not-found") {
+            const displayName = `${userData.firstName || ""} ${
+              userData.lastName || ""
+            }`.trim();
             userRecord = await auth.createUser({
               email: email,
               displayName: displayName,
               // Users will need to use "forgot password" flow.
             });
-            console.log(`Created user in Auth: ${email} (UID: ${userRecord.uid})`);
+            const logMsg = `Created user in Auth: ${email} (UID: ${userRecord.uid})`;
+            console.log(logMsg);
           } else {
             throw error; // Re-throw other errors
           }
@@ -72,7 +76,7 @@ export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => 
             firstName: userData.firstName,
             lastName: userData.lastName,
             email: userData.email,
-            role: userData.role
+            role: userData.role,
         });
 
         // 4. Delete the old document.
@@ -81,9 +85,13 @@ export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => 
 
         console.log(`Migrating ${email}: ${oldDocId} -> ${newUid}`);
         successCount++;
-      } catch (error: any) {
+      } catch (error: unknown) {
+        let errorMessage = "An unknown error occurred.";
+        if (error instanceof Error) {
+            errorMessage = error.message;
+        }
         console.error(`Failed to process user ${email}:`, error);
-        errors.push(`Error with ${email}: ${error.message}`);
+        errors.push(`Error with ${email}: ${errorMessage}`);
         errorCount++;
       }
     }));
@@ -91,11 +99,14 @@ export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => 
     // Commit all batched writes
     await batch.commit();
 
+    const detailedErrors = errors.length > 0 ?
+        `Detailed errors:<br/>${errors.join("<br/>")}` : "";
+
     res.status(200).send(
       `Migration completed.<br/>` +
       `Successfully processed/migrated: ${successCount}.<br/>` +
       `Errors: ${errorCount}.<br/><br/>` +
-      (errors.length > 0 ? `Detailed errors:<br/>${errors.join("<br/>")}` : "")
+      detailedErrors
     );
   } catch (error) {
     console.error("General error during migration:", error);
@@ -106,3 +117,4 @@ export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => 
     }
   }
 });
+
