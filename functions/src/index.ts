@@ -1,82 +1,109 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
-// Inicializa la conexión con los servicios de Firebase
+// Initialize Firebase Admin SDK
 admin.initializeApp();
 
-// Esta es nuestra función de migración. Se activará cuando visitemos una URL.
-export const migrateUsersToAuth = functions.https.onRequest(async (req, res)=> {
-  // Obtenemos una referencia a la base de datos de Firestore.
+/**
+ * A callable function to migrate Firestore user documents to use Firebase Auth UIDs as document IDs.
+ * It also creates users in Firebase Auth if they don't exist.
+ */
+export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => {
   const db = admin.firestore();
+  const auth = admin.auth();
+  const batch = db.batch();
+
+  let successCount = 0;
+  let errorCount = 0;
+  const errors: string[] = [];
 
   try {
-    // 1. Leemos TODOS los documentos de tu colección "systemUsers".
-    // Si tu colección se llama diferente, cambia "systemUsers" aquí.
     const usersSnapshot = await db.collection("systemUsers").get();
 
     if (usersSnapshot.empty) {
-      res.status(200).send("No hay usuarios en Firestore para migrar.");
+      res.status(200).send("No users in Firestore to migrate.");
       return;
     }
 
-    const migrationPromises: Promise<any>[] = [];
-    let successCount = 0;
-    let errorCount = 0;
-    const errors: string[] = [];
-
-    // 2. Recorremos cada usuario encontrado en Firestore.
-    usersSnapshot.forEach((doc) => {
+    // Use Promise.all to process users concurrently
+    await Promise.all(usersSnapshot.docs.map(async (doc) => {
+      const oldDocId = doc.id;
       const userData = doc.data();
-
-      // EXTRAE LOS DATOS DEL USUARIO USANDO TUS NOMBRES DE CAMPO EXACTOS
       const email = userData.email;
-      const firstName = userData.firstName || ""; // Usamos '' si no existe
-      const lastName = userData.lastName || ""; // Usamos '' si no existe
-      const displayName = `${firstName} ${lastName}`.trim(); // Nombre apellido
 
       if (!email) {
-        console.error("Usuario sin email, saltando:", doc.id);
+        errors.push(`Document ${oldDocId} is missing an email.`);
         errorCount++;
-        errors.push(`Documento ${doc.id} no tiene email.`);
-        return; // Pasa al siguiente
+        return;
       }
 
-      // 3. Creamos promesa para registrar usuario en Firebase Authentication.
-      const promise = admin.auth().createUser({
-        email: email,
-        displayName: displayName,
-        // Los usuarios se crearán sin contraseña.
-        // Usar el flujo "Olvidé mi contraseña" para primer inicio de sesión.
-      })
-        .then((userRecord) => {
-          console.log("Usuario creado exitosamente en Auth:", userRecord.email);
+      try {
+        let userRecord;
+        // 1. Get user from Auth or create them if they don't exist.
+        try {
+          userRecord = await auth.getUserByEmail(email);
+        } catch (error: any) {
+          if (error.code === "auth/user-not-found") {
+            const displayName = `${userData.firstName || ""} ${userData.lastName || ""}`.trim();
+            userRecord = await auth.createUser({
+              email: email,
+              displayName: displayName,
+              // Users will need to use "forgot password" flow.
+            });
+            console.log(`Created user in Auth: ${email} (UID: ${userRecord.uid})`);
+          } else {
+            throw error; // Re-throw other errors
+          }
+        }
+
+        const newUid = userRecord.uid;
+
+        // 2. If the Firestore doc ID is already the correct UID, do nothing.
+        if (oldDocId === newUid) {
+          console.log(`User ${email} already has correct UID. Skipping.`);
           successCount++;
-        })
-        .catch((error) => {
-        // Esto pasará si el usuario ya existe en Authentication, está bien.
-          console.error("Error creando usuario en Auth:", email, error.message);
-          errorCount++;
-          errors.push(`Error con ${email}: ${error.message}`);
+          return;
+        }
+
+        // 3. Create a new document with the correct UID as the ID.
+        const newDocRef = db.collection("systemUsers").doc(newUid);
+        batch.set(newDocRef, {
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            email: userData.email,
+            role: userData.role
         });
 
-      migrationPromises.push(promise);
-    });
+        // 4. Delete the old document.
+        const oldDocRef = db.collection("systemUsers").doc(oldDocId);
+        batch.delete(oldDocRef);
 
-    // 4. Esperamos a que todas las promesas de creación de usuarios terminen.
-    await Promise.all(migrationPromises);
+        console.log(`Migrating ${email}: ${oldDocId} -> ${newUid}`);
+        successCount++;
 
-    // 5. Enviamos una respuesta al navegador con el resumen.
+      } catch (error: any) {
+        console.error(`Failed to process user ${email}:`, error);
+        errors.push(`Error with ${email}: ${error.message}`);
+        errorCount++;
+      }
+    }));
+
+    // Commit all batched writes
+    await batch.commit();
+
     res.status(200).send(
-      `Migración completada. Usuarios exitosos: ${successCount}. ` +
-      `Errores: ${errorCount}.<br/><br/>` +
-      `Errores detallados:<br/>${errors.join("<br/>")}`
+      `Migration completed.<br/>` +
+      `Successfully processed/migrated: ${successCount}.<br/>` +
+      `Errors: ${errorCount}.<br/><br/>` +
+      (errors.length > 0 ? `Detailed errors:<br/>${errors.join("<br/>")}` : "")
     );
+
   } catch (error) {
-    console.error("Error general durante la migración:", error);
+    console.error("General error during migration:", error);
     if (error instanceof Error) {
-      res.status(500).send(`Ocurrió un error general: ${error.message}`);
+      res.status(500).send(`An unexpected error occurred: ${error.message}`);
     } else {
-      res.status(500).send("Ocurrió un error general desconocido.");
+      res.status(500).send("An unknown error occurred.");
     }
   }
 });
