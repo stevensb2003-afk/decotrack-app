@@ -86,14 +86,14 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
     ]);
     
     const allRecords: AttendanceRecord[] = [];
-    // Fetch last N days of records per employee to avoid massive reads on the whole collection
     const today = new Date();
     const startDate = new Date();
-    startDate.setDate(today.getDate() - (daysLimit));
+    startDate.setDate(today.getDate() - daysLimit);
     
     const q = query(
         attendanceCollection,
-        where("timestamp", ">=", Timestamp.fromDate(startDate))
+        where("timestamp", ">=", Timestamp.fromDate(startDate)),
+        orderBy("timestamp", "desc")
     );
     const snapshot = await getDocs(q);
 
@@ -119,14 +119,17 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
     });
 
     const summaryPromises = Object.keys(dailyGroups).map(async (groupKey) => {
-        const [employeeId, dateKey] = groupKey.split('-');
-        
-        if (!employeeId || !dateKey || !isValid(parseISO(dateKey)) || !employeeMap.has(employeeId)) {
-          return null;
-        }
-
         const group = dailyGroups[groupKey];
-        const date = parseISO(dateKey);
+        if (!group || group.length === 0) return null;
+
+        const firstRecord = group[0];
+        const employeeId = firstRecord.employeeId;
+        const employeeName = employeeMap.get(employeeId);
+        
+        if (!employeeName) return null;
+
+        const date = firstRecord.timestamp.toDate();
+        const dateKey = format(date, 'yyyy-MM-dd');
         
         const entries = group.filter(r => r.type === 'Entry').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
         const exits = group.filter(r => r.type === 'Exit').sort((a,b) => a.timestamp.toMillis() - b.timestamp.toMillis());
@@ -148,7 +151,7 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
         return {
             id: groupKey,
             employeeId: employeeId,
-            employeeName: employeeMap.get(employeeId)!,
+            employeeName: employeeName,
             date: format(date, "MMM d, yyyy"),
             dateKey: dateKey,
             clockIn: clockIn ? format(clockIn.toDate(), 'p') : null,
@@ -171,7 +174,7 @@ export const getDailyAttendanceSummary = async (daysLimit: number, employees: Em
         return a.employeeName.localeCompare(b.employeeName);
     });
 
-    return summaries.slice(0, daysLimit * employees.length); // Rough limit
+    return summaries;
 };
 
 
