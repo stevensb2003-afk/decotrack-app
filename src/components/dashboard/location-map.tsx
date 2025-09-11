@@ -28,7 +28,9 @@ function PlacesAutocomplete({
     }, [initialAddress]);
 
     useEffect(() => {
-        if (!inputRef.current || !window.google || !window.google.maps.places) return;
+        if (!inputRef.current || typeof window === 'undefined' || !window.google || !window.google.maps || !window.google.maps.places) {
+          return;
+        }
 
         const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
             fields: ['geometry.location', 'formatted_address']
@@ -48,12 +50,12 @@ function PlacesAutocomplete({
                 onSelect(null);
             }
         });
+
         return () => {
-            if(window.google) {
+            if (window.google && window.google.maps) {
                 google.maps.event.clearInstanceListeners(autocomplete);
             }
         }
-
     }, [onSelect]);
     
     return (
