@@ -1,3 +1,4 @@
+
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
@@ -80,7 +81,6 @@ export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => 
 
         console.log(`Migrating ${email}: ${oldDocId} -> ${newUid}`);
         successCount++;
-
       } catch (error: any) {
         console.error(`Failed to process user ${email}:`, error);
         errors.push(`Error with ${email}: ${error.message}`);
@@ -97,7 +97,6 @@ export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => 
       `Errors: ${errorCount}.<br/><br/>` +
       (errors.length > 0 ? `Detailed errors:<br/>${errors.join("<br/>")}` : "")
     );
-
   } catch (error) {
     console.error("General error during migration:", error);
     if (error instanceof Error) {
