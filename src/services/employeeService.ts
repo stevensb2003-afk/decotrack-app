@@ -35,6 +35,7 @@ export type Employee = {
     managerName?: string;
     contractSigned?: boolean;
     CCSS?: boolean;
+    INS?: boolean;
     profileComplete?: boolean;
 };
 
