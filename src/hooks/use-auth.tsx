@@ -32,14 +32,12 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
         const systemUser = await getUserByEmail(fbUser.email!);
         setUser(systemUser);
         
-        // Redirect if on public pages
         if (pathname === '/login' || pathname === '/forgot-password' || pathname === '/') {
           router.replace('/dashboard');
         }
       } else {
         setFirebaseUser(null);
         setUser(null);
-        // Redirect if on protected pages
         if (pathname !== '/login' && pathname !== '/forgot-password') {
           router.replace('/login');
         }
@@ -53,21 +51,25 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
   const login = async (email: string, pass: string) => {
     setLoading(true);
     await signInWithEmailAndPassword(auth, email, pass);
-    // The onAuthStateChanged listener will handle the rest
+    // onAuthStateChanged will handle the rest
   };
 
   const logout = async () => {
+    setLoading(true);
     await signOut(auth);
-    // The onAuthStateChanged listener will handle the rest
+    // onAuthStateChanged will handle the rest
   };
 
    return (
     <AuthContext.Provider value={{ user, firebaseUser, login, logout, loading }}>
-      {loading ? (
-        <div className="flex h-screen w-full items-center justify-center bg-background">
+      {loading && (
+        <div className="fixed inset-0 z-50 flex h-screen w-full items-center justify-center bg-background">
             <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
         </div>
-      ) : children}
+      )}
+      <div className={loading ? 'opacity-0' : 'opacity-100 transition-opacity'}>
+        {children}
+      </div>
     </AuthContext.Provider>
   );
 };
