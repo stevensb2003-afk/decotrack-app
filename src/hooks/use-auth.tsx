@@ -32,18 +32,19 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      setLoading(true);
       if (fbUser) {
         setFirebaseUser(fbUser);
         const systemUser = await getUserByEmail(fbUser.email!);
         setUser(systemUser);
         
-        if (isMounted && (pathname === '/login' || pathname === '/forgot-password' || pathname === '/')) {
+        if (pathname === '/login' || pathname === '/forgot-password' || pathname === '/') {
           router.replace('/dashboard');
         }
       } else {
         setFirebaseUser(null);
         setUser(null);
-        if (isMounted && pathname !== '/login' && pathname !== '/forgot-password') {
+        if (pathname !== '/login' && pathname !== '/forgot-password') {
           router.replace('/login');
         }
       }
@@ -51,30 +52,32 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pathname, router, isMounted]);
+  }, [pathname, router]);
+
+  if (!isMounted) {
+    return null;
+  }
 
   const login = async (email: string, pass: string) => {
     setLoading(true);
     await signInWithEmailAndPassword(auth, email, pass);
+    // onAuthStateChanged will handle the redirect and final loading state
   };
 
   const logout = async () => {
     setLoading(true);
     await signOut(auth);
+    // onAuthStateChanged will handle the redirect and final loading state
   };
-
-  const showLoader = !isMounted || loading;
 
   return (
     <AuthContext.Provider value={{ user, firebaseUser, login, logout, loading }}>
-      {showLoader && (
-        <div className="fixed inset-0 z-50 flex h-screen w-full items-center justify-center bg-background">
-          <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
-        </div>
-      )}
-      <div className={showLoader ? 'opacity-0' : 'opacity-100 transition-opacity'}>
+        {loading && (
+             <div className="fixed inset-0 z-50 flex h-screen w-full items-center justify-center bg-background">
+                <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
+            </div>
+        )}
         {children}
-      </div>
     </AuthContext.Provider>
   );
 };
