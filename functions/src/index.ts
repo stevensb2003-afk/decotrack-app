@@ -10,7 +10,7 @@ admin.initializeApp();
  * UIDs as document IDs. It also creates users in Firebase Auth if they do not
  * already exist.
  */
-export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => {
+export const migrateUsersToAuth = functions.https.onRequest(async (req, res)=> {
   const db = admin.firestore();
   const auth = admin.auth();
   const batch = db.batch();
@@ -45,7 +45,10 @@ export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => 
         try {
           userRecord = await auth.getUserByEmail(email);
         } catch (error: unknown) {
-          if (error instanceof Error && (error as any).code === "auth/user-not-found") {
+          if (
+            error instanceof Error &&
+            (error as any).code === "auth/user-not-found"
+          ) {
             const displayName = `${userData.firstName || ""} ${
               userData.lastName || ""
             }`.trim();
@@ -54,7 +57,9 @@ export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => 
               displayName: displayName,
               // Users will need to use "forgot password" flow.
             });
-            const logMsg = `Created user in Auth: ${email} (UID: ${userRecord.uid})`;
+            const logMsg =
+              `Created user in Auth: ${email}` +
+              ` (UID: ${userRecord.uid})`;
             console.log(logMsg);
           } else {
             throw error; // Re-throw other errors
@@ -73,10 +78,10 @@ export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => 
         // 3. Create a new document with the correct UID as the ID.
         const newDocRef = db.collection("systemUsers").doc(newUid);
         batch.set(newDocRef, {
-            firstName: userData.firstName,
-            lastName: userData.lastName,
-            email: userData.email,
-            role: userData.role,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: userData.email,
+          role: userData.role,
         });
 
         // 4. Delete the old document.
@@ -88,7 +93,7 @@ export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => 
       } catch (error: unknown) {
         let errorMessage = "An unknown error occurred.";
         if (error instanceof Error) {
-            errorMessage = error.message;
+          errorMessage = error.message;
         }
         console.error(`Failed to process user ${email}:`, error);
         errors.push(`Error with ${email}: ${errorMessage}`);
@@ -100,10 +105,10 @@ export const migrateUsersToAuth = functions.https.onRequest(async (req, res) => 
     await batch.commit();
 
     const detailedErrors = errors.length > 0 ?
-        `Detailed errors:<br/>${errors.join("<br/>")}` : "";
+      `Detailed errors:<br/>${errors.join("<br/>")}` : "";
 
     res.status(200).send(
-      `Migration completed.<br/>` +
+      "Migration completed.<br/>" +
       `Successfully processed/migrated: ${successCount}.<br/>` +
       `Errors: ${errorCount}.<br/><br/>` +
       detailedErrors
