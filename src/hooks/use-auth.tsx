@@ -57,11 +57,11 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
     // Caso 1: Usuario LOGUEADO
     if (user && firebaseUser) {
         // 1a: Perfil incompleto -> Forzar setup (a menos que ya esté ahí)
-        if (!user.profileComplete && !isSetupPage) {
+        if (!user.profileComplete && user.email !== 'decoinnova24@gmail.com' && !isSetupPage) {
             router.replace('/dashboard/setup-profile');
         }
-        // 1b: Perfil completo y está en una página de auth -> Ir al dashboard
-        else if (user.profileComplete && isAuthPage) {
+        // 1b: Perfil completo (o es el usuario especial) y está en una página de auth -> Ir al dashboard
+        else if ((user.profileComplete || user.email === 'decoinnova24@gmail.com') && isAuthPage) {
              router.replace('/dashboard');
         }
     } 
