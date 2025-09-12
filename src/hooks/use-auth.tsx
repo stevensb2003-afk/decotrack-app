@@ -1,12 +1,12 @@
-
 "use client";
 
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser } from "firebase/auth";
-import { getEmployeeByEmail, SystemUser, getUserByEmail } from '@/services/userService';
+import { getUserByEmail, SystemUser } from '@/services/userService';
 import { app } from '@/lib/firebase';
 
+// ... (Interfaz y Contexto sin cambios)
 interface AuthContextType {
   user: SystemUser | null;
   firebaseUser: FirebaseUser | null;
@@ -14,9 +14,9 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
 }
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const auth = getAuth(app);
+
 
 const AuthProviderClient = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<SystemUser | null>(null);
@@ -27,45 +27,50 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
 
+  // EFECTO #1: Configurar el oyente de autenticación UNA SOLA VEZ
   useEffect(() => {
     setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isMounted) return;
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         setFirebaseUser(fbUser);
-        // Fetch user profile from your system
         const systemUser = await getUserByEmail(fbUser.email!);
         setUser(systemUser);
-        
-        // If user profile indicates profile is not complete, redirect
-        if (systemUser && !systemUser.profileComplete) {
-            if (pathname !== '/dashboard/setup-profile') {
-                router.replace('/dashboard/setup-profile');
-            }
-        } else if (pathname === '/login' || pathname === '/forgot-password' || pathname === '/') {
-           router.replace('/dashboard');
-        }
-
       } else {
         setFirebaseUser(null);
         setUser(null);
-         const isProtectedRoute = pathname.startsWith('/dashboard');
-        if (isProtectedRoute) {
-          router.replace('/login');
-        }
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [isMounted, pathname, router]);
+  }, []); // <-- Array vacío para que se ejecute solo una vez al montar.
+
+  // EFECTO #2: Manejar las redirecciones basadas en el estado.
+  useEffect(() => {
+    if (loading || !isMounted) return; // No hacer nada si aún está cargando o no está montado.
+
+    const isAuthPage = pathname === '/login' || pathname === '/forgot-password' || pathname === '/';
+
+    // Si el usuario está logueado y en una página de autenticación, redirigir al dashboard.
+    if (firebaseUser && isAuthPage) {
+      router.replace('/dashboard');
+    }
+
+    // Si el usuario NO está logueado y está en una ruta protegida, redirigir al login.
+    if (!firebaseUser && pathname.startsWith('/dashboard')) {
+      router.replace('/login');
+    }
+
+    // Aquí iría la lógica del perfil incompleto también
+    if (user && !user.profileComplete && pathname !== '/dashboard/setup-profile') {
+        router.replace('/dashboard/setup-profile');
+    }
+
+  }, [firebaseUser, user, loading, isMounted, pathname, router]); // Este efecto SÍ se ejecuta cuando el estado o la ruta cambian.
+
 
   const login = async (email: string, pass: string) => {
-    // Let the onAuthStateChanged handle the loading state and redirection
     await signInWithEmailAndPassword(auth, email, pass);
   };
 
@@ -74,12 +79,10 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
   };
 
   if (!isMounted) {
-    return null; // On server-side, and first-client render, do not render anything to prevent hydration mismatch
+    return null; 
   }
   
-  const isAuthPage = pathname === '/login' || pathname === '/forgot-password' || pathname === '/';
-  // Show loader if we are authenticating OR if we are on a protected route without a user yet
-  const showLoader = loading || (!user && !isAuthPage);
+  const showLoader = loading; // Podemos simplificar esto, ya que las redirecciones manejan el resto.
 
   return (
     <AuthContext.Provider value={{ user, firebaseUser, login, logout, loading }}>
@@ -92,6 +95,8 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
   );
 };
 
+
+// ... (El resto del código sin cambios) ...
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   return <AuthProviderClient>{children}</AuthProviderClient>;
 }

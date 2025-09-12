@@ -17,6 +17,7 @@ export type SystemUser = {
   lastName: string;
   email: string;
   role: Role;
+  profileComplete?: boolean;
 };
 
 const usersCollection = collection(db, applyDbPrefix('systemUsers'));

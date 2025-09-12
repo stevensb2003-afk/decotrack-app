@@ -63,7 +63,6 @@ const initialNewEmployeeData: Omit<Employee, 'id' | 'fullName'> = {
     managerName: '',
     contractSigned: false,
     CCSS: false,
-    INS: false,
     profileComplete: false,
 };
 
@@ -1220,8 +1219,8 @@ export default function HRDashboard() {
                     </div>
                 </div>
                 <LocationMap
-                    onLocationChange={handleLocationMapChange}
                     initialLocation={newLocationData}
+                    onLocationChange={handleLocationMapChange}
                 />
             </div>
              <DialogFooter>
@@ -1363,3 +1362,4 @@ export default function HRDashboard() {
     </div>
   );
 }
+
