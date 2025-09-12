@@ -1,36 +1,54 @@
+
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Map,
+  AdvancedMarker,
+  Pin,
+  useMap,
+  useAdvancedMarkerRef
+} from '@vis.gl/react-google-maps';
 import { Input } from '../ui/input';
 import { Location } from '@/services/locationService';
+import { useToast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
 
-// Componente de autocompletado refactorizado
 function PlacesAutocomplete({ 
-  onSelect, 
-  initialAddress 
+  onSelect,
+  initialAddress,
 }: { 
-  onSelect: (details: {placeId: string, address: string}) => void, 
-  initialAddress?: string 
+  onSelect: (placeId: string) => void;
+  initialAddress?: string;
 }) {
     const [input, setInput] = useState(initialAddress || '');
     const [suggestions, setSuggestions] = useState<any[]>([]);
 
+    // Update input if initial address changes from parent
     useEffect(() => {
-      // Este efecto se activa cuando el usuario escribe en el campo
+        setInput(initialAddress || '');
+    }, [initialAddress]);
+
+    useEffect(() => {
       const handler = setTimeout(async () => {
         if (input.length > 2) {
-          const response = await fetch('/api/places-autocomplete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ input }),
-          });
-          const data = await response.json();
-          setSuggestions(data.suggestions || []);
+          try {
+            const response = await fetch('/api/places-autocomplete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ input }),
+            });
+            if (!response.ok) throw new Error("Failed to fetch suggestions");
+            const data = await response.json();
+            setSuggestions(data.suggestions || []);
+          } catch (error) {
+            console.error("Error fetching places autocomplete:", error);
+            setSuggestions([]);
+          }
         } else {
           setSuggestions([]);
         }
-      }, 300); // Espera 300ms antes de hacer la búsqueda
+      }, 300);
 
       return () => clearTimeout(handler);
     }, [input]);
@@ -39,8 +57,8 @@ function PlacesAutocomplete({
         const address = suggestion.placePrediction.text.text;
         const placeId = suggestion.placePrediction.placeId;
         setInput(address);
-        setSuggestions([]); // Oculta la lista de sugerencias
-        onSelect({ placeId, address });
+        setSuggestions([]);
+        onSelect(placeId);
     };
 
     return (
@@ -54,7 +72,7 @@ function PlacesAutocomplete({
                 autoComplete="off"
             />
             {suggestions.length > 0 && (
-                <ul className="absolute z-10 w-full bg-background border rounded-md mt-1 shadow-lg">
+                <ul className="absolute z-50 w-full bg-background border rounded-md mt-1 shadow-lg">
                     {suggestions.map((s) => (
                         <li 
                             key={s.placePrediction.placeId} 
@@ -71,33 +89,71 @@ function PlacesAutocomplete({
 }
 
 
-// Componente principal
 export default function LocationMap({ initialLocation, onLocationChange }: { initialLocation: Partial<Location>, onLocationChange: (location: Partial<Location>) => void }) {
+  const [position, setPosition] = useState(initialLocation.latitude && initialLocation.longitude ? { lat: initialLocation.latitude, lng: initialLocation.longitude } : { lat: 9.9281, lng: -84.0907 });
+  const map = useMap();
+  const { toast } = useToast();
 
-    const handleSelect = (details: {placeId: string, address: string} | null) => {
-        if (details) {
-            // NOTA: La nueva API solo nos da la dirección y un Place ID.
-            // Para obtener latitud y longitud, se necesitaría una segunda llamada
-            // a la API "Place Details (New)" usando el placeId.
-            // Por ahora, actualizamos la dirección.
-            onLocationChange({
-                address: details.address,
-                // latitude y longitude se obtendrían en un paso posterior
-            });
-        }
+  useEffect(() => {
+    if (initialLocation.latitude && initialLocation.longitude) {
+      const newPos = { lat: initialLocation.latitude, lng: initialLocation.longitude };
+      setPosition(newPos);
+      map?.moveCamera({ center: newPos, zoom: 15 });
     }
+  }, [initialLocation, map]);
 
-    return (
-        <div className="space-y-4">
-            <PlacesAutocomplete 
-                initialAddress={initialLocation.address}
-                onSelect={handleSelect} 
-            />
-            <div className="p-4 border rounded-lg bg-muted/50">
-                <p className="text-sm font-medium">Address:</p>
-                <p className="text-sm text-muted-foreground min-h-[1.25rem]">{initialLocation.address || 'Busca una dirección para verla aquí'}</p>
-                {/* La visualización de coordenadas necesitaría ajustarse */}
-            </div>
+
+  const handlePlaceSelect = async (placeId: string) => {
+      try {
+          const response = await fetch('/api/place-details', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ placeId }),
+          });
+          if (!response.ok) throw new Error("Failed to fetch place details");
+
+          const details = await response.json();
+
+          const newPos = { lat: details.latitude, lng: details.longitude };
+          setPosition(newPos);
+          map?.moveCamera({ center: newPos, zoom: 15 });
+
+          onLocationChange({
+              address: details.address,
+              latitude: details.latitude,
+              longitude: details.longitude,
+          });
+
+      } catch (error) {
+          console.error("Error fetching place details:", error);
+          toast({ title: "Error", description: "Could not retrieve details for the selected location.", variant: "destructive" });
+      }
+  };
+
+  return (
+    <div className="space-y-4">
+        <PlacesAutocomplete 
+            initialAddress={initialLocation.address}
+            onSelect={handlePlaceSelect} 
+        />
+        <div style={{ height: '300px', borderRadius: '0.5rem', overflow: 'hidden' }}>
+            <Map
+                defaultCenter={position}
+                defaultZoom={10}
+                center={position}
+                mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'}
+                gestureHandling={'greedy'}
+            >
+              <AdvancedMarker position={position}>
+                <Pin />
+              </AdvancedMarker>
+            </Map>
         </div>
-    );
+        <div>
+            <p className="text-sm text-muted-foreground">
+                Lat: {initialLocation.latitude?.toFixed(6) || 'N/A'}, Lng: {initialLocation.longitude?.toFixed(6) || 'N/A'}
+            </p>
+        </div>
+    </div>
+  );
 }
