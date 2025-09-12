@@ -20,27 +20,15 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import Image from 'next/image';
-import { getEmployeeByEmail, Employee } from '@/services/employeeService';
+import { usePermissions } from '@/hooks/use-permissions';
 
 export default function DashboardHeader() {
-  const { user, logout } = useAuth();
+  const { user, employee, logout } = useAuth();
+  const { isAdmin } = usePermissions();
   const { setTheme, theme } = useTheme();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  // This state is just to satisfy the prop of DashboardSidebar, it won't be used on mobile
   const [_, setAdminView] = useState('overview');
-  const [employee, setEmployee] = useState<Employee | null>(null);
   const router = useRouter();
-
-
-  useEffect(() => {
-    const fetchEmployee = async () => {
-      if (user?.email) {
-        const emp = await getEmployeeByEmail(user.email);
-        setEmployee(emp);
-      }
-    };
-    fetchEmployee();
-  }, [user]);
 
   const getInitials = (name: string = '') => {
     if (!name) return user?.email?.charAt(0).toUpperCase() || '';
@@ -54,7 +42,7 @@ export default function DashboardHeader() {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-card px-4 md:px-6 w-full shrink-0">
         <div className="flex items-center gap-4">
-            {user?.role === 'admin' ? (
+            {isAdmin ? (
                 <div className="md:hidden">
                     <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
                         <SheetTrigger asChild>
@@ -129,5 +117,3 @@ export default function DashboardHeader() {
     </header>
   );
 }
-
-    

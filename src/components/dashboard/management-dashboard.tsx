@@ -11,12 +11,12 @@ import { collection, onSnapshot, query, where, orderBy, Timestamp } from 'fireba
 import { db } from '@/lib/firebase';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { usePermissions } from '@/hooks/use-permissions';
 import { differenceInMilliseconds } from 'date-fns';
 
 export default function ManagementDashboard() {
-    const { user } = useAuth();
+    const { canEditEmployeeData } = usePermissions();
     const { toast } = useToast();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [summary, setSummary] = useState<DailyAttendanceSummary[]>([]);
@@ -130,7 +130,6 @@ export default function ManagementDashboard() {
 
     const totalEmployees = employees.length;
     const absentEmployees = totalEmployees - presentCount;
-    const canEditMealBreak = user?.role === 'admin' || user?.role === 'hr';
 
     const kpiData = [
         { title: "Total Employees", value: totalEmployees.toString(), icon: Users, change: "All registered employees" },
@@ -192,7 +191,7 @@ export default function ManagementDashboard() {
                                 <Switch
                                     checked={item.mealBreakTaken}
                                     onCheckedChange={() => handleMealBreakToggle(item.id, item.mealBreakTaken)}
-                                    disabled={!canEditMealBreak}
+                                    disabled={!canEditEmployeeData}
                                     aria-label="Toggle Meal Break"
                                 />
                             </TableCell>

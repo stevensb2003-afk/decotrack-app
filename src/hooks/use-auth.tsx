@@ -5,11 +5,12 @@ import React, { createContext, useState, useContext, useEffect, ReactNode } from
 import { usePathname, useRouter } from 'next/navigation';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser } from "firebase/auth";
 import { getUserByEmail, SystemUser } from '@/services/userService';
+import { getEmployeeByEmail, Employee } from '@/services/employeeService';
 import { app } from '@/lib/firebase';
 
-// ... (Interfaz y Contexto sin cambios)
 interface AuthContextType {
   user: SystemUser | null;
+  employee: Employee | null;
   firebaseUser: FirebaseUser | null;
   login: (email: string, pass: string) => Promise<void>;
   logout: () => void;
@@ -21,6 +22,7 @@ const auth = getAuth(app);
 
 const AuthProviderClient = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<SystemUser | null>(null);
+  const [employee, setEmployee] = useState<Employee | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
@@ -28,46 +30,44 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
 
-  // EFECTO #1: Configurar el oyente de autenticación UNA SOLA VEZ
   useEffect(() => {
     setIsMounted(true);
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
+      if (fbUser && fbUser.email) {
         setFirebaseUser(fbUser);
-        const systemUser = await getUserByEmail(fbUser.email!);
+        const systemUser = await getUserByEmail(fbUser.email);
         setUser(systemUser);
+        if (systemUser) {
+            const employeeProfile = await getEmployeeByEmail(systemUser.email);
+            setEmployee(employeeProfile);
+        }
       } else {
         setFirebaseUser(null);
         setUser(null);
+        setEmployee(null);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []); // <-- Array vacío para que se ejecute solo una vez al montar.
+  }, []);
 
-  // EFECTO #2: Manejar las redirecciones basadas en el estado.
   useEffect(() => {
-    if (loading || !isMounted) return; // No hacer nada si aún está cargando o no está montado.
+    if (loading || !isMounted) return;
 
     const isAuthPage = pathname === '/login' || pathname === '/forgot-password' || pathname === '/';
     const isSetupPage = pathname === '/dashboard/setup-profile';
 
-    // Caso 1: Usuario LOGUEADO
     if (user && firebaseUser) {
-        // 1a: Perfil incompleto -> Forzar setup (a menos que ya esté ahí)
         if (!user.profileComplete && user.email !== 'decoinnova24@gmail.com' && !isSetupPage) {
             router.replace('/dashboard/setup-profile');
         }
-        // 1b: Perfil completo (o es el usuario especial) y está en una página de auth -> Ir al dashboard
         else if ((user.profileComplete || user.email === 'decoinnova24@gmail.com') && isAuthPage) {
              router.replace('/dashboard');
         }
     } 
-    // Caso 2: Usuario NO LOGUEADO
     else if (!firebaseUser) {
-        // 2a: Está en una ruta protegida -> Ir al login
         if (pathname.startsWith('/dashboard')) {
             router.replace('/login');
         }
@@ -91,7 +91,7 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
   const showLoader = loading;
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, employee, firebaseUser, login, logout, loading }}>
       {showLoader ? (
         <div className="fixed inset-0 z-50 flex h-screen w-full items-center justify-center bg-background">
           <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
@@ -101,8 +101,6 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
   );
 };
 
-
-// ... (El resto del código sin cambios) ...
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   return <AuthProviderClient>{children}</AuthProviderClient>;
 }

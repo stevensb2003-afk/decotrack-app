@@ -25,6 +25,7 @@ import { ScheduledChange, createScheduledChanges, getScheduledChangesForEmployee
 import { ChangeRequest, getPendingChangeRequests, updateChangeRequestStatus } from '@/services/changeRequestService';
 import { Switch } from '../ui/switch';
 import { useAuth } from '@/hooks/use-auth';
+import { usePermissions } from '@/hooks/use-permissions';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
 import { format, differenceInYears, differenceInMonths, parseISO, isSameDay, startOfDay } from 'date-fns';
@@ -289,7 +290,7 @@ const DetailItem = ({ label, value }: { label: string, value: React.ReactNode })
 
 
 export default function HRDashboard() {
-  const { user } = useAuth();
+  const { canEditEmployeeData } = usePermissions();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [benefits, setBenefits] = useState<Benefit[]>([]);
@@ -392,8 +393,6 @@ export default function HRDashboard() {
           default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
       }
   }
-
-  const canEdit = user?.role === 'admin' || user?.role === 'hr';
 
   const licenseTypes = ["A1", "A2", "A3", "B1", "B2", "B3", "B4", "C1", "C2", "D1", "D2", "D3", "E1", "E2"];
   const employeeRoles: Employee['role'][] = ["Cajero", "Chofer", "Vendedor", "Recursos Humanos", "Contabilidad", "Marketing", "Manager"];
@@ -929,18 +928,21 @@ export default function HRDashboard() {
                                         <Switch
                                             checked={emp.contractSigned}
                                             onCheckedChange={(value) => handleContractStatusChange(emp.id, 'contractSigned', value)}
+                                            disabled={!canEditEmployeeData}
                                         />
                                     </TableCell>
                                     <TableCell>
                                         <Switch
                                             checked={emp.CCSS}
                                             onCheckedChange={(value) => handleContractStatusChange(emp.id, 'CCSS', value)}
+                                            disabled={!canEditEmployeeData}
                                         />
                                     </TableCell>
                                     <TableCell>
                                         <Switch
                                             checked={emp.INS}
                                             onCheckedChange={(value) => handleContractStatusChange(emp.id, 'INS', value)}
+                                            disabled={!canEditEmployeeData}
                                         />
                                     </TableCell>
                                 </TableRow>
@@ -1371,7 +1373,3 @@ export default function HRDashboard() {
     </div>
   );
 }
-
-
-
-

@@ -37,12 +37,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import { usePermissions } from '@/hooks/use-permissions';
 import { SystemUser, Role, getAllUsers, createUser, updateUserRole, deleteUser, sendPasswordReset } from '@/services/userService';
 import { Employee, getAllEmployees } from '@/services/employeeService';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 
 export default function UserManagement() {
   const { user: authUser } = useAuth();
+  const { isAdmin } = usePermissions();
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [filter, setFilter] = useState('');
@@ -211,7 +213,7 @@ export default function UserManagement() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setIsEditing(user)} disabled={user.role === 'admin'}>Edit Role</DropdownMenuItem>
-                        {authUser?.role === 'admin' && (
+                        {isAdmin && (
                           <>
                             <DropdownMenuSeparator />
                              <DropdownMenuItem onClick={() => handleSendPasswordReset(user.email)}>
