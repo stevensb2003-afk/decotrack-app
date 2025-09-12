@@ -4,7 +4,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser } from "firebase/auth";
-import { getUserByEmail, SystemUser } from '@/services/userService';
+import { getEmployeeByEmail, SystemUser } from '@/services/userService';
 import { app } from '@/lib/firebase';
 
 interface AuthContextType {
@@ -35,20 +35,25 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
     if (!isMounted) return;
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setLoading(true);
       if (fbUser) {
         setFirebaseUser(fbUser);
+        // Fetch user profile from your system
         const systemUser = await getUserByEmail(fbUser.email!);
         setUser(systemUser);
         
-        const isAuthPage = pathname === '/login' || pathname === '/forgot-password' || pathname === '/';
-        if (isAuthPage) {
-          router.replace('/dashboard');
+        // If user profile indicates profile is not complete, redirect
+        if (systemUser && !systemUser.profileComplete) {
+            if (pathname !== '/dashboard/setup-profile') {
+                router.replace('/dashboard/setup-profile');
+            }
+        } else if (pathname === '/login' || pathname === '/forgot-password' || pathname === '/') {
+           router.replace('/dashboard');
         }
+
       } else {
         setFirebaseUser(null);
         setUser(null);
-        const isProtectedRoute = pathname.startsWith('/dashboard');
+         const isProtectedRoute = pathname.startsWith('/dashboard');
         if (isProtectedRoute) {
           router.replace('/login');
         }
@@ -69,10 +74,11 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
   };
 
   if (!isMounted) {
-    return null; // Render nothing on the server
+    return null; // On server-side, and first-client render, do not render anything to prevent hydration mismatch
   }
-
+  
   const isAuthPage = pathname === '/login' || pathname === '/forgot-password' || pathname === '/';
+  // Show loader if we are authenticating OR if we are on a protected route without a user yet
   const showLoader = loading || (!user && !isAuthPage);
 
   return (
