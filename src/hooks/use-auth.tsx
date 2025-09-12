@@ -22,30 +22,34 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<SystemUser | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // CAMBIO 1: Añadimos un estado para saber si el componente está montado en el cliente.
   const [isMounted, setIsMounted] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    // CAMBIO 2: Marcamos que ya estamos en el cliente.
     setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      setLoading(true);
       if (fbUser) {
         setFirebaseUser(fbUser);
         const systemUser = await getUserByEmail(fbUser.email!);
         setUser(systemUser);
         
-        if (pathname === '/login' || pathname === '/forgot-password' || pathname === '/') {
+        const isAuthPage = pathname === '/login' || pathname === '/forgot-password' || pathname === '/';
+        if (isAuthPage) {
           router.replace('/dashboard');
         }
       } else {
         setFirebaseUser(null);
         setUser(null);
-        if (pathname !== '/login' && pathname !== '/forgot-password') {
+        const isProtectedRoute = pathname.startsWith('/dashboard');
+        if (isProtectedRoute) {
           router.replace('/login');
         }
       }
@@ -53,28 +57,27 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, []); // El array de dependencias debe estar vacío.
+  }, [isMounted, pathname, router]);
 
   const login = async (email: string, pass: string) => {
-    setLoading(true);
+    // Let the onAuthStateChanged handle the loading state and redirection
     await signInWithEmailAndPassword(auth, email, pass);
   };
 
   const logout = async () => {
-    setLoading(true);
     await signOut(auth);
   };
 
-  // CAMBIO 3: No renderizamos nada hasta que el componente esté montado.
-  // Esto asegura que el servidor (que no renderiza nada porque isMounted es false por defecto)
-  // y el primer render del cliente (donde isMounted aún es false) sean idénticos.
   if (!isMounted) {
-    return null;
+    return null; // Render nothing on the server
   }
+
+  const isAuthPage = pathname === '/login' || pathname === '/forgot-password' || pathname === '/';
+  const showLoader = loading || (!user && !isAuthPage);
 
   return (
     <AuthContext.Provider value={{ user, firebaseUser, login, logout, loading }}>
-      {loading ? (
+      {showLoader ? (
         <div className="fixed inset-0 z-50 flex h-screen w-full items-center justify-center bg-background">
           <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
         </div>
