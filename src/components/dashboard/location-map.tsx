@@ -2,7 +2,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useMap } from '@vis.gl/react-google-maps';
+import {
+  Map,
+  AdvancedMarker,
+  Pin,
+  useMap,
+  useAdvancedMarkerRef
+} from '@vis.gl/react-google-maps';
 import { Input } from '../ui/input';
 import { Location } from '@/services/locationService';
 import { useToast } from '@/hooks/use-toast';
@@ -72,10 +78,54 @@ function PlacesAutocomplete({
     )
 }
 
+const INITIAL_POSITION = { lat: 9.9281, lng: -84.0907 }; // San Jose, Costa Rica
+
 export default function LocationMap({ initialLocation, onLocationChange }: LocationMapProps) {
-  
+  const [position, setPosition] = useState(initialLocation.latitude && initialLocation.longitude ? { lat: initialLocation.latitude, lng: initialLocation.longitude } : INITIAL_POSITION);
+  const [markerRef, marker] = useAdvancedMarkerRef();
+  const map = useMap();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (initialLocation.latitude && initialLocation.longitude) {
+      const newPos = { lat: initialLocation.latitude, lng: initialLocation.longitude };
+      setPosition(newPos);
+      map?.moveCamera({ center: newPos, zoom: 15 });
+    }
+  }, [initialLocation, map]);
+
+  const handleMarkerDragEnd = (e: google.maps.MapMouseEvent) => {
+    if (e.latLng) {
+      const newLat = e.latLng.lat();
+      const newLng = e.latLng.lng();
+      const newPosition = { lat: newLat, lng: newLng };
+      setPosition(newPosition);
+
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ location: e.latLng }, (results, status) => {
+        if (status === 'OK' && results && results[0]) {
+          onLocationChange({
+            address: results[0].formatted_address,
+            latitude: newLat,
+            longitude: newLng,
+          });
+        } else {
+            onLocationChange({
+              latitude: newLat,
+              longitude: newLng,
+            });
+          console.error('Geocoder failed due to: ' + status);
+          toast({ title: "Reverse Geocoding Failed", description: "Could not fetch address for the selected point.", variant: "destructive"})
+        }
+      });
+    }
+  };
+
   const handleSelect = (details: {latitude: number, longitude: number, address: string} | null) => {
     if (details) {
+        const newPos = { lat: details.latitude, lng: details.longitude };
+        setPosition(newPos);
+        map?.moveCamera({center: newPos, zoom: 15});
         onLocationChange({
             address: details.address,
             latitude: details.latitude,
@@ -90,6 +140,25 @@ export default function LocationMap({ initialLocation, onLocationChange }: Locat
         initialAddress={initialLocation.address}
         onSelect={handleSelect} 
       />
+      
+      <div style={{ height: '400px', borderRadius: '0.5rem', overflow: 'hidden' }}>
+        <Map
+            defaultCenter={position}
+            defaultZoom={10}
+            center={position}
+            mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'}
+            gestureHandling={'greedy'}
+        >
+          <AdvancedMarker
+            ref={markerRef}
+            position={position}
+            draggable={true}
+            onDragEnd={handleMarkerDragEnd}
+          >
+            <Pin />
+          </AdvancedMarker>
+        </Map>
+      </div>
 
       <div className="p-4 border rounded-lg bg-muted/50">
         <p className="text-sm font-medium">Address:</p>
