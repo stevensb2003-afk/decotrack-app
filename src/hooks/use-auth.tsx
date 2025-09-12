@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
@@ -51,23 +52,28 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
     if (loading || !isMounted) return; // No hacer nada si aún está cargando o no está montado.
 
     const isAuthPage = pathname === '/login' || pathname === '/forgot-password' || pathname === '/';
+    const isSetupPage = pathname === '/dashboard/setup-profile';
 
-    // Si el usuario está logueado y en una página de autenticación, redirigir al dashboard.
-    if (firebaseUser && isAuthPage) {
-      router.replace('/dashboard');
+    // Caso 1: Usuario LOGUEADO
+    if (user && firebaseUser) {
+        // 1a: Perfil incompleto -> Forzar setup (a menos que ya esté ahí)
+        if (!user.profileComplete && !isSetupPage) {
+            router.replace('/dashboard/setup-profile');
+        }
+        // 1b: Perfil completo y está en una página de auth -> Ir al dashboard
+        else if (user.profileComplete && isAuthPage) {
+             router.replace('/dashboard');
+        }
+    } 
+    // Caso 2: Usuario NO LOGUEADO
+    else if (!firebaseUser) {
+        // 2a: Está en una ruta protegida -> Ir al login
+        if (pathname.startsWith('/dashboard')) {
+            router.replace('/login');
+        }
     }
 
-    // Si el usuario NO está logueado y está en una ruta protegida, redirigir al login.
-    if (!firebaseUser && pathname.startsWith('/dashboard')) {
-      router.replace('/login');
-    }
-
-    // Aquí iría la lógica del perfil incompleto también
-    if (user && !user.profileComplete && pathname !== '/dashboard/setup-profile') {
-        router.replace('/dashboard/setup-profile');
-    }
-
-  }, [firebaseUser, user, loading, isMounted, pathname, router]); // Este efecto SÍ se ejecuta cuando el estado o la ruta cambian.
+  }, [user, firebaseUser, loading, isMounted, pathname, router]); 
 
 
   const login = async (email: string, pass: string) => {
@@ -82,7 +88,7 @@ const AuthProviderClient = ({ children }: { children: ReactNode }) => {
     return null; 
   }
   
-  const showLoader = loading; // Podemos simplificar esto, ya que las redirecciones manejan el resto.
+  const showLoader = loading;
 
   return (
     <AuthContext.Provider value={{ user, firebaseUser, login, logout, loading }}>
