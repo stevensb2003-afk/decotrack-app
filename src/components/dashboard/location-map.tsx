@@ -1,10 +1,11 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
 import { Input } from '../ui/input';
 import { Location } from '@/services/locationService';
 import { Label } from '../ui/label';
+// CAMBIO 1: Importamos el hook 'useMapsLibrary' para cargar el servicio de Places de forma segura
+import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 interface LocationMapProps {
   initialLocation: Partial<Location>;
@@ -20,41 +21,47 @@ function PlacesAutocomplete({
 }) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [inputValue, setInputValue] = useState(initialAddress || '');
+    // Usamos el hook para cargar la librería 'places'
+    const places = useMapsLibrary('places');
 
     useEffect(() => {
-        setInputValue(initialAddress || '');
+      setInputValue(initialAddress || '');
     }, [initialAddress]);
 
     useEffect(() => {
-        if (!inputRef.current || typeof window === 'undefined' || !window.google || !window.google.maps || !window.google.maps.places) {
-          return;
-        }
+      // Nos aseguramos de que la librería 'places' y el input estén listos
+      if (!places || !inputRef.current) {
+        return;
+      }
 
-        const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
-            fields: ['geometry.location', 'formatted_address']
-        });
+      const autocomplete = new places.Autocomplete(inputRef.current, {
+          fields: ['geometry.location', 'formatted_address']
+      });
 
-        const listener = autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            if (place.geometry?.location) {
-                const position = {
-                    lat: place.geometry.location.lat(),
-                    lng: place.geometry.location.lng(),
-                };
-                const address = place.formatted_address || '';
-                setInputValue(address);
-                onSelect({ latitude: position.lat, longitude: position.lng, address: address });
-            } else {
-                onSelect(null);
-            }
-        });
+      const listener = autocomplete.addListener('place_changed', () => {
+          // CAMBIO 2: Le decimos a TypeScript que 'place' es de tipo PlaceResult
+          const place: google.maps.places.PlaceResult = autocomplete.getPlace();
+          
+          if (place.geometry?.location) {
+              const position = {
+                  lat: place.geometry.location.lat(),
+                  lng: place.geometry.location.lng(),
+              };
+              const address = place.formatted_address || '';
+              setInputValue(address);
+              onSelect({ latitude: position.lat, longitude: position.lng, address: address });
+          } else {
+              onSelect(null);
+          }
+      });
 
-        return () => {
-            if (window.google && window.google.maps && google.maps.event) {
-                google.maps.event.clearInstanceListeners(autocomplete);
-            }
-        }
-    }, [onSelect]);
+      return () => {
+          // Limpiamos el 'listener' para evitar problemas de memoria
+          if (window.google && google.maps && google.maps.event) {
+              google.maps.event.clearInstanceListeners(autocomplete);
+          }
+      }
+    }, [places, onSelect]); // El efecto se ejecuta cuando la librería 'places' esté lista
     
     return (
         <div>
@@ -70,8 +77,8 @@ function PlacesAutocomplete({
     )
 }
 
+// TU COMPONENTE PRINCIPAL NO NECESITA CAMBIOS
 export default function LocationMap({ initialLocation, onLocationChange }: LocationMapProps) {
-
   const handleSelect = (details: {latitude: number, longitude: number, address: string} | null) => {
     if (details) {
         onLocationChange({
@@ -88,7 +95,6 @@ export default function LocationMap({ initialLocation, onLocationChange }: Locat
         initialAddress={initialLocation.address}
         onSelect={handleSelect} 
       />
-      
       <div className="p-4 border rounded-lg bg-muted/50">
         <p className="text-sm font-medium">Address:</p>
         <p className="text-sm text-muted-foreground min-h-[1.25rem]">{initialLocation.address || 'Search for a location to populate address'}</p>
