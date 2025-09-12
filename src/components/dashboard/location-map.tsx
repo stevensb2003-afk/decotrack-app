@@ -90,9 +90,7 @@ export default function LocationMap({ initialLocation, onLocationChange }: Locat
         onSelect={handleSelect} 
       />
       <div className="p-4 border rounded-lg bg-muted/50">
-        <p className="text-sm font-medium">Address:</p>
-        <p className="text-sm text-muted-foreground min-h-[1.25rem]">{initialLocation.address || 'Search for a location to populate address'}</p>
-        <p className="text-sm font-medium mt-2">Coordinates:</p>
+        <p className="text-sm font-medium">Coordinates:</p>
         <p className="text-sm text-muted-foreground">
             Lat: {initialLocation.latitude?.toFixed(6) || 'N/A'}, Lng: {initialLocation.longitude?.toFixed(6) || 'N/A'}
         </p>
