@@ -41,12 +41,12 @@ export type Employee = {
 
 const employeesCollection = collection(db, applyDbPrefix('employees'));
 
-export const getAllEmployees = async (): Promise<Employee[]> => {
+export async function getAllEmployees(): Promise<Employee[]> {
     const snapshot = await getDocs(employeesCollection);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
 };
 
-export const getEmployeeByEmail = async (email: string): Promise<Employee | null> => {
+export async function getEmployeeByEmail(email: string): Promise<Employee | null> {
     const q = query(employeesCollection, where("email", "==", email));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
@@ -56,7 +56,7 @@ export const getEmployeeByEmail = async (email: string): Promise<Employee | null
     return { id: docData.id, ...docData.data() } as Employee;
 };
 
-export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'fullName'>) => {
+export async function createEmployee(employeeData: Omit<Employee, 'id' | 'fullName'>) {
     // Ensure licenses is always an array
     const dataToCreate = {
         ...employeeData,
@@ -69,7 +69,7 @@ export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'fullNa
     return docRef.id;
 };
 
-export const updateEmployee = async (employeeId: string, data: Partial<Omit<Employee, 'id'>>) => {
+export async function updateEmployee(employeeId: string, data: Partial<Omit<Employee, 'id'>>) {
     const employeeDoc = doc(db, applyDbPrefix('employees'), employeeId);
     
     const updateData = {...data};
@@ -84,7 +84,7 @@ export const updateEmployee = async (employeeId: string, data: Partial<Omit<Empl
     await updateDoc(employeeDoc, updateData);
 };
 
-export const getEmployeeSnapshot = async (employeeId: string, asOf: Date): Promise<Employee | null> => {
+export async function getEmployeeSnapshot(employeeId: string, asOf: Date): Promise<Employee | null> {
     const employeeDocRef = doc(db, applyDbPrefix('employees'), employeeId);
     const employeeDoc = await getDoc(employeeDocRef);
     if (!employeeDoc.exists()) {

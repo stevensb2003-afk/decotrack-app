@@ -15,6 +15,7 @@ function PlacesAutocomplete({
 }) {
     const [input, setInput] = useState(initialAddress || '');
     const [suggestions, setSuggestions] = useState<any[]>([]);
+    const { toast } = useToast();
 
     useEffect(() => {
         setInput(initialAddress || '');
@@ -29,11 +30,19 @@ function PlacesAutocomplete({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ input }),
             });
-            if (!response.ok) throw new Error("Failed to fetch suggestions");
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to fetch suggestions");
+            }
             const data = await response.json();
             setSuggestions(data.suggestions || []);
           } catch (error) {
             console.error("Error fetching places autocomplete:", error);
+            toast({
+                title: 'Autocomplete Error',
+                description: (error as Error).message || 'Could not fetch address suggestions.',
+                variant: 'destructive'
+            });
             setSuggestions([]);
           }
         } else {
@@ -42,7 +51,7 @@ function PlacesAutocomplete({
       }, 300);
 
       return () => clearTimeout(handler);
-    }, [input]);
+    }, [input, toast]);
 
     const handleSelectSuggestion = (suggestion: any) => {
         const address = suggestion.placePrediction.text.text;

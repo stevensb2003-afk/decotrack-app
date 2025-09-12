@@ -31,12 +31,12 @@ const toSystemUser = (doc: any): SystemUser => {
     } as SystemUser;
 }
 
-export const getAllUsers = async (): Promise<SystemUser[]> => {
+export async function getAllUsers(): Promise<SystemUser[]> {
   const snapshot = await getDocs(usersCollection);
   return snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as SystemUser);
 };
 
-export const getUserByEmail = async (email: string): Promise<SystemUser | null> => {
+export async function getUserByEmail(email: string): Promise<SystemUser | null> {
     const q = query(usersCollection, where("email", "==", email));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
@@ -47,7 +47,7 @@ export const getUserByEmail = async (email: string): Promise<SystemUser | null> 
 };
 
 
-export const createUser = async (userData: Omit<SystemUser, 'id'>) => {
+export async function createUser(userData: Omit<SystemUser, 'id'>) {
     // This is a placeholder for a secure backend function call.
     // In a real production app, you would use a Cloud Function that leverages the Firebase Admin SDK.
     console.warn("This is a simulated user creation for development. For production, use a secure backend function.");
@@ -114,16 +114,16 @@ export const createUser = async (userData: Omit<SystemUser, 'id'>) => {
     }
 };
 
-export const updateUserRole = async (userId: string, newRole: Role) => {
+export async function updateUserRole(userId: string, newRole: Role) {
   const userDoc = doc(db, applyDbPrefix('systemUsers'), userId);
   await updateDoc(userDoc, { role: newRole });
 };
 
-export const sendPasswordReset = async (email: string) => {
+export async function sendPasswordReset(email: string) {
     return await sendPasswordResetEmail(auth, email);
 }
 
-export const deleteUser = async (userId: string) => {
+export async function deleteUser(userId: string) {
   // This is a complex operation that should be handled in a backend function for security.
   // It requires deleting from Auth and then from Firestore.
   // We simulate the Firestore part here.
