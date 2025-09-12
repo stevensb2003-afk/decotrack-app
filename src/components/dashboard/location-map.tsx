@@ -1,14 +1,6 @@
-
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  Map,
-  AdvancedMarker,
-  Pin,
-  useMap,
-  useAdvancedMarkerRef
-} from '@vis.gl/react-google-maps';
+import { useState, useEffect } from 'react';
 import { Input } from '../ui/input';
 import { Location } from '@/services/locationService';
 import { useToast } from '@/hooks/use-toast';
@@ -24,7 +16,6 @@ function PlacesAutocomplete({
     const [input, setInput] = useState(initialAddress || '');
     const [suggestions, setSuggestions] = useState<any[]>([]);
 
-    // Update input if initial address changes from parent
     useEffect(() => {
         setInput(initialAddress || '');
     }, [initialAddress]);
@@ -88,20 +79,8 @@ function PlacesAutocomplete({
     )
 }
 
-
 export default function LocationMap({ initialLocation, onLocationChange }: { initialLocation: Partial<Location>, onLocationChange: (location: Partial<Location>) => void }) {
-  const [position, setPosition] = useState(initialLocation.latitude && initialLocation.longitude ? { lat: initialLocation.latitude, lng: initialLocation.longitude } : { lat: 9.9281, lng: -84.0907 });
-  const map = useMap();
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (initialLocation.latitude && initialLocation.longitude) {
-      const newPos = { lat: initialLocation.latitude, lng: initialLocation.longitude };
-      setPosition(newPos);
-      map?.moveCamera({ center: newPos, zoom: 15 });
-    }
-  }, [initialLocation, map]);
-
 
   const handlePlaceSelect = async (placeId: string) => {
       try {
@@ -113,10 +92,6 @@ export default function LocationMap({ initialLocation, onLocationChange }: { ini
           if (!response.ok) throw new Error("Failed to fetch place details");
 
           const details = await response.json();
-
-          const newPos = { lat: details.latitude, lng: details.longitude };
-          setPosition(newPos);
-          map?.moveCamera({ center: newPos, zoom: 15 });
 
           onLocationChange({
               address: details.address,
@@ -136,19 +111,6 @@ export default function LocationMap({ initialLocation, onLocationChange }: { ini
             initialAddress={initialLocation.address}
             onSelect={handlePlaceSelect} 
         />
-        <div style={{ height: '300px', borderRadius: '0.5rem', overflow: 'hidden' }}>
-            <Map
-                defaultCenter={position}
-                defaultZoom={10}
-                center={position}
-                mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'}
-                gestureHandling={'greedy'}
-            >
-              <AdvancedMarker position={position}>
-                <Pin />
-              </AdvancedMarker>
-            </Map>
-        </div>
         <div>
             <p className="text-sm text-muted-foreground">
                 Lat: {initialLocation.latitude?.toFixed(6) || 'N/A'}, Lng: {initialLocation.longitude?.toFixed(6) || 'N/A'}
