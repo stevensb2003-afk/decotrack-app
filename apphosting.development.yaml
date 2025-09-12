@@ -1,5 +1,7 @@
 # apphosting.development.yaml
 
+#Need help to proceed
+
 # Declara las variables de entorno que tu aplicación necesita.
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
