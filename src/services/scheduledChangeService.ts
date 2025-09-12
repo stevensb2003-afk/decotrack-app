@@ -1,6 +1,6 @@
 
 import { db, applyDbPrefix } from '@/lib/firebase';
-import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, addDoc, getDocs, updateDoc, doc, query, where, Timestamp, writeBatch, getDoc } from 'firebase/firestore';
 import { updateEmployee, Employee } from './employeeService';
 
 export type ScheduledChange = {
@@ -69,19 +69,63 @@ export const cancelScheduledChange = async (changeId: string) => {
 }
 
 export const applyScheduledChanges = async (): Promise<{ appliedChangesCount: number }> => {
-    // This function now calls the same API endpoint as the cron job for consistency.
-    // The endpoint is responsible for the actual logic.
-    try {
-        const response = await fetch('/api/cron/apply-changes', { method: 'GET' });
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to apply changes via API.');
-        }
-        const result = await response.json();
-        return { appliedChangesCount: result.appliedChangesCount || 0 };
-    } catch (error) {
-        console.error("Error calling apply-changes API from service:", error);
-        // Return 0 if the API call fails
+    const nowTimestamp = Timestamp.now();
+    
+    const q = query(
+      collection(db, applyDbPrefix('scheduledChanges')),
+      where('status', '==', 'pending'),
+      where('effectiveDate', '<=', nowTimestamp)
+    );
+
+    const snapshot = await getDocs(q);
+    const changesToApply = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScheduledChange));
+
+    if (changesToApply.length === 0) {
         return { appliedChangesCount: 0 };
     }
+
+    const batch = writeBatch(db);
+
+    for (const change of changesToApply) {
+      const employeeDocRef = doc(db, applyDbPrefix('employees'), change.employeeId);
+      
+      let updateData: { [key: string]: any } = {
+        [change.fieldName]: change.newValue,
+      };
+      
+      if (change.fieldName === 'locationId' && typeof change.newValue === 'string') {
+        const locationDocRef = doc(db, applyDbPrefix('locations'), change.newValue);
+        try {
+            const locationDocSnapshot = await getDoc(locationDocRef);
+            if (locationDocSnapshot.exists()) {
+                const locationData = locationDocSnapshot.data();
+                if (locationData) {
+                    updateData.locationName = locationData.name;
+                    updateData.managerName = locationData.managerName || 'N/A';
+                }
+            }
+        } catch (e) {
+            console.error(`Could not fetch location ${change.newValue} for employee ${change.employeeId}. Location-dependent fields might be stale.`);
+        }
+      }
+      
+       if (change.fieldName === 'firstName' || change.fieldName === 'lastName') {
+          const employeeDoc = await getDoc(employeeDocRef);
+          if (employeeDoc.exists()) {
+              const currentData = employeeDoc.data() as Employee;
+              const newFirstName = change.fieldName === 'firstName' ? change.newValue : currentData.firstName;
+              const newLastName = change.fieldName === 'lastName' ? change.newValue : currentData.lastName;
+              updateData.fullName = `${newFirstName} ${newLastName}`.trim();
+          }
+      }
+
+      batch.update(employeeDocRef, updateData);
+      
+      const changeDocRef = doc(db, applyDbPrefix('scheduledChanges'), change.id);
+      batch.update(changeDocRef, { status: 'applied' });
+    }
+
+    await batch.commit();
+    
+    return { appliedChangesCount: changesToApply.length };
 };
