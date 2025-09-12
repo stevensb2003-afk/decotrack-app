@@ -27,7 +27,7 @@ export default function ManagementDashboard() {
         setEmployees(emps);
 
         if (emps.length > 0) {
-            const summaryData = await getDailyAttendanceSummary(10, emps);
+            const summaryData = await getDailyAttendanceSummary(90, emps);
             setSummary(summaryData);
         }
     };
@@ -41,7 +41,7 @@ export default function ManagementDashboard() {
             const emps = await getAllEmployees();
             setEmployees(emps);
             if (emps.length > 0) {
-                const summaryData = await getDailyAttendanceSummary(10, emps);
+                const summaryData = await getDailyAttendanceSummary(90, emps);
                 setSummary(summaryData);
             }
         });
