@@ -1,4 +1,4 @@
-# apphosting.yaml
+# apphosting.development.yaml
 
 # Declara las variables de entorno que tu aplicación necesita.
 env:
