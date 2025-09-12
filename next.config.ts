@@ -1,7 +1,4 @@
-import type {NextConfig} from 'next';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -28,10 +25,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  env: {
-    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-    NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  }
+  // El bloque 'env' ha sido eliminado.
 };
 
 export default nextConfig;
