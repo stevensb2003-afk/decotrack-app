@@ -1,17 +1,29 @@
 # apphosting.development.yaml
+# Declara TODAS las variables de entorno que la aplicación necesita en producción.
 
-#Need help to proceed
-
-# Declara las variables de entorno que tu aplicación necesita.
 env:
+  # --- Variables para el Cliente (Navegador) ---
+  - variable: NEXT_PUBLIC_ADMIN_SECURITY_CODE
+    value: "placeholder"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    value: "placeholder"
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID
+    value: "placeholder"
+    availability: [BUILD, RUNTIME]
+
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: "placeholder_firebase_api_key"
-    availability:
-      - BUILD
-      - RUNTIME
+    value: "placeholder"
+    availability: [BUILD, RUNTIME]
+
+  # --- Variables para el Servidor (Backend) ---
+  - variable: GEMINI_API_KEY
+    value: "placeholder"
+    availability: [BUILD, RUNTIME]
 
   - variable: GOOGLE_MAPS_API_KEY
     value: "placeholder"
-    availability:
-      - BUILD
-      - RUNTIME
+    availability: [BUILD, RUNTIME]
