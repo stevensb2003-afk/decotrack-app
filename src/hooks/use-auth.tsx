@@ -4,7 +4,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser } from "firebase/auth";
-import { getEmployeeByEmail, SystemUser } from '@/services/userService';
+import { getEmployeeByEmail, SystemUser, getUserByEmail } from '@/services/userService';
 import { app } from '@/lib/firebase';
 
 interface AuthContextType {
