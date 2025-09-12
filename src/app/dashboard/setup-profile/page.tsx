@@ -187,11 +187,11 @@ export default function SetupProfilePage() {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <Label htmlFor="firstName">First Name</Label>
-                            <Input id="firstName" value={formData.firstName} disabled />
+                            <Input id="firstName" value={formData.firstName} onChange={handleInputChange} />
                         </div>
                         <div>
                             <Label htmlFor="lastName">Last Name</Label>
-                            <Input id="lastName" value={formData.lastName} disabled />
+                            <Input id="lastName" value={formData.lastName} onChange={handleInputChange} />
                         </div>
                     </div>
                      <div className="grid grid-cols-2 gap-4">
@@ -318,4 +318,5 @@ export default function SetupProfilePage() {
     );
 }
 
+    
     
