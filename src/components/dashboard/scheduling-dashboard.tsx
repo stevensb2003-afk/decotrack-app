@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -6,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, BrainCircuit, Repeat, PlusCircle, Trash2, CalendarDays, List, Filter, Pencil, PartyPopper, ChevronLeft, ChevronRight, Timer } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -466,7 +467,10 @@ export default function SchedulingDashboard() {
                 <Dialog open={isAssignmentDialogOpen} onOpenChange={setIsAssignmentDialogOpen}>
                     <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4"/>New Assignment</Button></DialogTrigger>
                     <DialogContent>
-                        <DialogHeader><DialogTitle>Create New Schedule Assignment</DialogTitle></DialogHeader>
+                        <DialogHeader>
+                            <DialogTitle>Create New Schedule Assignment</DialogTitle>
+                            <DialogDescription>Select an employee, a pattern, and a date range for the assignment.</DialogDescription>
+                        </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div>
                                 <Label htmlFor="employee-select">Employee</Label>
@@ -871,7 +875,10 @@ export default function SchedulingDashboard() {
 
        <Dialog open={isShiftDialogOpen} onOpenChange={setIsShiftDialogOpen}>
             <DialogContent>
-                <DialogHeader><DialogTitle>{editingShift ? "Edit Shift" : "Create New Shift"}</DialogTitle></DialogHeader>
+                <DialogHeader>
+                    <DialogTitle>{editingShift ? "Edit Shift" : "Create New Shift"}</DialogTitle>
+                    <DialogDescription>Define the name and time range for a work shift.</DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div>
                         <Label htmlFor="shift-name">Shift Name</Label>
@@ -896,6 +903,7 @@ export default function SchedulingDashboard() {
             <DialogContent className="max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>{editingPattern ? "Edit Rotation Pattern" : "Create New Rotation Pattern"}</DialogTitle>
+                    <DialogDescription>Build a weekly shift rotation by assigning shifts to each day.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
                     <div>
@@ -953,6 +961,7 @@ export default function SchedulingDashboard() {
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>{editingHoliday ? "Edit Holiday" : "Create New Holiday"}</DialogTitle>
+                    <DialogDescription>Define a company-wide holiday. Employees will not be scheduled on this day.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div>
@@ -985,6 +994,7 @@ export default function SchedulingDashboard() {
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>{editingGracePolicy ? 'Edit Grace Policy' : 'Create New Grace Policy'}</DialogTitle>
+                    <DialogDescription>Set the allowed grace periods for clocking in and out.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div>

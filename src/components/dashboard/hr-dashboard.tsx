@@ -805,7 +805,10 @@ export default function HRDashboard() {
                             <Button><UserPlus className="mr-2 h-4 w-4" /> Add Employee</Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-lg">
-                            <DialogHeader><DialogTitle>Add New Employee</DialogTitle></DialogHeader>
+                            <DialogHeader>
+                                <DialogTitle>Add New Employee</DialogTitle>
+                                <DialogDescription>Enter the basic details for the new employee. More information can be added later.</DialogDescription>
+                            </DialogHeader>
                             <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
@@ -1198,6 +1201,9 @@ export default function HRDashboard() {
         <DialogContent className="sm:max-w-xl">
             <DialogHeader>
                 <DialogTitle>{editingLocation ? "Edit Location" : "Add New Location"}</DialogTitle>
+                <DialogDescription>
+                  {editingLocation ? "Update the details for this location." : "Create a new company location and assign a manager."}
+                </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -1234,6 +1240,9 @@ export default function HRDashboard() {
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>{editingBenefit ? 'Edit Benefit' : 'Create New Benefit'}</DialogTitle>
+                <DialogDescription>
+                  {editingBenefit ? "Update the details of this benefit." : "Define a new benefit and specify its applicability."}
+                </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
                 <div>
@@ -1362,5 +1371,6 @@ export default function HRDashboard() {
     </div>
   );
 }
+
 
 

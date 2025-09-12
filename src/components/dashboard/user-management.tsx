@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -238,6 +239,7 @@ export default function UserManagement() {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Edit Role for {isEditing?.email}</DialogTitle>
+            <DialogDescription>Change the user's role and permissions within the system.</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Label htmlFor="role-edit">Role</Label>
