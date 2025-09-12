@@ -23,19 +23,13 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<SystemUser | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isMounted, setIsMounted] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
   
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isMounted) return;
-
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      setLoading(true);
       if (fbUser) {
         setFirebaseUser(fbUser);
         const systemUser = await getUserByEmail(fbUser.email!);
@@ -55,22 +49,24 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pathname, router, isMounted]);
+  }, [pathname, router]);
 
 
   const login = async (email: string, pass: string) => {
     setLoading(true);
     await signInWithEmailAndPassword(auth, email, pass);
+    // onAuthStateChanged will handle the rest
   };
 
   const logout = async () => {
     setLoading(true);
     await signOut(auth);
+     // onAuthStateChanged will handle the rest
   };
   
   return (
     <AuthContext.Provider value={{ user, firebaseUser, login, logout, loading }}>
-       {(!isMounted || loading) ? (
+       {loading ? (
         <div className="fixed inset-0 z-50 flex h-screen w-full items-center justify-center bg-background">
           <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
         </div>

@@ -9,55 +9,50 @@ import { getEmployeeByEmail } from '@/services/employeeService';
 export const dynamic = 'force-dynamic';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const { user, loading: authLoading } = useAuth();
+    const { user, loading, firebaseUser } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const [isCheckingProfile, setIsCheckingProfile] = useState(true);
-    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    useEffect(() => {
-        if (!isMounted) return;
-
         const checkAuthAndProfile = async () => {
-            if (authLoading) {
+            if (loading) {
                 return;
             }
 
-            if (!user) {
+            if (!firebaseUser) {
                 router.replace('/login');
                 setIsCheckingProfile(false);
                 return;
             }
             
-            try {
-                const emp = await getEmployeeByEmail(user.email);
+            if (user) { // user is the SystemUser from firestore
+                 try {
+                    const emp = await getEmployeeByEmail(user.email);
 
-                if (emp) {
-                    const isSetupPage = pathname === '/dashboard/setup-profile';
-                    if (!emp.profileComplete && emp.role !== 'Manager' && emp.role !== 'admin' && !isSetupPage) {
-                        router.replace('/dashboard/setup-profile');
-                    } 
-                    else if (emp.profileComplete && isSetupPage) {
-                        router.replace('/dashboard');
+                    if (emp) {
+                        const isSetupPage = pathname === '/dashboard/setup-profile';
+                        if (!emp.profileComplete && user.role !== 'admin' && user.role !== 'Manager' && !isSetupPage) {
+                            router.replace('/dashboard/setup-profile');
+                        } 
+                        else if (emp.profileComplete && isSetupPage) {
+                            router.replace('/dashboard');
+                        }
+                    } else if (user.role !== 'admin') {
+                        // This case can happen if a user exists in auth/systemUsers but not in employees collection yet
+                        console.error("Employee profile not found for authenticated user:", user.email);
                     }
-                } else if (user.role !== 'admin') {
-                    console.error("Employee profile not found for authenticated user:", user.email);
+                } catch (error) {
+                    console.error("Error fetching employee profile in layout:", error);
                 }
-            } catch (error) {
-                console.error("Error fetching employee profile in layout:", error);
-            } finally {
-                setIsCheckingProfile(false);
             }
+            setIsCheckingProfile(false);
         };
 
         checkAuthAndProfile();
-    }, [user, authLoading, router, pathname, isMounted]);
+    }, [user, loading, firebaseUser, router, pathname]);
 
-    if (!isMounted || authLoading || isCheckingProfile) {
+    if (loading || isCheckingProfile) {
         return (
              <div className="flex h-screen w-full items-center justify-center bg-background">
                 <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
