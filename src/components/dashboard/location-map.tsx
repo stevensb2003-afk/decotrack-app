@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Input } from '../ui/input';
 import { Location } from '@/services/locationService';
 import { Label } from '../ui/label';
-// CAMBIO 1: Importamos el hook 'useMapsLibrary' para cargar el servicio de Places de forma segura
 import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 interface LocationMapProps {
@@ -21,7 +20,6 @@ function PlacesAutocomplete({
 }) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [inputValue, setInputValue] = useState(initialAddress || '');
-    // Usamos el hook para cargar la librería 'places'
     const places = useMapsLibrary('places');
 
     useEffect(() => {
@@ -29,7 +27,6 @@ function PlacesAutocomplete({
     }, [initialAddress]);
 
     useEffect(() => {
-      // Nos aseguramos de que la librería 'places' y el input estén listos
       if (!places || !inputRef.current) {
         return;
       }
@@ -39,7 +36,6 @@ function PlacesAutocomplete({
       });
 
       const listener = autocomplete.addListener('place_changed', () => {
-          // CAMBIO 2: Le decimos a TypeScript que 'place' es de tipo PlaceResult
           const place: google.maps.places.PlaceResult = autocomplete.getPlace();
           
           if (place.geometry?.location) {
@@ -56,12 +52,11 @@ function PlacesAutocomplete({
       });
 
       return () => {
-          // Limpiamos el 'listener' para evitar problemas de memoria
           if (window.google && google.maps && google.maps.event) {
               google.maps.event.clearInstanceListeners(autocomplete);
           }
       }
-    }, [places, onSelect]); // El efecto se ejecuta cuando la librería 'places' esté lista
+    }, [places, onSelect]);
     
     return (
         <div>
@@ -77,7 +72,6 @@ function PlacesAutocomplete({
     )
 }
 
-// TU COMPONENTE PRINCIPAL NO NECESITA CAMBIOS
 export default function LocationMap({ initialLocation, onLocationChange }: LocationMapProps) {
   const handleSelect = (details: {latitude: number, longitude: number, address: string} | null) => {
     if (details) {
