@@ -33,6 +33,8 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   useEffect(() => {
+    if (!isMounted) return;
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         setFirebaseUser(fbUser);
@@ -53,7 +55,7 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pathname, router]);
+  }, [pathname, router, isMounted]);
 
 
   const login = async (email: string, pass: string) => {
@@ -65,14 +67,10 @@ const AuthProviderClient = ({ children }: { children: React.ReactNode }) => {
     setLoading(true);
     await signOut(auth);
   };
-
-  if (!isMounted) {
-    return null; // Don't render anything until mounted on the client
-  }
   
   return (
     <AuthContext.Provider value={{ user, firebaseUser, login, logout, loading }}>
-      {loading ? (
+       {(!isMounted || loading) ? (
         <div className="fixed inset-0 z-50 flex h-screen w-full items-center justify-center bg-background">
           <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
         </div>
