@@ -1,0 +1,14 @@
+# apphosting.yaml
+
+# Declara las variables de entorno que tu aplicación necesita.
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "placeholder_firebase_api_key"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: GOOGLE_MAPS_API_KEY
+    value: "placeholder_google_maps_api_key"
+    availability:
+      - BUILD
+      - RUNTIME
